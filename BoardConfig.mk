@@ -102,6 +102,11 @@ TARGET_SCREEN_HEIGHT := 1280
 # Properties
 TARGET_SYSTEM_PROP := $(DEVICE_PATH)/system.prop
 
+# SELinux
+# Runtime is permissive (androidboot.selinux=permissive). Pie neverallows
+# reject the Oreo-era MTK vendor rules, so skip the build-time assertions.
+SELINUX_IGNORE_NEVERALLOWS := true
+
 # Seccomp
 # Without the vendor mediacodec policy the MTK OMX service hits SIGSYS and
 # the device bootloops.
