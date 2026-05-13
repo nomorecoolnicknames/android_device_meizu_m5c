@@ -1,0 +1,15 @@
+# Assign CPUs to the cpuset groups; init.rc gives every group all cores.
+# MT6737M has four identical Cortex-A53 cores, so keep background work off
+# the cores used by the foreground UI.
+
+on boot
+    write /dev/cpuset/top-app/cpus 0-3
+    write /dev/cpuset/top-app/mems 0
+    write /dev/cpuset/foreground/cpus 0-3
+    write /dev/cpuset/foreground/mems 0
+    write /dev/cpuset/background/cpus 0
+    write /dev/cpuset/background/mems 0
+    write /dev/cpuset/system-background/cpus 0-1
+    write /dev/cpuset/system-background/mems 0
+    write /dev/cpuset/restricted/cpus 0-1
+    write /dev/cpuset/restricted/mems 0

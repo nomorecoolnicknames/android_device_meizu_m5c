@@ -1,0 +1,25 @@
+<!--
+  Wi-Fi checks the manifest to decide whether a vendor HAL exists, so it
+  must be declared here. Only list HALs that are actually served: a declared
+  but missing HAL blocks its clients.
+-->
+<manifest version="1.0" type="device">
+    <hal format="hidl">
+        <name>android.hardware.wifi</name>
+        <transport>hwbinder</transport>
+        <version>1.2</version>
+        <interface>
+            <name>IWifi</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl">
+        <name>android.hardware.wifi.supplicant</name>
+        <transport>hwbinder</transport>
+        <version>1.1</version>
+        <interface>
+            <name>ISupplicant</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+</manifest>

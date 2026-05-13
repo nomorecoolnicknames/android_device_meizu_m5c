@@ -1,0 +1,38 @@
+# Bluetooth HAL service and local address.
+#
+# The service replaces the AOSP one (same name, `override`): its passthrough
+# impl is 32-bit because libbt-vendor.so is 32-bit only. libbluetooth_mtk
+# reads the BD address from the NVRAM record in this process, so the record is
+# made readable by the bluetooth group.
+#
+# The HAL aborts with "No Bluetooth Address!" when no address is set;
+# m5c-bdaddr.sh publishes the factory address as persist.service.bdroid.bdaddr.
+# The HAL reads it on enable, so post-fs-data is early enough.
+
+on post-fs-data
+    chown bluetooth bluetooth /dev/stpbt
+    chmod 0660 /dev/stpbt
+    chown root bluetooth /data/nvram/APCFG/APRDEB/BT_Addr
+    chmod 0660 /data/nvram/APCFG/APRDEB/BT_Addr
+    exec_background - root bluetooth -- /vendor/bin/sh /vendor/bin/m5c-bdaddr.sh
+
+# /dev/stpbt only appears once wmt_loader has loaded the connectivity drivers,
+# after post-fs-data. Fix the permissions after wmtLoader stops and again at
+# boot_completed; m5c-stpbt-perm.sh waits for the node in case both miss.
+
+on property:init.svc.wmtLoader=stopped
+    chown bluetooth bluetooth /dev/stpbt
+    chmod 0660 /dev/stpbt
+    exec_background - root root -- /vendor/bin/sh /vendor/bin/m5c-stpbt-perm.sh
+
+on property:sys.boot_completed=1
+    chown bluetooth bluetooth /dev/stpbt
+    chmod 0660 /dev/stpbt
+
+service vendor.bluetooth-1-0 /vendor/bin/hw/android.hardware.bluetooth@1.0-service.m5c
+    override
+    class hal
+    capabilities BLOCK_SUSPEND NET_ADMIN SYS_NICE
+    user bluetooth
+    group bluetooth radio net_bt net_bt_admin inet system
+    writepid /dev/stune/foreground/tasks

@@ -1,0 +1,9 @@
+# device specific syscalls
+# extension of services/mediacodec/minijail/seccomp_policy/mediacodec-seccomp-arm.policy
+sched_getscheduler: 1
+sched_setaffinity: 1
+sched_getparam: 1 
+
+# The MTK OMX blobs call pselect(2); without it media.codec aborts while
+# enumerating components and no codecs are available.
+pselect6: 1

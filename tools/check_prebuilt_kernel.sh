@@ -1,0 +1,48 @@
+#!/bin/sh
+# Verify the prebuilt against the supplied MD5/VERSION expectations.
+# Success is silent; stdout on mismatch makes BoardConfig reject the input.
+# Usage: check_prebuilt_kernel.sh IMAGE EXPECTATIONS
+
+set -u
+IMG=$1
+EXP=$2
+
+# Details go to stderr so they show up in the build log unchanged; stdout
+# gets a short marker that BoardConfig turns into $(error).
+[ -f "$IMG" ] || { echo "ЯДРО НЕ НАЙДЕНО: $IMG" >&2; echo "prebuilt-kernel: ЯДРА НЕТ, см. подробности выше"; exit 0; }
+[ -f "$EXP" ] || { echo "НЕТ ФАЙЛА ОЖИДАНИЙ: $EXP" >&2; echo "prebuilt-kernel: НЕТ ФАЙЛА ОЖИДАНИЙ, см. подробности выше"; exit 0; }
+
+want_md5=$(awk '$1=="MD5"{print $2}' "$EXP")
+have_md5=$(md5sum "$IMG" | cut -d' ' -f1)
+[ "$want_md5" = "$have_md5" ] && exit 0
+
+want_ver=$(sed -n 's/^VERSION //p' "$EXP")
+have_ver=$(python3 - "$IMG" <<'PY' 2>/dev/null
+import sys, zlib, re
+d = open(sys.argv[1], 'rb').read()
+i = d.find(b'\x1f\x8b\x08')
+raw = b''
+if i >= 0:
+    try:
+        raw = zlib.decompressobj(16 + zlib.MAX_WBITS).decompress(d[i:])
+    except Exception:
+        pass
+m = re.search(rb'Linux version [0-9][^\x00]{0,120}', raw)
+print(m.group(0).decode('utf-8', 'replace') if m else 'версию извлечь не удалось')
+PY
+)
+
+cat >&2 <<MSG
+ЯДРО В prebuilt-lane УСТАРЕЛО ИЛИ ПОДМЕНЕНО.
+  файл:    $IMG
+  ожидаем: $want_md5
+           $want_ver
+  найдено: $have_md5
+           $have_ver
+Что делать: собрать ядро из worktree k49-worktrees/piedisp (ветка pie-disp;
+из pie-config собирать НЕЛЬЗЯ — там потерян SMI-фикс smi_legacy.c/mmsys_config),
+затем сложить gzip -n -9 от arch/arm64/boot/Image с байт-в-байт стоковым DTB
+captures/20260817-los-first-boot/dtb_stock.dtb (69427 Б) и положить сюда,
+обновив $EXP.  Готовый помощник: tools/los16_repack_boot_kernel.sh.
+MSG
+echo "prebuilt-kernel: ядро не совпадает с ожидаемым ($have_md5 вместо $want_md5), см. подробности выше"

@@ -1,0 +1,22 @@
+// 32-bit Bluetooth HIDL service. libbt-vendor.so and libbluetooth_mtk.so are
+// 32-bit only on this device, so the 64-bit AOSP service cannot load them.
+// service.cpp is a copy of the AOSP one.
+cc_binary {
+    name: "android.hardware.bluetooth@1.0-service.m5c",
+    defaults: ["hidl_defaults"],
+    relative_install_path: "hw",
+    proprietary: true,
+    compile_multilib: "32",
+    srcs: ["service.cpp"],
+    shared_libs: [
+        "liblog",
+        "libcutils",
+        "libdl",
+        "libbase",
+        "libutils",
+        "libhardware",
+        "libhidlbase",
+        "libhidltransport",
+        "android.hardware.bluetooth@1.0",
+    ],
+}

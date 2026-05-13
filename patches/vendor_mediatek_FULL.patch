@@ -1,0 +1,392 @@
+diff --git a/Android.mk b/Android.mk
+index f9ccd58..88848b0 100644
+--- a/Android.mk
++++ b/Android.mk
+@@ -20,7 +20,7 @@ ifneq ($(filter k5fpr m2note,$(TARGET_DEVICE)),)
+ 
+ include $(call all-makefiles-under,$(MTK_VENDOR_PATH))
+ 
+-else ifneq ($(filter meizu_m6 m681 M6T m95,$(TARGET_DEVICE)),)
++else ifneq ($(filter meizu_m6 m681 M6T m95 m5c,$(TARGET_DEVICE)),)
+ 
+ # Build Station additive port: m681 (MT6755) shares the same generic MTK vendor
+ # includes as meizu_m6 (MT6750) — symbols, combo_loader and wlan/wifi_hal (the
+@@ -37,7 +37,11 @@ MTK_SYMBOLS_GUI_ONLY :=
+ # $(TARGET_OUT_VENDOR)/bin/wmt_loader and an "overriding commands for target"
+ # warning. PRODUCT_COPY_FILES wins that race so the blob shipped either way,
+ # but the ambiguity is not worth keeping. Additive: other devices unchanged.
+-ifeq ($(filter m95,$(TARGET_DEVICE)),)
++# m5c is in the same boat as m95: it ships its own wmt_loader blob
++# (vendor/meizu/m5c/proprietary/bin/wmt_loader, installed by
++# m5c-vendor-blobs.mk), so building the generic one here would create a second
++# rule for the same output. Additive: other devices unchanged.
++ifeq ($(filter m95 m5c,$(TARGET_DEVICE)),)
+ include $(MTK_VENDOR_PATH)/combo_loader/Android.mk
+ endif
+ include $(MTK_VENDOR_PATH)/wlan/wifi_hal/Android.mk
+diff --git a/include/telephony/ril.h b/include/telephony/ril.h
+index fc27092..b133b7d 100644
+--- a/include/telephony/ril.h
++++ b/include/telephony/ril.h
+@@ -6495,9 +6495,22 @@ typedef struct {
+     char *apn;		  /* the APN to connect to */
+     char *protocol;	     /* one of the PDP_type values in TS 27.007 section 10.1.1 used on
+ 				   roaming network. For example, "IP", "IPV6", "IPV4V6", or "PPP".*/
+-    char *roamingProtocol;    /* PDP_type used on the roaming network.  The blob
++#ifndef MTK_RIL_IAA_NO_ROAMING_PROTOCOL
++    char *roamingProtocol;    /* PDP_type used on the roaming network.  The m681 blob
+                                    reads a POINTER at offset 0x10 and an int at 0x18;
+-                                   omitting this shifted every later field by 8. */
++                                   omitting this shifted every later field by 8.
++                                   NOT UNIVERSAL: the m5c blob (MT6737M) has NO such
++                                   field - it reads an int at 0x10 and a pointer at
++                                   0x18 (objdump requestSetInitialAttachApn:
++                                   ldr w6,[x20,#16] / ldr x7,[x20,#24], against m681
++                                   ldr x24,[x27,#16] / ldr w26,[x27,#24]).  With the
++                                   field present on m5c every later member shifts by
++                                   8, the blob read authtype as username and printed
++                                   it with %s: SIGSEGV in strlen, fault addr 0x1 =
++                                   authtype PAP.  m5c therefore builds libril with
++                                   -DMTK_RIL_IAA_NO_ROAMING_PROTOCOL (see
++                                   vendor/mediatek/ril/libril/Android.mk). */
++#endif
+     int authtype;	       /* authentication protocol used for this PDP context
+ 				   (None: 0, PAP: 1, CHAP: 2, PAP&CHAP: 3) */
+     char *username;	     /* the username for APN, or NULL */
+diff --git a/ril/libril/Android.mk b/ril/libril/Android.mk
+index 90edc0b..2684cc4 100644
+--- a/ril/libril/Android.mk
++++ b/ril/libril/Android.mk
+@@ -40,6 +40,18 @@ ril_inc := external/nanopb-c \
+ 
+ ril_cflags := -Wno-unused-parameter -DANDROID_SIM_COUNT_2 -DANDROID_MULTI_SIM -DMTK_HARDWARE
+ 
++# forge (m5c, 2026-09-03): RIL_InitialAttachApn is NOT the same struct on every
++# MTK blob. m681 (MT6755) reads a pointer at 0x10 and an int at 0x18, so it has
++# a roamingProtocol member; m5c (MT6737M) reads an int at 0x10 and a pointer at
++# 0x18, so it does not. Building m5c with the m681 layout shifted every field
++# after 0x10 by eight bytes, the blob took authtype for username and printed it
++# with %s -> SIGSEGV in strlen at fault addr 0x1 inside
++# requestSetInitialAttachApn, one second after the phone had registered.
++# Offsets were read with objdump on both blobs; see ril.h for the exact lines.
++ifeq ($(TARGET_DEVICE),m5c)
++  ril_cflags += -DMTK_RIL_IAA_NO_ROAMING_PROTOCOL
++endif
++
+ # something wrong, cause channel occupied after oNewCommandConnect
+ # workaround but not complete yet
+ ifeq ($(BOARD_USES_RIL_UNSOL_PENDING),true)
+diff --git a/ril/libril/mtk_ril_unsol_commands.h b/ril/libril/mtk_ril_unsol_commands.h
+index b2a3beb..234c9e0 100644
+--- a/ril/libril/mtk_ril_unsol_commands.h
++++ b/ril/libril/mtk_ril_unsol_commands.h
+@@ -77,7 +77,7 @@
+ {RIL_UNSOL_CALL_FORWARDING, NULL, WAKE_PARTIAL},
+ {RIL_UNSOL_CRSS_NOTIFICATION, NULL, WAKE_PARTIAL},
+ {RIL_UNSOL_INCOMING_CALL_INDICATION, radio::incomingCallInd, WAKE_PARTIAL},
+-{RIL_UNSOL_CIPHER_INDICATION, NULL, WAKE_PARTIAL},
++{RIL_UNSOL_CIPHER_INDICATION, radio::forgeEcpiInd, WAKE_PARTIAL},
+ {RIL_UNSOL_CNAP, NULL, WAKE_PARTIAL}, //obsolete
+ {RIL_UNSOL_SIM_COMMON_SLOT_NO_CHANGED, NULL, WAKE_PARTIAL},
+ {RIL_UNSOL_DATA_ALLOWED, NULL, WAKE_PARTIAL},
+diff --git a/ril/libril/ril.cpp b/ril/libril/ril.cpp
+index a963f80..ebd2863 100644
+--- a/ril/libril/ril.cpp
++++ b/ril/libril/ril.cpp
+@@ -926,8 +926,13 @@ void clearPendingBuffer(BUF_FMTS bf, void *buf, size_t buflen)
+ 	    break;
+ 	case FMT_AttchAPN: {
+ 		RIL_InitialAttachApn *iaa = (RIL_InitialAttachApn *)buf;
++#ifdef MTK_RIL_IAA_NO_ROAMING_PROTOCOL
++		memsetAndFreeStrings(5, iaa->apn, iaa->protocol,
++					iaa->username, iaa->password, iaa->operatorNumeric);
++#else
+ 		memsetAndFreeStrings(6, iaa->apn, iaa->protocol, iaa->roamingProtocol,
+ 					iaa->username, iaa->password, iaa->operatorNumeric);
++#endif
+ 	    }
+ 	    break;
+ 	case FMT_ImsSms: {
+diff --git a/ril/libril/ril_service.cpp b/ril/libril/ril_service.cpp
+index 2d72bcc..d13ebc4 100644
+--- a/ril/libril/ril_service.cpp
++++ b/ril/libril/ril_service.cpp
+@@ -1267,9 +1267,26 @@ Return<void> RadioImpl::iccIOForApp(int32_t serial, const IccIo& iccIo) {
+      * SubscriptionInfoUpdater "handleSimLoaded: IccID null" -> no active
+      * subscription -> DcTracker builds no APN list and feeds the modem AOSP's
+      * "this_is_an_invalid_apn" placeholder -> LTE attach never completes. */
++    /* forge (m5c, 2026-09-03): the pathid must be dropped by passing NULL, not
++     * by emptying the string. Blanking it left a non-NULL empty buffer, and the
++     * MTK RIL picks its AT format on "path != NULL": it emitted
++     * AT+CRSM=192,12258,0,0,0,,"" and the modem answered a bare ERROR
++     * ("simIo Fail!" -> RILC "Invalid response: NULL" -> RILJ
++     * "[NNNN]< SIM_IO error 2 GENERIC_FAILURE"), so EF_ICCID stayed unreadable
++     * and the chain described above still broke - only one step later.
++     * FACT (disassembly of vendor/lib64/mtk-ril.so): at 0x3749c the path
++     * pointer is null-checked (cbz x4, 0x37b7c) BEFORE any strlen/strncmp, and
++     * the NULL branch formats "AT+CRSM=%d,%d,%d,%d,%d" (string at 0x95ef0) -
++     * exactly the five-field shape the RIL's own EF_DIR probe uses,
++     * AT+CRSM=192,12032,0,0,0, which this modem answers with +CRSM: 144,0.
++     * So NULL is both the intended contract and safe on this blob.
++     * The pointer is not freed here on purpose: the final
++     * memsetAndFreeStrings() below is commented out because my_enqueue keeps a
++     * shallow copy of these strings, so dropping the pointer leaks the same
++     * five bytes the surrounding code already leaks, a few times per boot. */
+     if (rilIccIo.path != NULL && strcmp(rilIccIo.path, "3F00") == 0) {
+-	RLOGD("iccIOForApp: forge - dropping bare MF pathid, fileid %d", rilIccIo.fileid);
+-	((char *) rilIccIo.path)[0] = 0;
++	RLOGD("iccIOForApp: forge - bare MF pathid -> NULL, fileid %d", rilIccIo.fileid);
++	rilIccIo.path = NULL;
+     }
+ 
+     rilIccIo.p1 = iccIo.p1;
+@@ -2140,9 +2157,30 @@ Return<void> RadioImpl::setInitialAttachApn(int32_t serial, const DataProfileInf
+ 	    return Void();
+ 	}
+ 
+-	/* Send BOTH protocols.  The blob has a roamingProtocol field of its own at
+-	 * offset 0x10 and chooses between them itself.  Folding the choice into
+-	 * iaa.protocol left 0x10 holding an int, which mtk-ril printed with %s. */
++#ifdef MTK_RIL_IAA_NO_ROAMING_PROTOCOL
++	/* forge (m5c, 2026-09-03): this blob's RIL_InitialAttachApn has NO
++	 * roamingProtocol member - see the offset evidence in ril.h - so pick the
++	 * protocol the way AOSP does and keep every later field where the blob
++	 * expects it. */
++	if (!copyHidlStringToRil(&iaa.protocol,
++		isRoaming ? dataProfileInfo.roamingProtocol : dataProfileInfo.protocol, pRI)) {
++	    memsetAndFreeStrings(1, iaa.apn);
++	    return Void();
++	}
++	iaa.authtype = (int) dataProfileInfo.authType;
++	if (!copyHidlStringToRil(&iaa.username, dataProfileInfo.user, pRI)) {
++	    memsetAndFreeStrings(2, iaa.apn, iaa.protocol);
++	    return Void();
++	}
++	if (!copyHidlStringToRil(&iaa.password, dataProfileInfo.password, pRI)) {
++	    memsetAndFreeStrings(3, iaa.apn, iaa.protocol, iaa.username);
++	    return Void();
++	}
++#else
++	/* Send BOTH protocols.  The m681 blob has a roamingProtocol field of its
++	 * own at offset 0x10 and chooses between them itself.  Folding the choice
++	 * into iaa.protocol left 0x10 holding an int, which mtk-ril printed
++	 * with %s. */
+ 	if (!copyHidlStringToRil(&iaa.protocol, dataProfileInfo.protocol, pRI)) {
+ 	    memsetAndFreeStrings(1, iaa.apn);
+ 	    return Void();
+@@ -2160,13 +2198,16 @@ Return<void> RadioImpl::setInitialAttachApn(int32_t serial, const DataProfileInf
+ 	    memsetAndFreeStrings(4, iaa.apn, iaa.protocol, iaa.roamingProtocol, iaa.username);
+ 	    return Void();
+ 	}
++#endif
+ #ifdef MTK_HARDWARE
+ 	if (iaa.apn == NULL)
+ 	    iaa.apn = (char *) calloc(1, sizeof(char));
+ 	if (iaa.protocol == NULL)
+ 	    iaa.protocol = (char *) calloc(1, sizeof(char));
++#ifndef MTK_RIL_IAA_NO_ROAMING_PROTOCOL
+ 	if (iaa.roamingProtocol == NULL)
+ 	    iaa.roamingProtocol = (char *) calloc(1, sizeof(char));
++#endif
+ //	if (iaa.authtype ==0)
+ //		iaa.authtype = -1;
+ 	if (iaa.username == NULL)
+@@ -7559,8 +7600,25 @@ int radio::dataCallListChangedInd(int slotId,
+ 				  int indicationType, int token, RIL_Errno e, void *response,
+ 				  size_t responseLen) {
+     if (radioService[slotId] != NULL && radioService[slotId]->mRadioIndication != NULL) {
+-	if (response == NULL || responseLen % sizeof(RIL_Data_Call_Response_v11) != 0) {
+-	    RLOGE("dataCallListChangedInd: invalid response");
++	/* forge (m5c, 2026-09-03): an EMPTY list is a legitimate, meaningful
++	 * indication - it means "no data calls are active any more" - and the
++	 * vendor sends it exactly that way: response == NULL with responseLen == 0
++	 * (log: "unsolResponse=1010,datalen=0 (UNSOL_DATA_CALL_LIST_CHANGED)").
++	 * The old guard rejected it on "response == NULL" alone, so when the
++	 * operator dropped the PDP context the framework was never told: DcTracker
++	 * kept the connection in DcActiveState with a stale address, ConnectivityService
++	 * kept reporting MOBILE(LTE) CONNECTED with LinkAddresses 100.82.38.247/32,
++	 * while the kernel interface had already lost both the address and IFF_UP -
++	 * every packet then died with "Network is unreachable" and nothing ever
++	 * retried. AOSP's own guard is the tolerant one; restore it.
++	 * Non-empty lists keep the strict size check, but now say what they got:
++	 * this blob returns a longer per-entry variant elsewhere (see the m681 note
++	 * in setupDataCallResponse), so if a non-empty indication ever shows up the
++	 * log will carry the real length instead of a bare "invalid response". */
++	if ((response == NULL && responseLen != 0)
++		|| responseLen % sizeof(RIL_Data_Call_Response_v11) != 0) {
++	    RLOGE("dataCallListChangedInd: invalid response: len=%zu, entry=%zu",
++		  responseLen, sizeof(RIL_Data_Call_Response_v11));
+ 	    return 0;
+ 	}
+ 	hidl_vec<SetupDataCallResult> dcList;
+@@ -9073,6 +9131,60 @@ int radio::incomingCallInd(int slotId,
+ }
+ 
+ // RIL_UNSOL_CALL_INFO_INDICATION
++/* forge: the +ECPI call-state stream arrives here, and nothing was reading it.
++ *
++ * Measured on m681 2026-08-27, three incoming calls: the AT line
++ *     +ECPI: 1,133,1,1,1,0,"<number>",145,"",16
++ * is immediately followed by unsolResponse=3043 with datalen=80 - ten string
++ * pointers, i.e. the ECPI fields - and RIL_UNSOL_CALL_INFO_INDICATION is never
++ * raised at all (grep count zero across the whole capture), so the earlier
++ * acknowledgement placed in callInfoInd could never fire.
++ *
++ * Our header names 3043 RIL_UNSOL_CIPHER_INDICATION and the unsol table left
++ * its handler NULL, which is why the payload was dropped. The m95 VoLTE guide
++ * names the same number as the +ECPI notification, "the whole call state
++ * machine", and the measurement agrees with the guide rather than with our
++ * header. The id is shared; discriminate on the payload before trusting it,
++ * the same rule incomingCallInd() already follows for its own reused id.
++ *
++ * On the message that carries the caller's number the modem stalls until it
++ * gets SET_CALL_INDICATION back with the same call id and sequence number -
++ * without it the stream stops dead, which is exactly what three calls showed.
++ * Call id is field 0 and the sequence number the trailing field, both taken
++ * from the message. The contract's first argument, "mode", is derivable from
++ * no field here, so it stays a runtime knob rather than a guess in the image.
++ */
++int radio::forgeEcpiInd(int slotId,
++                        int indicationType, int token, RIL_Errno e, void *response,
++                        size_t responseLen) {
++    if (response == NULL) return 0;
++
++    /* responseLen is a count of pointers in some of these MTK unsols and a byte
++     * length in others; accept both rather than pick one. */
++    size_t nfields = (responseLen >= sizeof(char *)
++                      && (responseLen % sizeof(char *)) == 0)
++                     ? responseLen / sizeof(char *)
++                     : responseLen;
++    if (nfields < 10 || nfields > 32) return 0;
++
++    char **strings = (char **) response;
++    if (strings[0] == NULL || strings[1] == NULL) return 0;
++    if (strcmp(strings[1], "133") != 0) return 0;      /* incoming, with number */
++
++    char modeProp[PROPERTY_VALUE_MAX] = {0};
++    int mode = 1;
++    if (property_get("persist.m681.ril.callind_mode", modeProp, NULL) > 0) {
++        mode = atoi(modeProp);
++    }
++    int callId = atoi(strings[0]);
++    int seq = (strings[nfields - 1] != NULL) ? atoi(strings[nfields - 1]) : 0;
++
++    RLOGI("forge ECPI: incoming call id=%d seq=%d fields=%zu -> SET_CALL_INDICATION mode=%d",
++          callId, seq, nfields, mode);
++    dispatchInts(-1, slotId, RIL_REQUEST_SET_CALL_INDICATION, 3, mode, callId, seq);
++    return 0;
++}
++
+ int radio::callInfoInd(int slotId,
+ 		       int indicationType, int token, RIL_Errno e, void *response,
+ 		       size_t responseLen) {
+@@ -9081,6 +9193,63 @@ int radio::callInfoInd(int slotId,
+ 	RLOGD("callInfoInd");
+ #endif
+ 	char **strings = (char **) response;
++	/* forge: responseLen convention here is NOT bytes. The neighbouring guard
++	 * in this very function compares it against 2 and then indexes strings[1],
++	 * i.e. it treats it as a COUNT of string pointers - and measured on the
++	 * device, dividing by sizeof(char *) gave 1 and silently skipped the
++	 * acknowledgement on a real incoming call. Accept both conventions rather
++	 * than pick one: a byte length is a multiple of the pointer size and large
++	 * enough to divide, a count is not. */
++	size_t nfields = (responseLen >= sizeof(char *)
++	                  && (responseLen % sizeof(char *)) == 0)
++	                 ? responseLen / sizeof(char *)
++	                 : responseLen;
++
++	/* forge: acknowledge the incoming call, or the modem never proceeds.
++	 *
++	 * Measured on m681 2026-08-27 across two independent incoming calls: the
++	 * +ECPI stream is identical both times and STOPS dead after the message
++	 * that carries the number -
++	 *     +ECPI: 1,134,...  +ECPI: 1,1,...  x2  +ECPI: 1,129,...
++	 *     +ECPI: 1,133,1,1,1,0,"<number>",145,"",31
++	 * - with no ringing progression and no disconnect event even after the
++	 * caller hangs up. That is the behaviour the m95 VoLTE guide describes:
++	 * on an incoming call the modem waits for SET_CALL_INDICATION carrying the
++	 * same call id and sequence number, and without it there is no call at all.
++	 *
++	 * The existing sender in incomingCallInd() cannot do this: that unsol (3042)
++	 * is reused by this blob for a VoLTE capability notification with a 16-byte
++	 * payload, and its own length guard - correctly - refuses to read it as a
++	 * call. So the acknowledgement has to come from here, where the real call
++	 * fields arrive.
++	 *
++	 * Field mapping, taken from the message rather than invented: call id is
++	 * field 0 and the sequence number is the trailing field. The first argument
++	 * is the "mode" of the SET_CALL_INDICATION contract, which the neighbouring
++	 * sender echoes back from the indication; we have no field here that is
++	 * demonstrably it, so it is a runtime knob rather than a guess baked into
++	 * the image: persist.m681.ril.callind_mode, default 1.
++	 *
++	 * Falsifier: if the ack goes out and the +ECPI stream still stops at 133,
++	 * the mode is wrong or the acknowledgement is not what stalls this modem.
++	 */
++	if (nfields >= 2 && strings[0] != NULL && strings[1] != NULL
++	        && strcmp(strings[1], "133") == 0) {
++	    char modeProp[PROPERTY_VALUE_MAX] = {0};
++	    int mode = 1;
++	    if (property_get("persist.m681.ril.callind_mode", modeProp, NULL) > 0) {
++	        mode = atoi(modeProp);
++	    }
++	    int callId = atoi(strings[0]);
++	    int seq = 0;
++	    if (nfields >= 10 && nfields <= 32 && strings[nfields - 1] != NULL) {
++	        seq = atoi(strings[nfields - 1]);
++	    }
++	    RLOGI("forge callInfoInd: incoming call id=%d seq=%d, sending "
++	          "SET_CALL_INDICATION mode=%d (%zu fields)", callId, seq, mode, nfields);
++	    dispatchInts(-1, slotId, RIL_REQUEST_SET_CALL_INDICATION, 3, mode, callId, seq);
++	}
++
+ 	if ((responseLen >= 2) && (strcmp(strings[1], "129") == 0)) {
+ 	    Return<void> retStatus = radioService[slotId]->mRadioIndication->callStateChanged(
+ 			convertIntToRadioIndicationType(indicationType));
+@@ -9127,7 +9296,7 @@ int radio::setAttachApnInd(int slotId,
+ #if VDBG
+ 	RLOGD("setAttachApnInd");
+ #endif
+-	RIL_InitialAttachApn iaa = {NULL, NULL, NULL, 0, NULL, NULL, NULL, 0, NULL};
++	RIL_InitialAttachApn iaa = {};
+ 	RequestInfo *pRI = android::addRequestToList(-1, slotId,
+ 				RIL_REQUEST_SET_INITIAL_ATTACH_APN);
+ 	if (pRI == NULL) {
+@@ -9135,15 +9304,22 @@ int radio::setAttachApnInd(int slotId,
+ 	}
+ 	iaa.apn = (char *) calloc(1, sizeof(char));
+ 	iaa.protocol = (char *) calloc(1, sizeof(char));
++#ifndef MTK_RIL_IAA_NO_ROAMING_PROTOCOL
+ 	iaa.roamingProtocol = (char *) calloc(1, sizeof(char));
++#endif
+ 	iaa.username = (char *) calloc(1, sizeof(char));
+ 	iaa.password = (char *) calloc(1, sizeof(char));
+ 	iaa.operatorNumeric = (char *) calloc(1, sizeof(char));
+ 
+ 	android::my_enqueue(RIL_REQUEST_SET_INITIAL_ATTACH_APN, &iaa,
+ 				sizeof(iaa) - sizeof(char**), android::FMT_IGNORE, pRI);
++#ifdef MTK_RIL_IAA_NO_ROAMING_PROTOCOL
++	memsetAndFreeStrings(5, iaa.apn, iaa.protocol,
++				iaa.username, iaa.password, iaa.operatorNumeric);
++#else
+ 	memsetAndFreeStrings(6, iaa.apn, iaa.protocol, iaa.roamingProtocol,
+ 				iaa.username, iaa.password, iaa.operatorNumeric);
++#endif
+     } else {
+ 	RLOGE("setAttachApnInd: radioService[%d]->mRadioIndication == NULL", slotId);
+     }
+diff --git a/ril/libril/ril_service.h b/ril/libril/ril_service.h
+index e056609..a1baadb 100644
+--- a/ril/libril/ril_service.h
++++ b/ril/libril/ril_service.h
+@@ -756,6 +756,9 @@ int incomingCallInd(int slotId, int indType, int token,
+ 		    RIL_Errno e, void *response, size_t responselen);
+ 
+ // RIL_UNSOL_CALL_INFO_INDICATION
++int forgeEcpiInd(int slotId, int indicationType, int token,
++                RIL_Errno e, void *response, size_t responseLen);
++
+ int callInfoInd(int slotId, int indType, int token,
+ 		RIL_Errno e, void *response, size_t responselen);
+ 
