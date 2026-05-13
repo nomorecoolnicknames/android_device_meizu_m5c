@@ -135,6 +135,16 @@ BOARD_BLUETOOTH_DOES_NOT_USE_RFKILL := true
 # mtk-ril.so imports.
 FORGE_LIBRILMTK_KEEP_ANCHOR := isEpdgSupport
 
+# Shims
+# libvcodecdrv.so imports __pthread_gettid, which Pie's bionic dropped. It is
+# loaded through the libGLES_mali.so dlopen chain, so without the shim the
+# 32-bit zygote finds no OpenGL ES implementation and boot never completes.
+# libMtkOmxVdecEx and libmtkjpeg import the same symbol. 64-bit blobs are clean.
+TARGET_LD_SHIM_LIBS += \
+    /system/lib/libvcodecdrv.so|/system/vendor/lib/libshim_vcodec.so \
+    /system/lib/libMtkOmxVdecEx.so|/system/vendor/lib/libshim_vcodec.so \
+    /system/lib/libmtkjpeg.so|/system/vendor/lib/libshim_vcodec.so
+
 # GPS (32-bit only blobs):
 #  - mtk_agpsd links ICU 56 ucnv_* symbols; libmtkshim_icu forwards them.
 #  - mnld (libmnl.so) destroys a mutex twice, which FORTIFY turns into SIGABRT;

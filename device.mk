@@ -129,6 +129,10 @@ PRODUCT_COPY_FILES += \
     device/meizu/m5c/rootdir/forge-zygote.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/forge-zygote.rc \
     device/meizu/m5c/rootdir/forge-cpuset.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/forge-cpuset.rc
 
+# Shims (see TARGET_LD_SHIM_LIBS in BoardConfig.mk)
+PRODUCT_PACKAGES += \
+    libshim_vcodec
+
 # Bluetooth
 # The default HAL wraps the vendor libbt-vendor.so.
 PRODUCT_PACKAGES += \
