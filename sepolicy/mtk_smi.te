@@ -1,0 +1,2 @@
+# MTK SMI character device used by MediaTek codec policy.
+type MTK_SMI_device, dev_type;
