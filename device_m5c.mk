@@ -61,3 +61,16 @@ PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
     persist.sys.usb.config=adb \
     persist.service.adb.enable=1 \
     persist.sys.adb.shell=/system/bin/sh
+
+# Build Station: target device identity override
+PRODUCT_NAME := lineage_m5c
+PRODUCT_DEVICE := m5c
+PRODUCT_BRAND := meizu
+PRODUCT_MANUFACTURER := Meizu
+PRODUCT_MODEL := m5c
+PRODUCT_RELEASE_NAME := m5c
+TARGET_OTA_ASSERT_DEVICE := m5c
+PRODUCT_BUILD_PROP_OVERRIDES += \
+    PRODUCT_NAME=lineage_m5c \
+    PRODUCT_DEVICE=m5c \
+    TARGET_DEVICE=m5c

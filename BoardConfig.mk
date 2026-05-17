@@ -38,3 +38,8 @@ BOARD_SECCOMP_POLICY := $(DEVICE_PATH)/seccomp
 
 # Hack for build
 $(shell mkdir -p $(OUT)/obj/KERNEL_OBJ/usr)
+
+# Build Station: target device identity override
+TARGET_OTA_ASSERT_DEVICE := m5c
+BOARD_NAME := m5c
+TARGET_SYSTEM_PROP := /srv/forge/android/los14.1-m5c-patched/device/meizu/m5c/system.prop
