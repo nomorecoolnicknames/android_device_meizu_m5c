@@ -21,7 +21,7 @@ PRODUCT_AAPT_PREF_CONFIG := xhdpi
 # Device specific overlays
 DEVICE_PACKAGE_OVERLAYS += $(LOCAL_PATH)/overlay
 
-TARGET_SPECIFIC_HEADER_PATH := $(LOCAL_PATH)/include
+TARGET_SPECIFIC_HEADER_PATH := $(DEVICE_PATH)/include
 
 # Device product elements
 include $(LOCAL_PATH)/product/*.mk
