@@ -40,6 +40,13 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/languages_full.mk)
 # Vendor product configurations
 $(call inherit-product-if-exists, vendor/meizu/m5c/m5c-vendor.mk)
 
+# Full target_files packaging needs the prebuilt kernel in PRODUCT_COPY_FILES.
+M5C_EFFECTIVE_KERNEL_PREBUILT := $(strip $(TARGET_PREBUILT_KERNEL))
+ifneq ($(M5C_EFFECTIVE_KERNEL_PREBUILT),)
+PRODUCT_COPY_FILES += \
+    $(M5C_EFFECTIVE_KERNEL_PREBUILT):kernel
+endif
+
 ADDITIONAL_DEFAULT_PROPERTIES += \
 	ro.secure=0 \
 	ro.allow.mock.location=1 \
@@ -48,3 +55,9 @@ ADDITIONAL_DEFAULT_PROPERTIES += \
 	persist.service.acm.enable=0 \
 	ro.mount.fs=EXT4 \
 	camera.disable_zsl_mode=1
+
+# Build Station: early ADB bring-up defaults
+PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
+    persist.sys.usb.config=adb \
+    persist.service.adb.enable=1 \
+    persist.sys.adb.shell=/system/bin/sh
