@@ -1,0 +1,10 @@
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# Local build artifacts
+out/
+build.log
