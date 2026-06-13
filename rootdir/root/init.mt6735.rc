@@ -26,6 +26,7 @@ on init
     mkdir /storage/usbotg 0700 root root
     mount tmpfs tmpfs /storage/usbotg mode=0755,uid=1000,gid=1000
     chmod 0666 /dev/kmsg
+    
 
     export USBOTG_STORAGE /storage/usbotg
 # Temp Backward compatibility
@@ -114,13 +115,12 @@ on post-fs
     chown system system /protect_s
     chmod 0770 /protect_s
 
-    chown system system /system/bin/sbchk
-    chmod 0771 /system/bin/sbchk
-
 on post-fs-data
     chown system system /persist
     chmod 0771 /persist
 
+    # create basic filesystem structure
+    # mkdir /data/nvram 2770 root system
     # We chown/chmod /nvdata again so because mount is run as root + defaults
     chown root system /nvdata
     chmod 0771 /nvdata
@@ -129,6 +129,8 @@ on post-fs-data
 
     # Set SELinux security contexts on upgrade or policy update.
     restorecon_recursive /nvdata
+
+    chmod 0660 /data/misc/wifi/p2p_supplicant.conf
 
     #give system access to rfkill device node
     chmod 0660 /dev/rfkill
@@ -140,12 +142,7 @@ on post-fs-data
 
 # GPS
     mkdir /data/gps_mnl 0771 gps system
-    mkdir /data/misc/gps 0770 gps gps
-    chown gps gps /sys/class/gpsdrv/gps/pwrctl
-    chown gps gps /sys/class/gpsdrv/gps/suspend
-    chown gps gps /sys/class/gpsdrv/gps/state
-    chown gps gps /sys/class/gpsdrv/gps/pwrsave
-    chown gps gps /sys/class/gpsdrv/gps/status
+    mkdir /data/misc/gps 0770 gps system
 
     # NFC
     mkdir /data/nfc_socket 0771 nfc radio
@@ -436,6 +433,12 @@ on post-fs-data
     #MJC
     chmod 0660 /dev/MJC
     chown media system /dev/MJC
+    
+    #kpd
+    chown radio radio /sys/devices/platform/mtk-kpd/driver/kpd_call_state
+
+    #Charging Battery
+    chown radio radio /sys/devices/platform/battery/Charging_CallState
 
 # PMIC property
     chown radio system /sys/devices/platform/mt-pmic/low_battery_protect_stop
@@ -507,14 +510,15 @@ on post-fs-data
     chmod 0660 /dev/mtk_disp_mgr
     chown system graphics /dev/mtk_disp_mgr
 
-    chmod 0660 /sys/devices/platform/mtk_disp_mgr.0/rgb
-    chown system system /sys/devices/platform/mtk_disp_mgr.0/rgb
-
     chmod 0660 /dev/mtkfb_vsync
     chown system graphics /dev/mtkfb_vsync
 
     chmod 0660 /dev/sw_sync
     chown system graphics /dev/sw_sync
+
+    # EM baseband file
+    chown root diag /system/bin/baseband_regdump
+    chmod 4750 /system/bin/baseband_regdump
 
     #pmu
     chown root radio /sys/devices/platform/mt-pmic/pmic_access_bank0
@@ -841,6 +845,11 @@ on boot
     chown root radio  /sys/class/leds/breathing-light/brightness
 #liuyang add end	
 
+on property:ro.board.platform=mt6737m
+    chown system system /sys/devices/system/cpu/cpufreq/interactive/hispeed_freq
+    chmod 0660 /sys/devices/system/cpu/cpufreq/interactive/hispeed_freq
+    write /sys/devices/system/cpu/cpufreq/interactive/hispeed_freq 988000
+
 #Define device for ATCID
     chmod 660 /dev/ttyGS0
     chown system /dev/ttyGS0
@@ -879,6 +888,15 @@ on property:vold.decrypt=trigger_shutdown_framework
     start swapoff_action
     write /proc/bootprof "trigger_shutdown_framework"
 
+service stop_modem /system/bin/md_ctrl 0
+    class main
+    disabled
+    oneshot
+
+service start_modem /system/bin/md_ctrl 1
+    class main
+    disabled
+    oneshot
 # Define TCP buffer sizes for various networks
 #   ReadMin, ReadInitial, ReadMax, WriteMin, WriteInitial, WriteMax,
     setprop net.tcp.buffersize.default 4096,87380,524288,4096,16384,524288
@@ -1044,10 +1062,7 @@ service dhcp6c_wlan0 /system/bin/dhcp6c -c "/etc/wide-dhcpv6/dhcp6c.conf" -Df wl
     disabled
     oneshot
 
-on property:service.dhcp6c_wlan0.enable=0
-    stop dhcp6c_wlan0
-
-on property:service.dhcp6c_wlan0.enable=1
+    # Start DHCP by default
     start dhcp6c_wlan0
 
 service dhcp6c_PD /system/bin/dhcp6c -c "/etc/wide-dhcpv6/dhcp6cPD.conf" -Df
@@ -1124,6 +1139,18 @@ service swapoff_action /system/bin/sh /disableswap.sh
     disabled
     oneshot
 
+# HQ add for countrycode
+service nvram_country /system/bin/nvram_country
+    user root
+    group system
+    chmod 0644 /system/bin/nvram_country
+    oneshot
+    disabled
+    
+on property:service.nvram_init=Ready
+    start nvram_country
+# HQ add end
+
 service dbus /system/bin/dbus-daemon --system --nofork
     class main
     socket dbus stream 660 bluetooth bluetooth
@@ -1161,7 +1188,12 @@ service agpsd /system/bin/mtk_agpsd
     user gps
     group gps radio inet sdcard_r sdcard_rw misc system
 
-service mnld /system/vendor/bin/mnld
+service slpd /system/bin/slpd
+    class main
+    user gps
+    group gps inet
+    
+service mnld /system/bin/mnld
     class main
     user gps
     group gps inet misc sdcard_rw sdcard_r media_rw system radio
@@ -1293,10 +1325,25 @@ service mc64xxd /system/bin/mc64xxd
 #sensor service (end)
 #
 
+service thermald /system/bin/thermald
+    class main
+    user system
+    group system
+
+service NvRAMAgent /system/bin/nvram_agent_binder
+    class main
+    user system
+    group system
+
 service thermal_manager /system/bin/thermal_manager
     class main
     user root
     oneshot
+    
+service thermal /system/bin/thermal
+    class main
+    user system
+    group system
 
 service fuelgauged /system/bin/fuelgauged
     class main
@@ -1308,6 +1355,18 @@ service wmtLoader /system/bin/wmt_loader
     group root
     class core
     oneshot
+    
+#monitor battery status
+service batterywarning /system/bin/batterywarning
+    class main
+    user shell
+    group shell
+    
+# GuiExt Server init
+service guiext-server /system/bin/guiext-server
+    class main
+    user system
+    group system graphics
 
 service conn_launcher /system/bin/6620_launcher -p /system/etc/firmware/
     user system
