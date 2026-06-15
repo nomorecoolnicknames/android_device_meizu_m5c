@@ -68,7 +68,6 @@ PRODUCT_BUILD_PROP_OVERRIDES += \
     PRODUCT_NAME=lineage_m5c \
     PRODUCT_DEVICE=m5c \
     TARGET_DEVICE=m5c
-
 # Build Station: early ADB bring-up defaults
 PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
     ro.secure=0 \
