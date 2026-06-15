@@ -56,12 +56,6 @@ ADDITIONAL_DEFAULT_PROPERTIES += \
 	ro.mount.fs=EXT4 \
 	camera.disable_zsl_mode=1
 
-# Build Station: early ADB bring-up defaults
-PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
-    persist.sys.usb.config=adb \
-    persist.service.adb.enable=1 \
-    persist.sys.adb.shell=/system/bin/sh
-
 # Build Station: target device identity override
 PRODUCT_NAME := lineage_m5c
 PRODUCT_DEVICE := m5c
@@ -74,3 +68,16 @@ PRODUCT_BUILD_PROP_OVERRIDES += \
     PRODUCT_NAME=lineage_m5c \
     PRODUCT_DEVICE=m5c \
     TARGET_DEVICE=m5c
+
+# Build Station: early ADB bring-up defaults
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
+    ro.secure=0 \
+    ro.debuggable=1 \
+    ro.adb.secure=0
+PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
+    ro.secure=0 \
+    ro.debuggable=1 \
+    ro.adb.secure=0 \
+    persist.sys.usb.config=adb \
+    persist.service.adb.enable=1 \
+    persist.sys.adb.shell=/system/bin/sh
