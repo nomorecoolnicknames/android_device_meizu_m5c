@@ -4,6 +4,42 @@
 Авторитет по железу: `M5C_CHIP_MAP.md`. Формат: FACT / INFERENCE /
 HYPOTHESIS / REJECTED по `/srv/forge/android/CLAUDE.md`.
 
+## 2026-08-17 (P9 результат + P10) Найден и закрыт разрыв записи: register_console за #ifndef PSTORE
+
+FACT (team-lead, `boot_49_p9.img`): вехи 18/20 стоят; окно 0x5f000000
+содержит корректный заголовок ram console — сиг `DBGC`, поля декодируются
+как off_console=0x5c0, sz_console=0xfa40 (=0x10000−0x5c0 ✓) — т.е. наш
+фолбэк-init отработал и читатель больше ничего не съедает. Но тело лога —
+НУЛИ: ни байта текста. Бутлуп удлинился ~50→90 с (INFERENCE team-lead:
+ядро доходит дальше). Вывод: разрыв — в пути записи.
+
+FACT (root cause, одна строка): в Q0-коде `ram_console_init` регистрация
+консоли обёрнута `#ifndef CONFIG_PSTORE` — при включённом PSTORE (у нас)
+ram console НЕ регистрируется вовсе, Q0 полагается на pstore/ramoops. Но
+ramoops начинает писать только с device-initcalls — ядро, умирающее между
+console_init и probe ramoops (ровно наше окно), не оставляет НИ строчки.
+Заголовок есть (его пишет init), тело пустое. У 3.18 та же конструкция, но
+он доживает до ramoops — потому у него pstore полон.
+
+Сделано (P10, коммит `0c9418f99`, образ `boot_49_p10.img`):
+`register_console(&ram_console)` — безусловно. Сосуществует с
+pstore-консолью; printk с момента console_init ложится в тело ram console
+на 0x5f0005c0 (uncached-маппинг remap_lowmem → в DRAM без флаша).
+
+Артефакт: `/srv/forge/android/m5c/kernel-m5c-4.9-lc/boot_49_p10.img`,
+sha256 `721dcd2645e3445955426b17df0b5356cbb1f93052f695c3e280c4aee344cbf7`,
+9459712 B, boot (p7); DTB сток (md5 внутри проверен); System.map-p10
+рядом; маркеры 1–20 на месте.
+
+Чтение после бутлупа: как P9 —
+```
+dd if=/dev/mem of=/tmp/rc49.bin bs=1024 skip=1556480 count=64
+strings -n 6 /tmp/rc49.bin | head -60 ; strings -n 6 /tmp/rc49.bin | tail -60
+```
+Ожидание: полный printk-лог 4.9 с банером; хвост = точка смерти.
+Это НЕ кандидат «дойдёт до adb» — диагностический (умирает в initcalls,
+лог покажет где).
+
 ## 2026-08-17 (P8 результат + P9) console_init ПРОЙДЕН; лог уносим из-под читателя
 
 FACT (team-lead, `boot_49_p8.img`): вехи 18 И 20 стоят — ram_console-фикс
