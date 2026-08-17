@@ -4,6 +4,35 @@
 Авторитет по железу: `M5C_CHIP_MAP.md`. Формат: FACT / INFERENCE /
 HYPOTHESIS / REJECTED по `/srv/forge/android/CLAUDE.md`.
 
+## 2026-08-17 (анализ team-lead + P17) kthreadd под подозрением; init_heavy_tlb невиновен
+
+FACT (team-lead, чтение sched_avg.c:1095+): `init_heavy_tlb` при cid=-1
+печатает и идёт дальше — ни ожиданий, ни блокировок; лог показывает
+прохождение всех 4 ядер. REJECTED как виновник; конфиг-опыт RQAVG_KS=n —
+низкий приоритет.
+
+HYPOTHESIS (team-lead, главная): create_worker → kthread_create_on_node
+ставит запрос в очередь kthreadd (PID 2) и блокируется на
+wait_for_completion — ПЕРВОЕ место загрузки, где ядру нужен ДРУГОЙ поток.
+Если планировщик не даёт PID 2 исполниться (вырожденная топология:
+cluster_id=-1 у всех, nr_clusters=1, sched-домейны ещё дефолтные, но
+set_sched_topology уже подменён на arm64_topology с NULL-energy) — вечное
+молчание без единой печати. Workqueue может быть невиновен вовсе.
+
+Сделано (P17, коммит `cc7d930f7`, образ `boot_49_p17.img`, sha256
+`a08198bba9377ed1cc8787ee65836f5c02bf8602d68806f90d7d81eacd9d6c0c`,
+System.map-p17, надмножество p16): маркеры 41 (вход в kthreadd = PID 2
+исполнялся), 42 (снял запрос из списка), 43 (create_kthread вернулся).
+Объединённая бисекция: 38-без-39-без-41 = PID 2 не бегал → планировщик;
+41-без-42 = потерянное пробуждение; 42-без-43 = вис в do_fork;
+43+39-без-40 = bind/attach/wake.
+
+В очереди (если подтвердится «PID 2 не бегал»): сверка link-order
+early_initcall'ов 3.18 до init_workqueues (структурная разница 4.6+:
+workqueue_init вызывается из kernel_init_freeable ДО всех initcall'ов);
+оговорка — на 3.18 kthreadd тоже исполним до initcalls, так что
+«подготовка» может оказаться пустым множеством.
+
 ## 2026-08-17 (P15 результат + P16) Вис — внутри workqueue_init(), до первого initcall
 
 FACT (team-lead, `boot_49_p15.img`, recovery за 175 с): две независимые
