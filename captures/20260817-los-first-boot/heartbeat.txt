@@ -1,0 +1,57 @@
+--- iter=0 uptime=25.63 25.03
+usb: state=DISCONNECTED functions=adb enable=1
+svc: adbd=running sf=running zygote=running bootanim=running boot_completed=
+--- iter=1 uptime=31.46 28.95
+usb: state=DISCONNECTED functions=adb enable=1
+svc: adbd=running sf=running zygote=running bootanim=running boot_completed=
+--- iter=2 uptime=37.10 34.64
+usb: state=DISCONNECTED functions=adb enable=1
+svc: adbd=running sf=running zygote=running bootanim=running boot_completed=
+--- iter=3 uptime=42.68 40.17
+usb: state=DISCONNECTED functions=adb enable=1
+svc: adbd=running sf=running zygote=running bootanim=running boot_completed=
+--- iter=4 uptime=48.75 45.43
+usb: state=DISCONNECTED functions=adb enable=1
+svc: adbd=running sf=running zygote=running bootanim=stopped boot_completed=1
+--- iter=5 uptime=54.55 49.75
+usb: state=DISCONNECTED functions=adb enable=1
+svc: adbd=running sf=running zygote=running bootanim=stopped boot_completed=1
+--- iter=6 uptime=60.12 58.06
+usb: state=DISCONNECTED functions=adb enable=1
+svc: adbd=running sf=running zygote=running bootanim=stopped boot_completed=1
+--- iter=7 uptime=65.67 65.28
+usb: state=DISCONNECTED functions=adb enable=1
+svc: adbd=running sf=running zygote=running bootanim=stopped boot_completed=1
+--- iter=8 uptime=71.25 70.16
+usb: state=DISCONNECTED functions=adb enable=1
+svc: adbd=running sf=running zygote=running bootanim=stopped boot_completed=1
+--- iter=9 uptime=76.76 77.49
+usb: state=DISCONNECTED functions=adb enable=1
+svc: adbd=running sf=running zygote=running bootanim=stopped boot_completed=1
+--- iter=10 uptime=82.32 82.77
+usb: state=DISCONNECTED functions=adb enable=1
+svc: adbd=running sf=running zygote=running bootanim=stopped boot_completed=1
+--- iter=11 uptime=87.90 87.98
+usb: state=DISCONNECTED functions=adb enable=1
+svc: adbd=running sf=running zygote=running bootanim=stopped boot_completed=1
+--- iter=0 uptime=25.74 25.55
+usb: state=DISCONNECTED functions=adb enable=1
+svc: adbd=running sf=running zygote=running bootanim=running boot_completed=
+--- iter=1 uptime=31.83 29.06
+usb: state=DISCONNECTED functions=adb enable=1
+svc: adbd=running sf=running zygote=running bootanim=running boot_completed=
+--- iter=2 uptime=37.49 35.18
+usb: state=DISCONNECTED functions=adb enable=1
+svc: adbd=running sf=running zygote=running bootanim=running boot_completed=
+--- iter=3 uptime=43.19 41.27
+usb: state=DISCONNECTED functions=adb enable=1
+svc: adbd=running sf=running zygote=running bootanim=running boot_completed=
+--- iter=4 uptime=48.90 48.61
+usb: state=DISCONNECTED functions=adb enable=1
+svc: adbd=running sf=running zygote=running bootanim=stopped boot_completed=1
+--- iter=5 uptime=54.63 55.78
+usb: state=DISCONNECTED functions=adb enable=1
+svc: adbd=running sf=running zygote=running bootanim=stopped boot_completed=1
+--- iter=6 uptime=60.28 63.12
+usb: state=DISCONNECTED functions=adb enable=1
+svc: adbd=running sf=running zygote=running bootanim=stopped boot_completed=1

@@ -271,3 +271,134 @@ FACT: в `/srv/forge/android/m5c/los14.1-m5c-patched/device/meizu/m5c` не
 3. Только если п.1 упирается в кернельный блокер (не userspace) — пробовать
    базу `XRedCubeX/android_kernel_m5c:nougat` (3.18.79) с проверкой MTK ABI
    против блобов Android 6.
+
+## 2026-08-17 Первая прошивка LOS 14.1 с нашим ядром на живое железо
+
+Устройство `710HVBR923RYK` через девбокс (`pc-00007533-1`, контейнер, USB 1-3).
+Владелец подтвердил: данных на телефоне нет, полный дамп снят им отдельно,
+эксперименты разрешены.
+
+### Что сделано
+
+FACT: сняты бэкапы 23 разделов в `/tmp/m5c-backup-20260817/` на девбоксе
+(proinfo, nvram, nvdata, protect1/2, lk, para, boot, recovery, logo, expdb,
+devinfo, seccfg, secro, tee1/2, frp, keystore, oemkeystore, metadata, rstinfo,
+flashinfo, custom). Стоковый `boot.img` = sha256
+`69d272f9b42766da9f14940f60dfbfa00e8f0be1dbea2a4c22269aa64386bd29`.
+
+FACT: до прошивки на устройстве стоял сток **Flyme 6.0.2.3G** (Android 6.0,
+`ro.build.date=Sat Nov 11 00:25:12 CST 2017`), /data не шифрован.
+
+FACT: `/data` отформатирован, установлен `lineage-14.1-20260615-UNOFFICIAL-m5c.zip`
+(md5 `6a868271de4d61591e44839469bf5441`). Установка прошла штатно:
+`Target: meizu/lineage_m5c/m5c:7.1.2/NJH47F/1e12cbe1dc:userdebug/test-keys`.
+`/system/recovery-from-boot.p` удалён, чтобы LOS не перезаписал TWRP.
+
+FACT: в boot-разделе подтверждено наше ядро: `Linux version 3.18.19
+(valakas@n8nagent) #11 SMP PREEMPT Sun Jun 14 23:16:12 CDT 2026`, board `mt6737`,
+cmdline `bootopt=64S3,32N2,64N2 androidboot.selinux=permissive buildvariant=userdebug`.
+
+FACT: собран и прошит `boot_forge.img` (md5 `847243efad6af251768e32b24f31f6ac`) —
+то же ядро #11, ramdisk дополнен диагностикой: `/init.forge.rc` + `/init.forge.sh`
+(импорт добавлен в `init.rc` после `init.cm.rc`). Скрипт по `post-fs-data`
+пишет в `/data/forge/`: `dmesg`, `logcat`, `heartbeat` (состояние USB и
+init.svc.*), `ps`, `getprop`, `/proc/last_kmsg`, и принудительно поднимает
+`android_usb`. Это единственный способ получить лог с устройства без adb —
+pstore/ramoops на этом железе пустой, expdb нечитаемый.
+
+### Результат загрузки (наблюдение владельца + логи)
+
+FACT: LOS грузится до экрана «Welcome to LineageOS» — **дисплей работает**
+(панель, подсветка, композиция). Тач, USB мёртвые; кнопки и звук на второй
+загрузке работали.
+
+FACT: система доходит очень далеко: `/data/system/packages.xml` 376 KB,
+`dalvik-cache` с `boot.art`, `/data/property/persist.sys.usb.config=adb`,
+`system_server` живой (`DisplayPowerController.updatePowerState` работает,
+единственный WTF — безобидный `neither /proc/wakelocks nor /d/wakeup_sources exists`).
+
+FACT: `/data/tombstones/` — 10 падений, все `/system/bin/mtk_agpsd`, SIGABRT в
+динамическом линкере (`__linker_init_post_relocation` → `__libc_fatal` → abort).
+Это userspace/blob-дефект (не хватает библиотеки или символа), не блокер загрузки.
+
+### Root cause: USB/adb — PMIC EINT не зарегистрирован
+
+FACT: `android_usb` в нашем ядре есть и настроен: `functions=adb`, `enable=1`,
+но `state=DISCONNECTED` (`captures/20260817-los-first-boot/forge.log`).
+
+FACT: в ядерном логе `usb_cable_connected 592: type(0)` на каждой попытке —
+MTK-детект типа зарядника всегда возвращает 0 (кабель «не подключён»), поэтому
+mt_usb не поднимает periferal-режим.
+
+FACT: причина видна на 0.28 с загрузки:
+```
+[0.283544] [PWRAP] clear EINT flag mt_pmic_wrap_eint_status=0x0
+[0.284606] WARNING: CPU: 0 PID: 54 at kernel/irq/manage.c:454 enable_irq+0x8c/0xd4()
+[0.284616] Unbalanced enable for IRQ 494
+```
+`pmic_thread` вызывает `enable_irq()` на IRQ 494, не запросив/не отключив его.
+
+FACT (ground truth со стока в тот же момент, тот же кабель): в
+`/proc/interrupts` стока `494: 1 mt-eint 206 pmic-eint` — прерывание
+зарегистрировано и сработало; `/sys/class/power_supply/usb/online=1`,
+`battery/status=Charging`.
+
+INFERENCE: цепочка блокера — сломанная регистрация PMIC EINT (IRQ 494 /
+`mt-eint 206`) → CHRDET не доставляется → `g_chr_type=0` → `usb_cable_connected
+type(0)` → гаджет не подключается → нет adb и нет индикации зарядки.
+Это ядерный дефект нашей сборки, не adb-secure и не ramdisk: prop'ы уже
+`ro.secure=0`, `ro.adb.secure=0`, `persist.service.adb.enable=1`.
+
+REJECTED: «adb не работает из-за отсутствия FunctionFS». `f_fs.c` включён
+в `android.c` (`#include "f_fs.c"`, строка 43) и линкуется в `android.o`;
+ramdisk нигде не монтирует `/dev/usb-ffs`, adbd идёт по legacy-пути
+`/dev/android_adb`, а сам `android_usb` присутствует. Дело в детекте кабеля.
+
+### Root cause: тач — драйвер Goodix вообще не собран
+
+FACT: реальный чип — Goodix (сток биндит `gt9xx` на `1-005d`, см.
+`M5C_CHIP_MAP.md`).
+
+FACT: в нашем `m5c_defconfig` стоят `CONFIG_TOUCHSCREEN_MTK_GT9XX=y`,
+`CONFIG_TOUCHSCREEN_MTK_FOCALTECH_TS=y`,
+`CONFIG_TOUCHSCREEN_MTK_FTS_DIRECTORY="focaltech_touch"`, но в
+`drivers/input/touchscreen/mediatek/Makefile` **нет правил** ни для
+`CONFIG_TOUCHSCREEN_MTK_GT9XX`, ни для `CONFIG_TOUCHSCREEN_MTK_FOCALTECH_TS`,
+и каталогов `GT9XX/` и `focaltech_touch/` в дереве нет. Собирается только
+`ft5x46/` (`CONFIG_TOUCHSCREEN_MTK_FT5x46=y`).
+
+FACT: следствие видно в логе — ни одной строки `GTP` за всю загрузку, зато
+`ft5x46_ts 1-005d: Create proc entry success!` и `tpd_probe OK`: FocalTech-драйвер
+занял адрес Goodix-чипа. Плюс `mtk-tpd bus:touch@: fwq Cannot find touch pinctrl
+default -19!`.
+
+INFERENCE: тач мёртв потому, что Goodix-драйвера в ядре нет, а его адрес забрал
+неподходящий ft5x46.
+
+FACT: каталоги, дающие драйвер с именем `gt9xx`, в дереве уже есть: `GT910`,
+`GT911`, `GT928`, `GT9XXTB_hotknot`, `GT9XX_hotknot_scp` (`GT1151` — вариант
+gt1x с `tpd_device_name=gt9xx`). Плоского `GT9XX_hotknot`, который есть у
+`XRedCubeX/android_kernel_m5c` (ветки `nougat`/`oreo`), у нас нет.
+
+### Что это меняет в приоритетах
+
+REJECTED (для текущей ветки работ): смена базы ядра на 3.18.79/4.9.188.
+Наши блокеры — не «плохая база»: DTB стоковый, дисплей работает, система
+доходит до Welcome. Два оставшихся блокера локальны и адресны (PMIC EINT,
+Goodix-драйвер). Смена базы сейчас только обнулит этот прогресс.
+
+Next action (по приоритету):
+1. Тач: собрать Goodix. Порт `GT9XX_hotknot` из `XRedCubeX/android_kernel_m5c:nougat`
+   (у стока есть `/sys/class/misc/hotknot` → hotknot-вариант) + правила в
+   `Makefile`/`Kconfig`; выключить `CONFIG_TOUCHSCREEN_MTK_FT5x46`, чтобы он не
+   занимал `1-005d`.
+2. USB: разобрать путь регистрации PMIC EINT (IRQ 494 / `mt-eint 206`), найти
+   `enable_irq()` без парного `request_irq()`/`disable_irq()` в pmic-драйвере;
+   цель — CHRDET → `chr_type != 0` → `android_usb state=CONFIGURED`.
+3. Логгер `init.forge.*` оставить в ramdisk до появления adb; добавить в него
+   `/proc/interrupts` и `/sys/class/power_supply/*` для следующей итерации.
+4. `mtk_agpsd` — отдельная userspace-задача, не блокер (лечится после adb по
+   `linker` сообщению из logcat).
+
+Захват: `captures/20260817-los-first-boot/` (dmesg/logcat/heartbeat/ps/props/
+last_kmsg + оба DTB). Карта железа: `M5C_CHIP_MAP.md`.

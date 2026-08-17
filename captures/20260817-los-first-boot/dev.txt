@@ -1,0 +1,183 @@
+total 0
+drwxr-xr-x 17 root      root             3640 2026-08-17 10:44 .
+drwxr-xr-x 21 system    system              0 2026-08-17 10:44 ..
+----------  1 root      root                0 2026-08-17 10:44 .coldboot_done
+crw-------  1 root      root         254,   0 2026-08-17 10:44 BOOT
+crw-rw----  1 system    camera       239,   0 2026-08-17 10:44 MAINAF
+crw-rw----  1 media     media        245,   0 2026-08-17 10:44 MTK_SMI
+crw-------  1 root      root         232,   0 2026-08-17 10:44 MT_pmic_adc_cali
+crw-------  1 system    system        10,  58 2026-08-17 10:44 RT_Monitor
+crw-rw----  1 media     camera       160,   0 2026-08-17 10:44 Vcodec
+drwxr-xr-x  2 root      root              940 2026-08-17 10:44 __properties__
+crw-rw----  1 system    system        10,  40 2026-08-17 10:44 aal_als
+crw-------  1 root      root         247,   0 2026-08-17 10:44 accdet
+crw-------  1 root      root          10,  60 2026-08-17 10:44 aed0
+crw-------  1 root      root          10,  59 2026-08-17 10:44 aed1
+crw-rw-r--  1 system    radio         10,  49 2026-08-17 10:44 alarm
+crw-rw----  1 bluetooth bluetooth    151,   0 2026-08-17 10:44 ampc0
+crw-rw----  1 adb       adb           10,  35 2026-08-17 10:44 android_adb
+crw-rw-rw-  1 root      root          10,  50 2026-08-17 10:44 ashmem
+crw-------  1 root      root          10,  57 2026-08-17 10:44 atf_log
+drwxr-xr-x  3 root      system             60 2026-08-17 10:44 bfqio
+crw-rw-rw-  1 root      root          10,  51 2026-08-17 10:44 binder
+drwxr-xr-x  4 root      root              900 2026-08-17 10:44 block
+lrwxrwxrwx  1 root      root               58 2026-08-17 10:44 bootimg -> /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/boot
+crw-------  1 system    system       235,   0 2026-08-17 10:44 btif
+drwxr-xr-x  3 root      root               60 2026-08-17 10:44 bus
+crw-rw----  1 system    camera       244,   0 2026-08-17 10:44 camera-isp
+crw-rw----  1 system    camera       242,   0 2026-08-17 10:44 camera-pipemgr
+crw-rw----  1 system    camera       243,   0 2026-08-17 10:44 camera-sysram
+crw-rw----  1 media     audio        237,   1 2026-08-17 10:44 ccci_aud
+crw-rw----  1 radio     radio        237,   4 2026-08-17 10:44 ccci_fs
+crw-rw----  1 radio     radio        237,  10 2026-08-17 10:44 ccci_imsa
+crw-rw----  1 radio     radio        237,   9 2026-08-17 10:44 ccci_imsc
+crw-rw----  1 radio     radio        237,  11 2026-08-17 10:44 ccci_imsdc
+crw-rw----  1 radio     radio        237,   8 2026-08-17 10:44 ccci_imsv
+crw-rw----  1 radio     radio        237,  12 2026-08-17 10:44 ccci_ioctl0
+crw-rw----  1 radio     radio        237,  13 2026-08-17 10:44 ccci_ioctl1
+crw-rw----  1 radio     radio        237,  14 2026-08-17 10:44 ccci_ioctl2
+crw-rw----  1 radio     radio        237,  15 2026-08-17 10:44 ccci_ioctl3
+crw-rw----  1 radio     radio        237,  16 2026-08-17 10:44 ccci_ioctl4
+crw-rw----  1 radio     radio        237, 100 2026-08-17 10:44 ccci_ipc_1220_0
+crw-rw----  1 radio     radio        237, 102 2026-08-17 10:44 ccci_ipc_2
+crw-rw----  1 radio     radio        237, 104 2026-08-17 10:44 ccci_ipc_4
+crw-rw----  1 radio     radio        237, 105 2026-08-17 10:44 ccci_ipc_5
+crw-rw----  1 radio     radio        237,  17 2026-08-17 10:44 ccci_it
+crw-rw----  1 radio     radio        237,  18 2026-08-17 10:44 ccci_lb_it
+crw-rw----  1 radio     radio        237,   2 2026-08-17 10:44 ccci_md_log_ctrl
+crw-rw----  1 radio     radio        237,  19 2026-08-17 10:44 ccci_mdl_monitor
+crw-rw----  1 radio     radio        237,   0 2026-08-17 10:44 ccci_monitor
+crw-rw----  1 radio     radio        237,  20 2026-08-17 10:44 ccci_rpc
+crw-------  1 root      root           5,   1 2026-08-17 10:44 console
+crw-------  1 root      root          10,  45 2026-08-17 10:44 cpu_dma_latency
+dr-xr-xr-x  2 system    system              0 2026-08-17 10:44 cpuctl
+drwxr-xr-x  6 system    system            120 2026-08-17 10:44 cpuset
+crw-------  1 root      root          10, 236 2026-08-17 10:44 device-mapper
+cr--r-----  1 root      system       196,   0 2026-08-17 10:44 devmap
+lrwxrwxrwx  1 root      root               57 2026-08-17 10:44 dkb -> /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/dkb
+crw-rw----  1 media     media         10,  55 2026-08-17 10:44 ebc
+crw-------  1 root      root         231,   0 2026-08-17 10:44 emmcrpmb0
+lrwxrwxrwx  1 root      root               13 2026-08-17 10:44 fd -> /proc/self/fd
+crw-rw----  1 system    media        230,   0 2026-08-17 10:44 fm
+drwxrwx---  2 root      system             60 2026-08-17 10:44 fscklogs
+crw-------  1 root      root         210,   0 2026-08-17 10:44 ft_rw_iic_drv
+crw-rw-rw-  1 root      root           1,   7 2026-08-17 10:44 full
+crw-------  1 root      root          10, 229 2026-08-17 10:44 fuse
+crw-rw----  1 gps       system       236,   0 2026-08-17 10:44 gps
+drwxr-xr-x  2 root      root               60 2026-08-17 10:44 graphics
+crw-rw----  1 system    system        10,  39 2026-08-17 10:44 gsensor
+crw-rw----  1 system    system        10,  41 2026-08-17 10:44 hwmsensor
+drwxr-xr-x  2 root      root              180 2026-08-17 10:44 input
+crw-rw-rw-  1 system    graphics      10,  62 2026-08-17 10:44 ion
+lrwxrwxrwx  1 root      root               56 2026-08-17 10:44 kb -> /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/kb
+crw-rw----  1 system    camera       238,   0 2026-08-17 10:44 kd_camera_flashlight
+crw-rw----  1 system    camera       241,   0 2026-08-17 10:44 kd_camera_hw
+crw-rw----  1 system    camera       240,   0 2026-08-17 10:44 kd_camera_hw_bus2
+crw-------  1 root      root           1,   2 2026-08-17 10:44 kmem
+crw-rw-rw-  1 root      root           1,  11 2026-08-17 10:44 kmsg
+lrwxrwxrwx  1 root      root               58 2026-08-17 10:44 logo -> /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/logo
+crw-------  1 root      root          10, 237 2026-08-17 10:44 loop-control
+crw-------  1 root      root          10,  38 2026-08-17 10:44 m_acc_misc
+crw-------  1 root      root          10,  36 2026-08-17 10:44 m_mag_misc
+crw-rw-rw-  1 root      root          10,  61 2026-08-17 10:44 mali0
+crw-------  1 root      root           1,   1 2026-08-17 10:44 mem
+drwx------  3 root      system             60 2026-08-17 10:44 memcg
+crw-------  1 root      root          10,  42 2026-08-17 10:44 memory_bandwidth
+lrwxrwxrwx  1 root      root               58 2026-08-17 10:44 misc -> /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/para
+crw-rw----  1 root      system        10,  52 2026-08-17 10:44 misc-sd
+lrwxrwxrwx  1 root      root               59 2026-08-17 10:44 misc2 -> /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/misc2
+crw-rw----  1 system    system        10,  37 2026-08-17 10:44 msensor
+crw-------  1 radio     root          10,  63 2026-08-17 10:44 mtgpio
+crw-------  1 root      root         248,   0 2026-08-17 10:44 mtk-adc-cali
+crw-------  1 root      root          10,  54 2026-08-17 10:44 mtk-kpd
+crw-r-----  1 system    system       252,   0 2026-08-17 10:44 mtk_cmdq
+crw-rw----  1 system    graphics     246,   0 2026-08-17 10:44 mtk_disp_mgr
+crw-rw----  1 system    media        249,   0 2026-08-17 10:44 mtk_sched
+crw-rw----  1 root      mtp           10,  34 2026-08-17 10:44 mtp_usb
+crw-------  1 root      root          10,  44 2026-08-17 10:44 network_latency
+crw-------  1 root      root          10,  43 2026-08-17 10:44 network_throughput
+crw-rw-rw-  1 root      root           1,   3 2026-08-17 10:44 null
+lrwxrwxrwx  1 root      root               59 2026-08-17 10:44 nvram -> /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/nvram
+crw-r-----  1 media     media         10,  47 2026-08-17 10:44 offloadservice
+crw-------  1 root      root         250,   0 2026-08-17 10:44 pmic_ftm
+c-w--w--w-  1 root      log          253,   0 2026-08-17 10:44 pmsg0
+crw-rw----  1 radio     vpn          108,   0 2026-08-17 10:44 ppp
+lrwxrwxrwx  1 root      root               61 2026-08-17 10:44 pro_info -> /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/proinfo
+crw-rw-rw-  1 root      radio          5,   2 2026-08-17 10:44 ptmx
+drwxr-xr-x  2 root      root                0 1970-01-01 00:00 pts
+crw-------  1 root      root           2,   0 2026-08-17 10:44 ptyp0
+crw-------  1 root      root           2,   1 2026-08-17 10:44 ptyp1
+crw-------  1 root      root           2,   2 2026-08-17 10:44 ptyp2
+crw-------  1 root      root           2,   3 2026-08-17 10:44 ptyp3
+crw-------  1 root      root           2,   4 2026-08-17 10:44 ptyp4
+crw-------  1 root      root           2,   5 2026-08-17 10:44 ptyp5
+crw-------  1 root      root           2,   6 2026-08-17 10:44 ptyp6
+crw-------  1 root      root           2,   7 2026-08-17 10:44 ptyp7
+crw-------  1 root      root           2,   8 2026-08-17 10:44 ptyp8
+crw-------  1 root      root           2,   9 2026-08-17 10:44 ptyp9
+crw-------  1 root      root           2,  10 2026-08-17 10:44 ptypa
+crw-------  1 root      root           2,  11 2026-08-17 10:44 ptypb
+crw-------  1 root      root           2,  12 2026-08-17 10:44 ptypc
+crw-------  1 root      root           2,  13 2026-08-17 10:44 ptypd
+crw-------  1 root      root           2,  14 2026-08-17 10:44 ptype
+crw-------  1 root      root           2,  15 2026-08-17 10:44 ptypf
+drwxrwx---  2 radio     radio              40 2026-08-17 10:44 radio
+crw-rw-rw-  1 root      root           1,   8 2026-08-17 10:44 random
+lrwxrwxrwx  1 root      root               62 2026-08-17 10:44 recovery -> /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/recovery
+crw-r-----  1 system    system       251,   0 2026-08-17 10:44 rtc0
+crw-rw----  1 root      system       182,   0 2026-08-17 10:44 sec
+lrwxrwxrwx  1 root      root               59 2026-08-17 10:44 sec_ro -> /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/secro
+lrwxrwxrwx  1 root      root               60 2026-08-17 10:44 seccfg -> /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/seccfg
+crw-------  1 root      root          10, 231 2026-08-17 10:44 snapshot
+drwxr-xr-x  2 root      root              900 2026-08-17 10:44 snd
+drwxr-xr-x  2 root      root              440 2026-08-17 10:44 socket
+crw-rw----  1 bluetooth net_bt_stack 192,   0 2026-08-17 10:44 stpbt
+crw-rw----  1 gps       gps          191,   0 2026-08-17 10:44 stpgps
+crw-rw----  1 system    system       190,   0 2026-08-17 10:44 stpwmt
+drwxr-xr-x  6 system    system            120 2026-08-17 10:44 stune
+crw-rw----  1 system    graphics      10,  48 2026-08-17 10:44 sw_sync
+crw-rw----  1 root      system        10,  32 2026-08-17 10:44 touch
+crw-------  1 root      root          10,  53 2026-08-17 10:44 tpd_em_log
+crw-rw-rw-  1 root      root           5,   0 2026-08-17 10:44 tty
+crw-rw----  1 radio     radio        237,   3 2026-08-17 10:44 ttyC0
+crw-rw----  1 radio     radio        237,   7 2026-08-17 10:44 ttyC1
+crw-rw----  1 radio     radio        237,   5 2026-08-17 10:44 ttyC2
+crw-rw----  1 radio     radio        237,   6 2026-08-17 10:44 ttyC3
+crw-rw----  1 system    root         234,   0 2026-08-17 10:44 ttyGS0
+crw-rw----  1 system    root         234,   1 2026-08-17 10:44 ttyGS1
+crw-rw----  1 bluetooth radio        234,   2 2026-08-17 10:44 ttyGS2
+crw-rw----  1 system    radio        234,   3 2026-08-17 10:44 ttyGS3
+crw-------  1 root      root         234,   4 2026-08-17 10:44 ttyGS4
+crw-------  1 root      root         234,   5 2026-08-17 10:44 ttyGS5
+crw-------  1 root      root         234,   6 2026-08-17 10:44 ttyGS6
+crw-------  1 root      root         234,   7 2026-08-17 10:44 ttyGS7
+crw-------  1 root      root         204, 209 2026-08-17 10:44 ttyMT0
+crw-------  1 root      root         204, 210 2026-08-17 10:44 ttyMT1
+crw-rw----  1 system    system       204, 211 2026-08-17 10:44 ttyMT2
+crw-------  1 root      root         204, 212 2026-08-17 10:44 ttyMT3
+crw-------  1 root      root           3,   0 2026-08-17 10:44 ttyp0
+crw-------  1 root      root           3,   1 2026-08-17 10:44 ttyp1
+crw-------  1 root      root           3,   2 2026-08-17 10:44 ttyp2
+crw-------  1 root      root           3,   3 2026-08-17 10:44 ttyp3
+crw-------  1 root      root           3,   4 2026-08-17 10:44 ttyp4
+crw-------  1 root      root           3,   5 2026-08-17 10:44 ttyp5
+crw-------  1 root      root           3,   6 2026-08-17 10:44 ttyp6
+crw-------  1 root      root           3,   7 2026-08-17 10:44 ttyp7
+crw-------  1 root      root           3,   8 2026-08-17 10:44 ttyp8
+crw-------  1 root      root           3,   9 2026-08-17 10:44 ttyp9
+crw-------  1 root      root           3,  10 2026-08-17 10:44 ttypa
+crw-------  1 root      root           3,  11 2026-08-17 10:44 ttypb
+crw-------  1 root      root           3,  12 2026-08-17 10:44 ttypc
+crw-------  1 root      root           3,  13 2026-08-17 10:44 ttypd
+crw-------  1 root      root           3,  14 2026-08-17 10:44 ttype
+crw-------  1 root      root           3,  15 2026-08-17 10:44 ttypf
+crw-rw----  1 system    vpn           10, 200 2026-08-17 10:44 tun
+crw-rw----  1 system    net_bt_stack  10, 239 2026-08-17 10:44 uhid
+crw-rw----  1 system    net_bt_admin  10, 223 2026-08-17 10:44 uinput
+crw-rw-rw-  1 root      root           1,   9 2026-08-17 10:44 urandom
+crw-rw----  1 root      usb           10,  33 2026-08-17 10:44 usb_accessory
+crw-rw----  1 system    system       153,   0 2026-08-17 10:44 wmtWifi
+crw-rw----  1 system    system       154,   0 2026-08-17 10:44 wmtdetect
+crw-------  1 root      root          10,  56 2026-08-17 10:44 xLog
+crw-r--r--  1 root      root          10,  46 2026-08-17 10:44 xt_qtaguid
+crw-rw-rw-  1 root      root           1,   5 2026-08-17 10:44 zero

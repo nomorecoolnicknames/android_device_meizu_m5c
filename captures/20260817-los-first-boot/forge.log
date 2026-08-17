@@ -1,0 +1,8 @@
+=== forge_log start uptime=24.18 25.03 ===
+mount: 'debugfs'->'/sys/kernel/debug': Device or resource busy
+android_usb present: state=DISCONNECTED functions=adb
+forced: state=DISCONNECTED functions=adb enable=1
+=== forge_log start uptime=24.76 25.55 ===
+mount: 'debugfs'->'/sys/kernel/debug': Device or resource busy
+android_usb present: state=DISCONNECTED functions=adb
+forced: state=DISCONNECTED functions=adb enable=1
