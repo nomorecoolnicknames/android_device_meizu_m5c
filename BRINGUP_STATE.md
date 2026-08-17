@@ -1497,3 +1497,49 @@ FACT: `CONFIG_MTK_UNIFY_POWER`, `CONFIG_SCHED_TUNE`, `CONFIG_ENERGY_AWARE` в
 m5c_defconfig отсутствуют — upower-ветки `cpu_core_energy`/`cpu_cluster_energy`
 скомпилированы вне, полноценный EAS не включён, поэтому механизм «вис в
 energy-aware выборе ядра при пробуждении» ослаблен.
+
+## 4.9 arm64: P16 — вис сузился до bind/attach/wake первого воркера (2026-08-17)
+
+Прошит `boot_49_p16.img` (sha256 `a1a399fb3c66c8a4e9a7c19b3047e1bd58304907018d7781da228c6a73e6d888`),
+recovery через 65 с. Слоты (`captures/20260817-49-p16/fD_p16.bin`):
+
+FACT: 33 (+272) вход в `workqueue_init` — стоит; 38 (+312) первый `create_worker`
+вошёл — стоит; **39 (+320) `kthread_create_on_node` вернулся — СТОИТ**;
+40 (+328) первый воркер разбужен — НЕТ; 35 (+288) per-cpu цикл — НЕТ;
+36 (+296) unbound-пулы — НЕТ.
+
+REJECTED (гипотеза «вечно ждём kthreadd»): `kthread_create_on_node()` ставит
+запрос в `kthread_create_list`, будит `kthreadd_task` и блокируется на
+`wait_for_completion_killable()`. Раз она вернулась (маркер 39), запрос обслужен,
+то есть **kthreadd (PID 2) исполнялся и планировщик способен переключать
+задачи**. Оговорка: маркер 39 стоит до проверки `IS_ERR`, поэтому формально не
+различает «создан» и «ошибка»; но при ошибке был бы `goto fail` → NULL →
+`BUG_ON(!create_worker(pool))` → печать BUG, которой в логе нет. Значит поток
+создан.
+
+INFERENCE: вис в участке между 39 и 40, где ровно четыре шага —
+`set_user_nice()`, `kthread_bind_mask()`, `worker_attach_to_pool()`, затем блок
+`spin_lock_irq(&pool->lock)` → `worker_enter_idle()` → `wake_up_process()` →
+`spin_unlock_irq()`.
+
+HYPOTHESIS (главная, с проверкой): `kthread_bind_mask()` →
+`__kthread_bind_mask()` → `wait_task_inactive()`, который в цикле зовёт
+`schedule_timeout_uninterruptible(1)`. Это **первая точка за всю загрузку, где
+требуется продвижение jiffies**, то есть таймерное прерывание: до неё ядро ни
+разу не спало и не ждало таймаута. Метки времени в логе идут от `sched_clock`
+(mt_gpt) и про приход тика ничего не доказывают — механизмы независимы. К этому
+же примыкает незакрытое расхождение с 3.18: там clockevent — MTK-шный
+`ca53_timer`, у нас дженерик `arm_arch_timer`, и только у 4.9 печатается
+`Fail to set polarity of interrupt 29/30` (ранее списано в косметику — снято с
+косметики). Falsification: записать ЗНАЧЕНИЯ `jiffies` и
+`arch_counter_get_cntpct()` в слоты в двух точках; растущий счётчик при
+неподвижных jiffies = тик не приходит.
+
+HYPOTHESIS (вторая): `wake_up_process()` внутри `spin_lock_irq(&pool->lock)` —
+прерывания выключены, поэтому вис в пути размещения задачи при вырожденной
+топологии (`cluster_id=-1` у всех ядер, capacity 0) даёт абсолютную тишину без
+watchdog-печатей. Falsification: скобки после каждого из четырёх шагов.
+
+P17 (маркеры внутри `kthreadd`) НЕ прошивался: он отвечает на вопрос, уже
+закрытый маркером 39. Запрошен P18 = скобки 39→40 + свидетели-значения jiffies /
+arch counter + опционально маркер в `arch_timer_handler_phys()`.
