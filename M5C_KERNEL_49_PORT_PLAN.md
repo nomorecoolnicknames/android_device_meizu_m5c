@@ -1,412 +1,354 @@
-# M5c — план перехода на ядро 4.9 (kernel-4.9-lc) для Android 9/10+
+# M5c — план v2: ядро 4.9 (arm64) как энейблер Android 13 GSI, vendor на `custom`
 
-Дата: 2026-08-17. Автор: агент k49-plan (исследование по GitHub REST API +
-локальные деревья). Все нетривиальные утверждения помечены
-FACT / INFERENCE / HYPOTHESIS / REJECTED по правилам `/srv/forge/android/CLAUDE.md`.
+Дата: 2026-08-17, ревизия v2 (v1 от того же дня пересмотрена по трём решениям
+владельца: цель — **Android 13**, **только arm64**, vendor-образ живёт на
+разделе **`custom`**). Все нетривиальные утверждения помечены
+FACT / INFERENCE / HYPOTHESIS / REJECTED по `/srv/forge/android/CLAUDE.md`.
 
-Контекст (установлено ранее, не передоказывается): текущее ядро 3.18.19
-(`/home/valakas/m5c/android_kernel_meizu_m5c`, HEAD `d2d6975c`), LOS 14.1
-грузится, дисплей работает, два блокера — USB (PMIC EINT / CHRDET) и тач
-(нет gt9xx-драйвера). Карта железа — `M5C_CHIP_MAP.md` (снята с живого стока).
+Закрыто со времени v1 и здесь не пересматривается: оба блокера 3.18 починены и
+проверены на железе (adb по USB из Android, gt9xx на 1-005d с мультитачем и
+правильной ориентацией, fan5405 биндится; коммиты ядра `2f918464`, `b83303d7`,
+`4137458e`); дефект «экран после resume» был нашей кривой реверс-таблицей —
+эталонные LCM-таблицы извлекаются байт-в-байт из
+`/home/valakas/m5c/kernel-reverse/vmlinux.elf` (ili9881c: VA
+`0xffffffc00101c5e8`, 192 × 72-байтные `struct LCM_setting_table`) — этот метод
+обязателен для всех остальных реверс-таблиц; MTKZU android-9 — это 3.18.119
+под ДРУГОЙ вариант m5c (jd9365 + FocalTech, без fan5405/imgsensor,
+BRINGUP_STATE коммит `6cd008a`). Единственный авторитет по нашему железу —
+`M5C_CHIP_MAP.md`.
 
 ---
 
-## A. Какие базы 4.9 реально существуют для MT6735/MT6737
+## 1. Решающий вопрос: существует ли где-нибудь arm64 4.9 для MT6735M?
 
-### A.1 Главный вывод: линия «kernel-4.9-lc» — официальный MTK T-ALPS-Q0
+**Короткий ответ: нет. Проверено. Но графт дешевле, чем казалось в v1.**
 
-FACT: существует семейство зеркал одного и того же MTK-релиза
-**kernel-4.9-lc** («lc» = low cost / legacy chips), все — kernel **4.9.188**
-(проверено `Makefile` каждого по raw.githubusercontent.com):
+### 1.1 Что искалось и что нашлось
 
-| Репозиторий | Ветка | Версия | Комментарий |
-|---|---|---|---|
-| `nyancrimew/mtk-t-alps-release-q0-kernel-4.9-lc` | master | 4.9.188 | имя прямо кодирует релиз: **T-ALPS release Q0** |
-| `memediatek/kernel-4.9-lc` | q | 4.9.188 | зеркало |
-| `deadman96385/android_kernel_alps_4.9-lc` | master | 4.9.188 | зеркало (push 2023) |
-| `mixa232323/kernel-4.9-lc` | master | 4.9.188 | зеркало |
-| `mtk-watch/android_kernel-4.9-lc`, `OpenWatchProject/…` | — | не качал | по имени — то же |
-| `mhdzumair/MhDzMR-woods-nicklaus-4.9` | master | **4.9.117** | «Alps 4.9-lc MT6737 kernel source», **вендорский релиз 2020 г. реально отгружавшегося устройства на MT6737** |
+- FACT: в эталонном T-ALPS-Q0 (`nyancrimew/mtk-t-alps-release-q0-kernel-4.9-lc`)
+  `arch/arm64/configs/k37mv1_bsp_defconfig` **отсутствует** (HTTP 404 на raw),
+  arm32 `arch/arm/configs/k37mv1_bsp_k49_defconfig` — есть (HTTP 200).
+- FACT: в MTKZU android-10 `arch/arm64/configs/` есть
+  `k37mv1_bsp_defconfig` и `k37mv1_bsp_debug_defconfig`, но `git log --follow`
+  (клон углублён `--deepen=10`) показывает: они добавлены коммитом
+  `9be5d2018` «Copy arm k37 and arm64 k57 config to arm64 folder» и
+  **байт-в-байт равны arm32-оригиналам** (diff = 0 строк). Это копии, а не
+  вендорский arm64-конфиг.
+- FACT: в вендорском 4.9-lc дереве `mhdzumair/MhDzMR-woods-nicklaus-4.9`
+  (4.9.117) `arch/arm64/configs/` содержит только mt2712/mt8173/ranchu —
+  никакого k37/mt6735.
+- FACT: поиск GitHub по `k37mv1`, `k37tv1`, `mt6737m`, `mt6737t`,
+  `6737 android-10`, `mt6735 android_kernel 4.9` не дал ни одного 4.9-дерева
+  mt6737 кроме уже известных; все community-деревья mt6737m/t — 3.18.x.
+  (Code-search API без токена недоступен — покрыты repo-search и прямые
+  raw-пробы; это ограничение поиска, зафиксировано.)
+- FACT (поправка к v1): «woods/nicklaus» — кодовые имена Moto C Plus / E4 Plus
+  (репозитории dhirajms и MhDzMR-Kernel-Nicklaus), которые retail-шипились на
+  3.18. Дерево woods-nicklaus-4.9 — это **порт-попытка энтузиаста поверх
+  ALPS 4.9-lc**, а не заводское ядро устройства. Утверждение v1 «вендоры
+  реально отгружали MT6737 на 4.9» ослабляется до: **MTK выпустил
+  production-intent 4.9-lc с reference-конфигом k37mv1 (=MT6737M), но retail-
+  устройства на нём я не нашёл.** Контрольный замер: Nokia NE1 (mt6737m,
+  Android 9 Go, дамп `Firmware-Dumper/nokia_ne1_dump`) — ядро из boot.img
+  дампа: `Linux version 3.18.119+ … May 15 2019`, arm64 (kernel @0x40080000,
+  `bootopt=64S3,32N2,64N2` — тот же, что у нас).
 
-FACT (клон `mhdzumair/…woods-nicklaus-4.9`, локально
-`…/scratchpad/woods-49`): в `arch/arm/configs/` лежат
-`k37mv1_bsp_k49_defconfig` и `k37mv1_bsp_k49_debug_defconfig` —
-**заводской конфиг reference-платы K37MV1 = MT6737M на ядре 4.9**, с
-`CONFIG_MACH_MT6735M=y`, `CONFIG_MTK_PLATFORM="mt6735"`,
-`CONFIG_MTK_GAUGE_VERSION=20`, `CONFIG_USB_CONFIGFS_*=y`,
-`CONFIG_MTK_GPU_VERSION="mali midgard r26p0"`,
-`CONFIG_MTK_FLASHLIGHT_LM3642=y`.
+### 1.2 Почему графт arm64 — это wiring, а не порт
 
-INFERENCE (из двух FACT выше): MTK довёл mt6735m до **продакшн-качества на
-4.9** (Android 10 Go-устройства на MT6737 отгружались на 4.9-lc). Это не
-любительский бэкпорт — база надёжная.
+- FACT: `drivers/misc/mediatek/base/power/mt6735/Makefile` в 4.9-lc содержит
+  `ifneq ($(CONFIG_ARM64), y)` вокруг arm32-SMP объектов
+  (`mt-smp.o hotplug.o mt-headsmp.o`); `smp.h` там же — с arm64-ветками.
+  То есть MTK **сохранил arm64-условия в платформенном коде mt6735** при
+  переносе на 4.9 (код унаследован от arm64-способного 3.18/M-дерева).
+- FACT: единственный arm32-специфичный asm под mt6735 —
+  `base/power/mt6735/{mt-headsmp.S, mt_hotplug.S}` (arm32 SMP-bringup, на
+  arm64 не нужен: SMP поднимает ATF через spin-table/psci, как на нашем 3.18)
+  и `base/power/cpuidle_v1/cpu_dormant*.S` (arm32 dormant). Оба уже за
+  Makefile-гардами либо отключаемы конфигом.
+- FACT: `MACH_MT6735M` упоминают 104 файла дерева, но это `#ifdef`-гарды и
+  Makefile-условия — они заработают на arm64, как только символ появится в
+  arm64 Kconfig. Прецедент: наш 3.18 собирает практически тот же вендорский
+  код mt6735 в arm64 (FACT — текущее ядро #11 arm64 живёт на устройстве).
+- FACT: загрузчик менять не надо — стоковый LK m5c грузит arm64 Image+DTB
+  уже сейчас (наше 3.18-ядро), `bootopt=64S3`; DTB у нас байт-в-байт
+  стоковый; механизм `CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE` в 4.9-lc есть.
 
-FACT (критично): в обоих склонированных 4.9-lc деревьях `MACH_MT6580 /
-MACH_MT6735 / MACH_MT6735M` объявлены **только в `arch/arm/Kconfig`**
-(проверено grep по HEAD обоих клонов); в `arch/arm64/Kconfig.platforms`
-mt6735 нет, в `arch/arm64/boot/dts/Makefile` ссылок на mt6735/m5c нет,
-`arch/arm64/boot/dts/mediatek/` содержит только mt6761/63/65/2712 и пр.
-→ **официальная поддержка mt6735m в 4.9-lc — только ARM32 (zImage-dtb)**.
+INFERENCE: графт = переписать несколько десятков строк арх-обвязки, а не
+портировать платформу. Конкретный объём работ:
 
-### A.2 MTKZU/android_kernel_meizu_m5c — разбор по веткам
+1. `arch/arm64/Kconfig.platforms`: добавить `config MACH_MT6735M` по образцу
+   существующего `MACH_MT6765`, НЕ перенося arm32-селекты
+   (`CPU_V7`, `VFP_OPT`, `NEED_MACH_MEMORY_H` — их в arm32-блоке видно в
+   `arch/arm/Kconfig`); оставить селекты MTK-подсистем
+   (`MTK_SYS_CIRQ`, `MTK_EIC`, `MTK_GPIO`, systracker и т.п. — сверить с
+   тем, что реально требует сборка).
+2. DTS: перенести `arch/arm/boot/dts/{mt6735m.dts, mt6735m-pinfunc.h,
+   cust_mt6735_msdc.dtsi}` в `arch/arm64/boot/dts/mediatek/` + строка
+   `dtb-$(CONFIG_MACH_MT6735M)` в Makefile. Первую сборку делать вообще без
+   своего DTS — приложить **стоковый DTB** (md5 `e17a0910…`, HYPOTHESIS v1 о
+   его совместимости с 4.9-биндингами остаётся в силе: биндинги одной эпохи,
+   фальсификация = именно этот тест).
+3. Defconfig: не тащить рукописный MTKZU-конфиг; взять arm32
+   `k37mv1_bsp_k49_defconfig` как список включённых MTK-фич + наш боевой
+   3.18 `m5c_defconfig` как список m5c-специфики, собрать arm64-defconfig
+   заново (`ARCH=arm64 make olddefconfig` и итерации по ошибкам сборки).
+4. Чинить фактические ошибки компиляции по мере появления. Ожидаемые зоны
+   (по консумерам `MACH_MT6735M`): `drivers/clocksource/mt_gpt.c`,
+   `drivers/cpuidle/`, `base/power/{spm,sleep,clkbuf}`-заголовки, aee/mrdump.
+   У всех есть либо arm64-ветки (проверено точечно), либо mt6763/65-образцы
+   в том же дереве.
+5. НЕ включать в первый проход: GPU (`MTK_GPU_SUPPORT`), imgsensor, тач,
+   сенсоры, свой LCM — минимальное ядро до init.
 
-FACT (GitHub API): репо **не форк**, создано 2022-02-10, две ветки.
+**Минимальный тест графта (go/no-go гейт всего плана):** собрать arm64
+`Image.gz` + стоковый DTB, упаковать с текущим LOS14.1-рамдиском (+ forge-
+логгер), прошить boot (p7), снять маркеры.
+- Проверка успеха: `$D adb -s 710HVBR923RYK shell cat /proc/version` →
+  `4.9.188`; либо файл этапов логгера в `/data/forge/`.
+- Проверка провала: TWRP (живёт на стоковом ядре, канал не теряется) →
+  `cat /proc/last_kmsg` / expdb — где встало.
+- Критерий no-go: если после ~4 сессий нет ни одного маркера жизни ядра
+  (даже раннего printk в last_kmsg) — фиксируем REJECTED с логами. Запасной
+  arm32-путь по решению владельца вне скоупа, так что no-go = остановка
+  4.9-трека и возврат к вопросу целей (честно заявляю это следствие).
 
-**Ветка `android-9`** — это **НЕ 4.9**: `Makefile` = **3.18.119**
-(raw fetch). История (API `/commits?sha=android-9`): 2022-02-10 «Import
-Kernel Source» → серия реальных m5c-коммитов: «Add stock DTS»
-(`arch/arm64/boot/dts/m5c.dts`, 3577 строк — размер совпадает с нашим
-декомпилированным стоковым DTS), «Add LCM Driver»
-(**jd9365_dsi_vdo_holitech_hd720**, +586 строк), «Add Touch Driver»
-(**focaltech_touch ft5446** — вариант тача для ДРУГОЙ ревизии панели, у
-нашего экземпляра Goodix), «Change IMGSENSOR», «Enable Charger driver»
-(правки `charging_hw_fan5405.c`/`fan5405.c`). Итоговый defconfig
-`arch/arm64/configs/m5c_defconfig` (3794 строки, полный):
-`CONFIG_ARCH_MT6735M=y`, `CONFIG_CUSTOM_KERNEL_LCM="jd9365…"`,
-`CONFIG_USB_G_ANDROID=y`.
-INFERENCE: ветка android-9 — осмысленный порт m5c на 3.18.119 (ALPS N/O
-vintage) под ALPS-Android-9; парное device-дерево
-`MTKZU/android_device_meizu_m5c` (ветка `alps9`) — ALPS-стиль
-(`TARGET_BOARD_PLATFORM := mt6737m`, включает `device/mediatek/mt6735`).
-Загружалось ли оно на железе — **неизвестно** (релизов в репо нет; артефакт,
-который бы это решил: собранный boot.img/скриншот от автора — отсутствует).
+## 2. Реалистичен ли Android 13 на 4.9 — и где потолок
 
-**Ветка `android-10`** — это и есть «4.9.188-кандидат» из брифа. FACT:
-история — всего 5 коммитов за 3 дня (2025-07-10…12, автор XRed_CubeX):
-«Import Android 10 4.9lc Kernel Source» → «Copy arm k37 and arm64 k57 config
-to arm64 folder» → «Import A64 changes to m5c» (этот коммит **добавляет один
-файл** — рукописный `arch/arm64/configs/m5c_defconfig` на 358 строк) →
-«Fix yylloc». m5c-содержимое ветки: **только этот defconfig**. Проверено по
-клону (`…/scratchpad/mtkzu-a10`, 68265 файлов):
-- `jd9365`, `ili9881c_dsi_vdo_dj_hd720`, `lp3101`, `mc3xxx`, `akm09912`,
-  `stk3x1x`, `s5k4h8` — **0 файлов**;
-- `m5c.dts` — **нет вообще** (ни в arm, ни в arm64), хотя defconfig просит
-  `CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES="m5c"`;
-- defconfig ставит `CONFIG_MACH_MT6735M=y`, но в arm64-Kconfig такого
-  символа нет (см. A.1) → символ молча выпадает при olddefconfig;
-- `CONFIG_LCM_WIDTH="1280"` / `HEIGHT="720"` — перепутаны местами;
-  `CONFIG_CUSTOM_KERNEL_LCM=""` — пусто.
+- FACT (webfetch source.android.com/docs/core/architecture/kernel/android-common):
+  официальная GKI-матрица A13 называет только `android13-5.15/5.10` и
+  `android12-5.10`. Это матрица **launch/ACK-веток**, не upgrade-устройств.
+- INFERENCE: для upgrade-устройств и кастомов действует VTS-минимум, и для
+  A13 он равен 4.9 (в A14 минимум поднят до 4.14) — 4.9 исторически
+  последняя LTS-ветка ACK c поддержкой до 2023 (android-4.9-q). Прямую
+  страницу с VTS-матрицей в этой сессии не фиксировал — при исполнении
+  Phase G проверить одной строкой (vts_kernel_version test в A13 CTS).
+  Практика сообщества: phh AOSP 13 и AndyYan LineageOS 20 TD GSI регулярно
+  загружаются на MTK-устройствах с 4.9 — INFERENCE из публичных тредов, не
+  проверено мной лично; фальсификация встроена в Phase G (первая же загрузка).
+- INFERENCE (ключевое «почему 4.9, а не 3.18»): Android 11+ netd требует
+  eBPF (cgroup-BPF, удалён fallback на xt_qtaguid) — ядра 3.18 этого не
+  умеют, 4.9 ACK — умеет. Именно это делает 4.9 энейблером A11/A12/A13, а
+  3.18 — потолком на уровне A10. Фальсификация: на готовом 4.9 проверить
+  `bpfloader`-лог и `/sys/fs/bpf` при загрузке GSI.
+- Потолок: **A13 — реалистичная цель; A14+ — нет** (минимум ядра 4.14+,
+  наш SoC-класс на 4.14 никогда не существовал). Если A13-GSI на практике
+  упрётся в незакрываемое (см. риски), честный fallback — A12L GSI на том же
+  стеке; разница для этого плана нулевая (та же механика, тот же vendor).
 
-INFERENCE (из перечисленных FACT): ветка android-10 — **незаконченная
-заготовка**: импорт стокового 4.9-lc Q0 + скопированный k37-конфиг. Она не
-могла собраться как arm64 и тем более не грузилась. Ценность MTKZU
-android-10 ≈ ценность чистого kernel-4.9-lc; брать в качестве базы лучше
-само зеркало T-ALPS-Q0 (история чище), а MTKZU держать как референс.
+Что нужно от нас для A13 GSI arm64 на legacy-устройстве (non-A/B, ext4,
+без dynamic partitions, AVB нет):
+1. **arm64-ядро 4.9** — Phase 0–2.
+2. **Treble-vendor** с VINTF-манифестом и split-sepolicy на своём разделе —
+   раздел `custom` (см. §3).
+3. **Boot-flow**: A10+ = system-as-root; на legacy это решается first-stage
+   ramdisk'ом в нашем boot.img: init первой стадии из ramdisk монтирует
+   /system (p23) и /vendor (p17=custom) по fstab из ramdisk'а и делает
+   switch_root. DT-нода `firmware/android/fstab` не обязательна при
+   ramdisk-fstab (в отличие от MX6-кейса B, где ramdisk выбрасывался; урок
+   MX6 §7a учтён — контексты selinux должны быть доступны первой стадии).
+4. **GSI-образ**: AndyYan LOS 20 TD `arm64_bvN` или phh AOSP 13 arm64 —
+   raw ext4, шьётся в system через TWRP. FACT: наш system p23 =
+   2 621 440 KiB = **2.5 GiB**; размеры современных A13-GSI подползают к
+   этому пределу. Замерить фактический img на момент исполнения; если не
+   влезает — варианты: vndklite/lite-сборки GSI, resize2fs образа после
+   заливки, или (крайнее) пересборка GPT — отдельное решение владельца.
 
-### A.3 Остальные известные деревья
+## 3. Vendor на `custom` (mmcblk0p17, 512 MiB)
 
-- `XRedCubeX/android_kernel_m5c` (nougat/oreo, 3.18.79): REJECTED как база
-  4.9 (это 3.18), но FACT из брифа — там живой jd9365 и IMGSENSOR
-  "s5k4h8_mipi_raw s5k5e8_mipi_raw" → запасной источник портов.
-- `XRedCubeX/android_kernel_meizu_mt6735` (lineage-16.0): FACT — `Makefile`
-  = **3.18.119**. То есть чужой LOS-16 для mt6735 ехал на 3.18, не на 4.9.
-- `Skyrimus/*` (Wileyfox Porridge, MT6735): 3.18.x — REJECTED как база 4.9.
-- Поиск GitHub API по `mt6735 kernel 4.9` / `mt6737 4.9` / `"4.9-lc"` других
-  независимых баз **не дал** (единственный вендорский хит — woods-nicklaus).
-  Полного code-search без токена нет; если появится токен — можно добить
-  запросами `path:arch/arm/configs k37 4.9`, но новых баз не ожидаю.
+FACT (живое устройство + дамп, 2026-08-17):
+- p17 `custom` = 524 288 KiB ровно; бэкап снят:
+  `/tmp/m5c-backup-20260817/custom.img` на девбоксе, sha256
+  `ad8f6a88aed0d8f1cf6e244e35ac133233aa0b14dbb3862ce4d95e34f98b9174`.
+- ФС: ext4 (has_journal, extent, uninit_bg — старый mke2fs), last mounted on
+  `/custom`, занято ~18.3 K блоков ≈ **72 MiB, полезного контента 56 MiB**.
+- Содержимое (смонтирован дамп, инвентаризация): `3rd-party/apk/{TouchPal,
+  SpanishPack, SkinPackOEMMeiZu, DataMigration}` (56M), `app/Gba/Gba.apk`,
+  `plugin/FwkPlugin`, `cip-build.prop` (VoLTE/gemini-пропсы от 2017-11-11).
+  **Это предустановочный Flyme-блоат + CIP-пропсы; ни одного HAL, ни одной
+  библиотеки, ни прошивок.** Потеря при перезаписи: на LOS — ничего (LOS его
+  и не монтирует); на стоке — исчезнут предустановки и cip-пропсы
+  (VoLTE-флаги волью́тся в наш vendor при необходимости). Бэкап полный, откат
+  тривиален.
+- Полная карта разделов снята (`/proc/partitions` + by-name): system p23
+  2.5G, cache p24 400M, userdata p25 11.06G, nvdata p19 32M, nvram p2 5M.
 
-### A.4 Наличие наших компонентов в 4.9-lc (проверено по клонам, оба дерева совпадают)
+INFERENCE (пределы уверенности названы): preloader/LK судьбой `custom` не
+интересуются — стоковый LK читает lk/boot/logo/tee/seccfg/para; `custom`
+монтировался только Android-fstab'ом стока. Проверка при исполнении: после
+перезаписи custom убедиться, что сток-recovery и LK грузятся как прежде
+(они у нас в неизменном виде).
 
-| Компонент (из M5C_CHIP_MAP) | В 4.9-lc | Где / что именно |
+### 3.1 Откуда берётся сам vendor-образ
+
+Прайор-арт того же цеха:
+`/srv/forge/android/meizu_mx6_m95/TREBLE_VENDOR_PARTITION_PLAN.md` (MT6797,
+тот же трюк с custom). Его главные уроки, применимые здесь: (1) vendor-раздел
+и Treble и VNDK-enforcement — **три разных вещи**, и enforcement для legacy-
+блобов недостижим и не нужен; (2) первый риск — first-stage mount и
+*_contexts для первой стадии; (3) `custom` не пустой — инвентаризация до
+перезаписи (здесь сделана, см. выше); (4) ловушки измерений (dd bs=1M,
+debugfs -c и т.д.) — перечитать §0.1 перед работой на девбоксе.
+
+Отличие от MX6-кейса: нам нужен не «LOS14.1 с vendor-разделом», а vendor,
+который скормится **A13 GSI**. GSI требует от vendor: VINTF device manifest,
+HIDL-HALы (binderized или passthrough), split-sepolicy P-эпохи+
+(vndk 28+ обслуживается самим GSI). Наш Flyme A6-набор этому не
+удовлетворяет сам по себе. Донор:
+
+- FACT: дамп **Nokia NE1** (`Firmware-Dumper/nokia_ne1_dump`, ветка master) —
+  mt6737m, Android 9 Go, fingerprint `Nokia/NE1_00WW_FIH/NE1:9/PPR1…`,
+  security patch 2019-05, **non-AB, VNDK 28**, и его vendor —
+  **64-битный**: `vendor/lib64/egl/libGLES_mali.so`,
+  `vendor/lib64/hw/android.hardware.{audio@4.0,bluetooth@1.0,
+  camera.provider@2.4,…}-impl-mediatek.so`, `hwcomposer.mt6735.so` (64-bit),
+  `gralloc.mt6737m.so`, оба vintf-манифеста на месте (241 файл в lib64).
+  Ядро NE1 — 3.18.119 arm64 (см. §1.1).
+- INFERENCE: NE1-vendor — лучший донор каркаса: тот же SoC (mt6737m), та же
+  арх (arm64 ядро + 64-битные HALы), готовые HIDL-обёртки MTK P-эпохи,
+  VNDK 28 → класс vendor'ов, который современные GSI заявленно
+  поддерживают. Наши Flyme-блобы доливаются поверх точечно (camera 3A/NVRAM-
+  специфика, аудио-параметры, gps conf) — как на M6.
+- Сшивка ABI с ядром 4.9 — два узких места, оба названы в §4: (a) GPU: NE1
+  `libGLES_mali` 64-bit рассчитан на kbase 3.18-эпохи → в 4.9-lc для mt6735
+  сохранён **старый kbase `gpu/mt6735/mali-r7p0`** (275 файлов, FACT) — им и
+  собираться, а не midgard r26p0; (b) disp: `hwcomposer.mt6735.so` P-эпохи
+  против `video/mt6735` Q-эпохи — HYPOTHESIS о совместимости ioctl,
+  фальсификация в Phase E.
+
+### 3.2 Механика custom→vendor
+
+1. Образ: собирать vendor.img (ext4, ≤ 512 MiB) из донор-каркаса + наших
+   блобов. Оценка объёма: NE1 vendor нужно замерить при исполнении
+   (дамп качается посекционно); типичный legacy-MTK vendor 150–250 MiB —
+   INFERENCE, 512 MiB достаточно с запасом ×2.
+2. fstab: (a) first-stage ramdisk fstab:
+   `/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/custom /vendor ext4 ro wait`;
+   (b) fstab TWRP — добавить `/vendor` на ту же ноду (существующее TWRP-
+   дерево: `Dekompilyator/twrp_meizu_m5c`, обновить его fstab).
+3. sepolicy: метка `vendor_block_device` на `custom` в file_contexts донauра/
+   нашем; для GSI план sepolicy split уже внутри donor-vendor (P-стиль).
+4. Прошивка vendor.img в p17 — TWRP `flash to custom` (описать в TWRP-дереве
+   как отдельный partition target) или dd из recovery; всегда с ручным
+   подтверждением, как принято.
+5. Прежде чем шить GSI: смок «vendor-раздел как таковой» можно доказать ещё
+   на 3.18+LOS14.1 (MX6-стадия A: наш нынешний vendor-каталог выносится на
+   custom, `TARGET_COPY_OUT_VENDOR` + fstab) — этот трек параллелен ядру и
+   не блокируется графтом. Опционален, но дёшев и снимает механику
+   (fstab/метки/TWRP) с критического пути.
+
+## 4. Матрица компонентов
+
+Полная таблица (проверено по клонам 4.9-lc; источники портов — наше 3.18-дерево,
+пути в нём проверены `git ls-files`):
+
+| Компонент (M5C_CHIP_MAP) | В 4.9-lc | Действие |
 |---|---|---|
-| Панель jd9365_dsi_vdo_holitech_hd720 | **нет** | портировать |
-| Панель ili9881c_dsi_vdo_dj_hd720 | **нет** (есть только ilitek-варианты под nt50358/rt5081 — другой init-код и bias) | портировать |
-| Bias lp3101 (1-003e) | **нет** | портировать (`lcm/lp3101.c` из 3.18) |
-| Тач gt9xx hotknot (1-005d, GT917D) | **частично**: `GT9XX_hotknot{,_phone,_scp}` выпотрошены до одних Kconfig; но есть полный **`gt9xxtb_hn_new`** (gt9xx_driver/update/extents/goodix_tool, hotknot=28 вхождений, tpd_dts_data-стиль) | адаптировать gt9xxtb_hn_new ИЛИ портировать наш GT9XXTB_hotknot из 3.18 |
-| Зарядник fan5405 (1-006a) | **да**: `power/mt6735/{fan5405.c,charging_hw_fan5405.c}` + `CONFIG_MTK_FAN5405_SUPPORT` (`drivers/power/supply/mediatek/Kconfig:116`) | внимание: `FAN5405_BUSNUM` захардкожен = 3, у нас шина 1 |
-| Аксель MC3XXX (2-0018) | **нет** (есть родственный шаблон `sensors-1.0/accelerometer/mc3410-i2c`) | портировать mc3xxx.c на sensors-1.0 |
-| Магнитометр akm09912 (2-000c) | **нет** (есть akm09911/09915/09918 как шаблоны) | портировать |
-| ALS/PS stk3x1x (2-0048) | **нет** (есть только cm36558/cm36652) | портировать |
-| Камера S5K4H8 (0-0010) | **нет** | портировать (у mt6735m в 4.9-lc остался СТАРЫЙ фреймворк kd_sensorlist — см. B) |
-| Камера S5K5E8 (0-003c) | **есть вариант** `common/v1/s5k5e8yx_mipi_raw` (v1-фреймворк, НЕ подключён к mt6735m) + наш 3.18 тоже s5k5e8**yx** | проще портировать наш в kd_sensorlist |
-| AF DW9714 (0-0018) | **да**: `lens/main/common/dw9714af` (+sub) | конфиг/DTS |
-| Вспышка LM3642 (1-0063) | **да**: новый flashlight-фреймворк, `flashlights-lm3642.c`; k37mv1 включает `CONFIG_MTK_FLASHLIGHT_LM3642=y` | сменился ABI к userspace (см. B) |
-| Дисплейный движок | **да**: `video/mt6735/{dispsys,videox}` — та же ddp_* структура, что в 3.18 | |
-| GPU Mali-T720 | **да**: `gpu/gpu_mali/mali_midgard`, `gpu/mt6735`; k37mv1: "mali midgard r26p0" | нужны userspace-блобы под r26p0 |
-| USB | **да**: `usb20/mt6735` (musb+QMU) + configfs-гаджет | |
-| Заряд/боевой стек | **да**: старый `battery_common.c`/`battery_meter.c`/`switch_charging.c` сохранён в `drivers/power/supply/mediatek` + fg_20 (`battery_common_fg_20.c`) | |
-| Часы/домены | **да**: legacy clkmgr (`base/power/mt6735`), **CCF для mt6735 нет** (в `drivers/clk/mediatek` mt6735 отсутствует) | m681-стиль CCF/MTCMOS-боли не ожидается |
+| Панель ili9881c_dsi_vdo_dj_hd720 | нет (только ilitek-варианты под другой bias) | порт из 3.18 + **stock-таблица из vmlinux.elf** |
+| Панель jd9365_dsi_vdo_holitech_hd720 | нет | порт из 3.18 (таблицу тоже сверить с vmlinux) |
+| Bias lp3101 (1-003e) | нет | порт `lcm/lp3101.c` из 3.18 |
+| Тач gt9xx hotknot GT917D (1-005d) | `GT9XX_hotknot*` выпотрошены до Kconfig; полный `gt9xxtb_hn_new` есть | порт нашего **уже проверенного** 3.18-драйвера (ориентация!) либо адаптация gt9xxtb_hn_new |
+| Зарядник fan5405 (1-006a) | да: `power/mt6735/{fan5405,charging_hw_fan5405}.c`, `MTK_FAN5405_SUPPORT` (`drivers/power/supply/mediatek/Kconfig:116`) | включить; `FAN5405_BUSNUM` захардкожен = 3 → тот же busnum-фикс на 1, что уже сделан у нас |
+| Аксель MC3XXX (2-0018) | нет (шаблон `sensors-1.0/accelerometer/mc3410-i2c`, API `acc_driver_add` тот же + factory) | порт по шаблону |
+| Магнитометр akm09912 (2-000c) | нет (шаблоны akm09911/15/18) | порт по шаблону |
+| ALS/PS stk3x1x (2-0048) | нет (только cm3655x) | порт по шаблону alsps |
+| Камера S5K4H8 + OTP (0-0010) | нет; mt6735m остался на СТАРОМ `kd_sensorlist` | порт из 3.18 почти как есть |
+| Камера S5K5E8 (0-003c) | `common/v1/s5k5e8yx` есть, но не для mt6735m | порт нашего s5k5e8yx в kd_sensorlist |
+| AF DW9714 (0-0018) | да: `lens/main/common/dw9714af` | конфиг |
+| Вспышка LM3642 (1-0063) | да: новый flashlight-core + `flashlights-lm3642.c` | ABI к userspace сменился — camera-HAL донора уже P-эпохи, совместим |
+| Дисплейный движок | да: `video/mt6735/{dispsys,videox}`, та же ddp_* структура | — |
+| GPU Mali-T720 | да, **два kbase**: старый `gpu/mt6735/mali-r7p0` (275 файлов) и midgard r26p0 | строить **r7p0** под 64-битные donor-блобы NE1 |
+| USB | да: `usb20/mt6735` musb+QMU, configfs-гаджет (+legacy G_ANDROID ещё жив) | Phase A |
+| Батарейный стек | да: старый `battery_common/battery_meter/switch_charging` + fg_20 | как k37mv1 (GAUGE 20), fallback старый метр |
+| Клоки/домены | legacy clkmgr (`base/power/mt6735`), CCF для mt6735 нет | рисков m681-типа нет |
+| LCM API | `lcm_drv.h` диф косметический (`unsigned`→`unsigned int`, `struct LCM_*`, новый опц. `set_te_pin`) | механика |
+| DTS | `arch/arm/boot/dts/mt6735m.dts` generic (без наших нод), биндинги той же эпохи, что стоковый DTB | Phase 0 — стоковый DTB как есть; свои ноды графтить из декомпилированного стокового DTS позже |
 
----
+Главное отличие от v1: тач/зарядка/USB перестали быть неизвестными — на 4.9
+переносятся наши **уже проверенные на железе** драйверы и фиксы, а не
+гипотетические порты.
 
-## B. Покомпонентно: откуда берётся 4.9-версия и что укусит при порте
+## 5. Фазы (переупорядочены: графт — первый и решающий)
 
-Источник портов почти всюду — **наше собственное 3.18-дерево** (в нём
-проверенно есть всё: jd9365, ili9881c_dsi_vdo_dj_hd720, lp3101, GT9XXTB_hotknot,
-fan5405, mc3xxx_auto, akm09912, stk3x1x, s5k4h8/s5k5e8yx, dw9714af,
-leds-lm3642 — пути перечислены выше и проверены `git ls-files`).
+Обвязка: `$D = /home/n8n/.claude/skills/devbox/scripts/dev.sh`, серийник
+`710HVBR923RYK` (на девбоксе два телефона — только `-s`!), логгер →
+`/data/forge`, аварийный канал — TWRP на стоковом ядре + last_kmsg/expdb.
 
-Реальные API-сдвиги 3.18→4.9-lc, проверенные по коду (не по памяти):
+**Phase 0 — arm64-графт, go/no-go гейт.** Содержание и тест — §1.2.
+Выход: `/proc/version` = 4.9.188 на устройстве (или маркеры логгера).
+Оценка: 2–4 сессии. Всё остальное — только после этого.
 
-1. **LCM: сдвига почти нет.** FACT: diff функциональных указателей
-   `lcm/inc/lcm_drv.h` (наш 3.18 vs 4.9-lc) — только косметика
-   (`unsigned`→`unsigned int`, `LCM_setting_table_V3`→`struct …`, новый
-   опциональный `set_te_pin`). `MTK_LCM_DEVICE_TREE_SUPPORT` в Kconfig есть,
-   но включать не нужно — путь `CONFIG_CUSTOM_KERNEL_LCM="строка"` сохранён.
-   Порт обеих панелей + lp3101 = механический (обёртки `struct LCM_*`,
-   запись в `mt65xx_lcm_list.c/h`, каталоги с Makefile).
-2. **Тач: фреймворк тот же (mtk_tpd/tpd_driver_t), но DTS-центричный.**
-   FACT: `gt9xxtb_hn_new/gt9xx_driver.c` использует `tpd_driver_t`,
-   `tpd_dts_data`, `of_match_table` — то же семейство API, что наш 3.18.
-   Кусают: перенос `tpd_custom_gt9xx.h` конфигов (у 4.9-версии include
-   только `config_1024x768` — наш 720x1280 конфиг надо принести), EINT
-   через DTS-ноду `touch@…` (в стоковом DTB она есть), и выбор варианта
-   (наш стоковый — hotknot; `GT9XX_hotknot` в 4.9-lc выпотрошен, так что
-   либо восстановить его из 3.18, либо ехать на gt9xxtb_hn_new).
-3. **Зарядка: СТАРЫЙ фреймворк сохранён — большого рефакторинга нет.**
-   FACT: в 4.9-lc жив `battery_common.c` + `switch_charging.c` +
-   `charging_hw_fan5405.c` (mt6735) — mtk_charger/charger_class появляется
-   только у mt676x. k37mv1 задаёт `CONFIG_MTK_GAUGE_VERSION=20` →
-   `battery_meter_fg_20.c`. Кусают: `FAN5405_BUSNUM=3` (нам нужна шина 1,
-   как на стоке `1-006a`), и выбор gauge-версии (сток Flyme на 3.18 жил на
-   старом метре; начать с fg_20 как у k37mv1, откатить на старый при
-   странностях).
-4. **Сенсоры: v1-скелет сохранён, но переехал в `sensors-1.0` + factory.**
-   FACT: `mc3410-i2c.c` в 4.9-lc по-прежнему зовёт `acc_driver_add`,
-   `acc_control_path`/`acc_data_path`, batch — то же, что наш 3.18
-   `mc3xxx.c` (проверено grep обоих). Добавилось `*_factory_public`
-   (заводские ioctl). Порт mc3xxx/akm09912/stk3x1x = взять in-tree шаблон
-   (mc3410 / akm09911 / любой alsps) и перелить в него код общения с чипом
-   из наших 3.18-файлов. Sensor hub у нас отсутствует — `CONFIG_CUSTOM_KERNEL_SENSORHUB` не включать.
-5. **Imgsensor: mt6735m остался на СТАРОМ kd_sensorlist.** FACT: в 4.9-lc
-   `imgsensor/src/mt6735m/kd_sensorlist.c` (старый фреймворк), новый
-   `common/v1/imgsensor.c` — для mt676x. Значит s5k4h8/s5k5e8yx из нашего
-   3.18 встают в mt6735m-каталог почти как есть (kd_sensorlist.h — вписать
-   ID). OTP-код внутри сенсорных файлов едет вместе с ними. DW9714 — в
-   4.9-lc уже есть.
-6. **Вспышка: единственный компонент со СМЕНОЙ фреймворка.** FACT: вместо
-   3.18 `constant_flashlight`/leds-LM3642 в 4.9-lc — новый
-   `flashlight-core` + `flashlights-lm3642.c` (DT-нода, /dev/flashlight).
-   Ядро готово, но **userspace-ABI другой** — старый A6-камерный HAL зовёт
-   старые ioctl; это удар не по ядру, а по совместимости blob'ов (см. C).
-7. **USB: musb сохранён, гаджет — configfs.** FACT: `usb20/mt6735` есть;
-   k37mv1/MTKZU-конфиги включают `CONFIG_USB_CONFIGFS_*` (G_ANDROID в
-   k37mv1 отсутствует). Для Android 10 это штатно; для гибридного теста
-   «4.9 + наш LOS14.1» надо либо включить legacy `USB_G_ANDROID` (Kconfig
-   в 4.9-lc ещё существует — MTKZU-a9 путь), либо перевести init.usb.rc на
-   configfs. CHRDET-путь (`pmic_chr_type_det.c` в power/mt6735) в 4.9-lc
-   переписан относительно нашего 3.18 → наш баг «Unbalanced enable IRQ 494»
-   не переносится автоматически (но и чинится отдельно — см. E).
-8. **Клоки/домены: риска m681-типа нет.** FACT: mt6735 в 4.9-lc остался на
-   legacy clkmgr (`base/power/mt6735`), CCF-драйверов mt6735 нет. SPM/MTCMOS
-   код тот же вендорский.
-9. **DTS.** FACT: `arch/arm/boot/dts/mt6735m.dts` в 4.9-lc — generic ALPS
-   (в нём НЕТ gt9xx/lp3101/fan5405/cap_touch-нод; kd_camera ноды есть),
-   2041 строка против 3577 у стокового. Стиль биндингов тот же legacy
-   (та же `mediatek,mt6735-pinctrl`, тот же topckgen, без `#clock-cells`) —
-   графтинг наших нод из декомпилированного стокового DTS
-   (`/home/valakas/m5c/kernel-reverse/meizu-m5c.dts`) механический, но
-   обязательный. HYPOTHESIS: приложенный к 4.9-zImage наш **стоковый DTB**
-   может завестись и без графта (биндинги одной эпохи); фальсификация —
-   Phase 1: собрать с ним и посмотреть, доходит ли до init.
-10. **SELinux.** Наша LOS14.1-сборка несёт policydb v29 (BRINGUP_STATE
-    2026-08-17), 4.9-lc это переварит; для A10-userspace политика идёт из
-    GSI/vendor — отдельная тема userspace, не ядра.
-11. **ion/m4u/ged/cmdq/disp ioctl ABI.** Не проверял построчно (нужен diff
-    include/ соответствующих uapi между 3.18 и 4.9-lc — объём большой).
-    HYPOTHESIS (главный гибридный риск): A6-эпохи gralloc/hwc
-    (`hwcomposer.mt6737m.so`) может не совпасть с disp-session ioctl 4.9-lc
-    Q-эпохи → чёрный экран при живом ядре. Фальсификация — Phase 3 (гибрид):
-    dmesg/logcat hwc ошибки + `cat /sys/kernel/debug/dispsys`.
+**Phase A — USB/adb на 4.9.** configfs-гаджет (для смока с LOS14.1-рамдиском
+можно временно `USB_G_ANDROID=y` — в 4.9-lc он ещё есть; для GSI — configfs
+в first-stage rc). Выход: `$D adb devices` видит устройство под 4.9.
+Маркеры: dmesg `musb`, `CHRDET`, `/sys/class/power_supply/usb/online`=1.
+Оценка: 1–2 сессии.
 
-### Арх-развилка ARM32 vs ARM64 (ключевое решение плана)
+**Phase B — дисплей.** lp3101 + ili9881c (+jd9365) со stock-таблицами из
+vmlinux.elf; `CUSTOM_KERNEL_LCM` как на 3.18. Выход: bootlogo/fb0.
+Маркеры: id панели 0x98/0x81 в логе LCM-пробы, dmesg DSI. Оценка: 2–4 сессии.
 
-- FACT: официальный 4.9-lc = ARM32 для mt6735m; вендор так и отгружал
-  (k37mv1_bsp_**k49**_defconfig в arch/arm/configs).
-- FACT: наш текущий стек — arm64 ядро + 64-битный userspace (в vendor-дереве
-  есть lib64/hw/*.mt6737m.so).
-- INFERENCE: ARM32-ядро не запустит наш нынешний arm64-userspace → гибридный
-  смоук-тест «4.9 под LOS14.1» на ARM32 невозможен. Портирование mt6735m в
-  arch/arm64 у 4.9-lc никем не доказано (MTKZU пытался и бросил).
-- Решение в плане: **двухтрековая проверка в Phase 1** — (а) быстрая сборка
-  ARM32 k37mv1 (доказывает качество базы), (б) arm64-графт Kconfig+dts
-  (перенос `MACH_MT6735M` в arch/arm64, dts в arm64/boot/dts/mediatek) с
-  нашим стоковым DTB. Если (б) заводится до init — едем arm64 (сохраняем
-  userspace и blob'ы); если вязнет >2 сессий — честно падаем на ARM32-трек
-  и arm32-userspace (см. C). У (б) шансы неплохие: платформенный код mt6735
-  в 3.18 уже жил в arm64, а 4.9-lc код тот же вендорский; но это INFERENCE,
-  не гарантия — где-нибудь в spm/lowlevel могут вылезти arm32-ассемблерные
-  куски (фальсификация: сборка и есть тест).
+**Phase C — тач, зарядка, сенсоры, камера (kernel-side).** Порты по §4;
+каждая подсистема — свой мини-выход (getevent; power_supply online/status;
+данные трёх сенсоров; probe s5k4h8/s5k5e8 в dmesg). Оценка: 3–6 сессий
+суммарно. Параллелится с Phase D.
 
----
+**Phase D — vendor-на-custom, параллельный трек (не ждёт ядра).**
+§3.2: сборка vendor.img из NE1-каркаса + наших блобов, fstab/TWRP/метки;
+опциональный смок на 3.18+LOS14.1. Выход: устройство грузит LOS14.1 с
+/vendor, смонтированным с p17. Оценка: 2–4 сессии.
 
-## C. Vendor-блобы и ABI: что произойдёт с userspace
+**Phase E — стыковка: 4.9 + donor-vendor + LOS14.1-рамдиск.** Гибридный смок
+графики: hwcomposer.mt6735 (донор) на 4.9-dispsys, Mali r7p0 blob на r7p0-
+kbase. Выход: композиция на экране (UI LOS14.1 или хотя бы bootanimation).
+Это главный тест HYPOTHESIS про disp-ioctl. Маркеры: logcat hwc/gralloc,
+`/sys/kernel/debug/dispsys`. Оценка: 2–5 сессий (широкая дисперсия — это
+риск №2 плана).
 
-FACT: наш `vendor/meizu/m5c/proprietary` — 444 файла, 368 .so, классические
-legacy-HAL модули A6-эпохи: `lib{,64}/hw/{camera,hwcomposer,gralloc,audio.primary,gps}.mt6737m.so`,
-lib3a и т.д. Это дотребловый мир: без HIDL, без VNDK, собран под M (API 23).
+**Phase F — first-stage boot-flow под GSI.** system-as-root ramdisk: fstab
+(system p23, vendor p17), *_contexts первой стадии (урок MX6 §7a), AVB/verity
+нет. Выход: наш boot.img с first-stage init монтирует оба раздела и передаёт
+управление /system/bin/init GSI-образа до логотипа. Оценка: 1–3 сессии.
 
-Что меняется при 4.9 + Android 9/10:
+**Phase G — A13 GSI.** AndyYan LOS20 TD `arm64_bvN` (или phh AOSP 13) в
+system p23 (проверить fit в 2.5 GiB ДО прошивки — `ls -l` образа), vendor
+p17 из Phase D/E. Выход: загрузка в UI. Диагностика первой загрузки: logcat
+через adb (configfs включён в Phase A), `bpfloader`-статус (проверка
+INFERENCE про eBPF), vintf-несовместимости в logcat init. Оценка: 3–8 сессий
+на доводку (sepolicy denials, overlays, fstab-мелочи; phh-overlay для
+устройства). Fallback при системном затыке — A12L GSI, той же механикой.
 
-1. **Treble/VNDK.** A9/A10-userspace требует HIDL HAL'ы
-   (`android.hardware.graphics.composer@2.1`, `camera.provider@2.4`,
-   `audio@4/5` и т.д.). Наши A6-модули напрямую не подключаются — их надо
-   оборачивать passthrough-обёртками (стандартные default-имплементации
-   HIDL поверх legacy libhardware модулей) — это тот же приём, что в
-   LOS16-портax на mt6737 у других авторов и в `device/mediatek/mt6735`
-   (base MTKZU alps9). Часть блобов при этом заведётся (gps, audio),
-   часть — исторически самые капризные — gralloc/hwc/GPU и camera.
-2. **GPU.** Mali-T720 blob'ы у нас — r7p0-эпохи A6 (в 3.18-дереве gpu
-   mali-r7p0/EAC). Ядро 4.9-lc несёт midgard r26p0 → нужны **согласованные
-   userspace-библиотеки Mali r26p0** под нашу арх (arm32 у Go-устройств).
-   Их источник — прошивка донора, реально отгружавшегося на 4.9-lc MT6737
-   (например, устройство «woods/nicklaus» из репо mhdzumair). Наши A6
-   r7p0-блобы против r26p0-ядра — несовместимы (mali kbase ABI жёстко
-   версионирован; это FACT уровня «version check в kbase», проверяется
-   первым же logcat'ом).
-3. **Camera.** Пер-девайсный NVRAM/3A-стек A6 против A10-provider —
-   максимально рискованная связка; реалистично камера едет последней и
-   может остаться на «работает превью через wrapped legacy HAL» (как на M6).
-4. **RIL/модем.** Блобы md_ctrl/ril A6-эпохи; A10-телефония поверх них —
-   через mtk-radio-обёртки; объём неизвестен, честно: не исследовал.
-5. **Можно ли реюзать vendor/meizu/m5c?** Частично: firmware (modem, wifi,
-   GPS conf, nvram-структуры) — да; hw-модули — только через
-   HIDL-passthrough и только те, чьи kernel-ABI не уехали (см. flashlight,
-   disp). Готового «vendor под A10 mt6735» в природе нет — его собирают из
-   (а) донора Go-устройства на 4.9-lc и (б) наших firmware-блобов.
+**Phase H — телефония/Wi-Fi/BT/камера userspace, хардening.** Отдельным
+планом после первого UI.
 
-**Реалистичный минимально-жизнеспособный маршрут** (INFERENCE из пунктов
-выше):
-- Ступень 1 (низкий риск, высокая ценность): **4.9-arm64 + наш LOS14.1**
-  (тот же userspace, что сейчас) — доказывает ядро отдельно от Treble.
-- Ступень 2: **4.9 + LOS 16.0 device-tree** (порт по образцу
-  `XRedCubeX/android_kernel_meizu_mt6735` + MTKZU alps9 device tree) —
-  классический полный порт, много работы, но каждый HAL решается известными
-  приёмами.
-- Ступень 3 (если ступень 2 упирается): **4.9-arm32 + arm32 A10 Go GSI +
-  vendor донора** — путь «как вендор», но с чужими блобами и почти
-  гарантированной ручной возней с overlay/fstab/sepolicy.
-  «4.9 + AOSP10 GSI поверх нашего A6-vendor» без ступени 2 — REJECTED:
-  GSI требует treble-ized vendor, которого у нас нет.
+## 6. Риски (топ-3) и решающие критерии
 
----
+1. **Графт не оживает** (Phase 0). Вероятность понижена фактами §1.2
+   (arm64-гарды в коде, 3.18-прецедент, тот же LK), но фолбэка нет —
+   arm32 вне скоупа по решению владельца. No-go после ~4 сессий без
+   единого маркера жизни → остановка трека, разговор о целях.
+2. **Графика на стыке эпох** (Phase E): donor-hwc (P) ↔ dispsys 4.9-lc (Q),
+   mali-blob ↔ kbase. Митигание: r7p0-kbase из коробки 4.9-lc; при провале
+   hwc — запасной вариант drm_hwcomposer/hwc2on1, но это уже инженерный
+   проект. Настоящий ответ даст только Phase E.
+3. **GSI-периферия**: размер образа против 2.5 GiB system; first-stage
+   контексты; A13-sepolicy против P-vendor (compat-матрицы GSI). Каждое —
+   решаемое, но в сумме даёт длинный хвост Phase G.
 
-## D. Фазовый план (каждая фаза проверяется на железе)
+Суммарно до «A13 GSI показывает UI»: **грубо 14–26 рабочих сессий**.
+Паритет с текущим LOS14.1 по периферии — поверх этого (камера/телефония —
+самые дорогие).
 
-Обвязка проверки: adb через devbox — `/home/n8n/.claude/skills/devbox/scripts/dev.sh adb …`;
-ramdisk-логгер пишет в `/data/forge` (маркеры стадий); TWRP жив на стоковом
-ядре → всегда есть канал снять `/proc/last_kmsg`/pstore после неудачной
-загрузки. Прошивка boot — только p-boot, по установленной для m5c процедуре,
-каждая прошивка руками подтверждается.
+## 7. Артефакты этой ревизии
 
-**Phase 0 — база и «чистая» сборка (без железа).**
-Взять `nyancrimew/mtk-t-alps-release-q0-kernel-4.9-lc` (или memediatek/q —
-перед стартом сверить деревья diff'ом, они должны быть идентичны; расхожде-
-ние = выбрать nyancrimew как именованный релиз). Собрать ARM32
-`k37mv1_bsp_k49_defconfig` штатным тулчейном (gcc из prebuilts/clang по
-вендорскому конфигу).
-- Выход: `zImage-dtb` собирается без ошибок.
-- Проверка: артефакт + лог сборки в `/data/forge`-стиле каталоге сборок.
-- Оценка: 1 сессия.
-
-**Phase 1 — арх-развилка (см. B): arm64-графт vs arm32.**
-(а) Портировать `MACH_MT6735M` в arch/arm64 (Kconfig.platforms + Makefile
-плат.каталогов), перенести `mt6735m.dts`+`mt6735m-pinfunc.h` в
-`arch/arm64/boot/dts/mediatek/`, собрать Image.gz-dtb со **стоковым DTB**
-(наш e17a091…). Дефконфиг: k37mv1 → adapt (наши строки LCM/project можно
-временно оставить пустыми — цель фазы не дисплей).
-(б) Параллельно держать ARM32-сборку как fallback.
-- Выход: ядро доходит до init (любой userspace) ИЛИ осознанное решение
-  «едем ARM32».
-- Проверка: маркеры ramdisk-логгера в `/data/forge/boot-*.log`; если пусто —
-  TWRP → `cat /proc/last_kmsg` (ищем `Linux version 4.9.188` и docket
-  паники); `dev.sh adb shell cat /proc/version` при удаче.
-- Порог: >2 сессий без прогресса на (а) → переключение на (б).
-- Оценка: 2–4 сессии. **Дальше — только после доказанного Phase 1.**
-
-**Phase 2 — USB/adb на 4.9.**
-Включить configfs-гаджет (для гибрида с LOS14.1 — legacy `USB_G_ANDROID=y`,
-он в 4.9-lc ещё есть; для A10 — configfs+init.rc). Проверить CHRDET.
-- Выход: `dev.sh adb devices` видит устройство под 4.9-ядром.
-- Проверка-маркеры: dmesg `musb`, `mt_usb`, `CHRDET`; `/sys/class/power_supply/usb/online`=1 с кабелем.
-- Оценка: 1–2 сессии.
-
-**Phase 3 — дисплей.**
-Порт lp3101 + обеих панелей (jd9365, ili9881c_dsi_vdo_dj) из нашего 3.18,
-`CONFIG_CUSTOM_KERNEL_LCM="ili9881c_dsi_vdo_dj_hd720 jd9365_dsi_vdo_holitech_hd720"`,
-720x1280. Сначала bootlogo/fb0, затем гибрид с LOS14.1-hwc (тест HYPOTHESIS
-из B.11).
-- Выход: изображение (bootlogo достаточно для exit'а фазы).
-- Проверка: глазами + dmesg `DSI`, id-чтение панели (0x98/0x81 или
-  0x93/0x65) в логе LCM-пробы; при чёрном экране — `dispsys` debug-узлы.
-- Оценка: 2–4 сессии. Самая рискованная кернел-фаза.
-
-**Phase 4 — тач.**
-Адаптировать `gt9xxtb_hn_new` (или восстановить GT9XX_hotknot из 3.18) под
-GT917D: наш `tpd_custom_gt9xx.h`, DTS-нода `cap_touch@5d` + EINT62.
-- Выход: события касания.
-- Проверка: `dev.sh adb shell getevent -l | head` при тапе; dmesg
-  `<<-GTP-INFO->>`, `tpd_down`.
-- Оценка: 1–2 сессии.
-
-**Phase 5 — зарядка/батарея.**
-`MTK_FAN5405_SUPPORT=y`, busnum 3→1, gauge fg_20 (fallback старый метр).
-- Выход: заряд идёт, тип кабеля определяется.
-- Проверка: `dev.sh adb shell cat /sys/class/power_supply/{usb,ac}/online battery/status battery/capacity`; dmesg `fan5405`.
-- Оценка: 1–2 сессии.
-
-**Phase 6 — сенсоры.**
-mc3xxx → шаблон mc3410-i2c; akm09912 → шаблон akm09911; stk3x1x → alsps.
-- Выход: три input-устройства дают данные.
-- Проверка: `dev.sh adb shell dumpsys sensorservice | head -40` (на LOS)
-  или чтение `/sys/…/sensors-1.0` factory-узлов; dmesg init-строки драйверов.
-- Оценка: 1–2 сессии.
-
-**Phase 7 — камера (kernel-часть) + вспышка + AF.**
-s5k4h8/s5k5e8yx в `imgsensor/src/mt6735m` (kd_sensorlist), dw9714 конфиг,
-flashlight-нода LM3642.
-- Выход: сенсоры детектятся ядром.
-- Проверка: dmesg `kd_sensorlist`/`[s5k4h8]` probe-строки, `/proc/driver/camsensor`-стиль узлы, `/dev/flashlight` существует.
-- Оценка: 1–2 сессии (userspace-камера — вне этой фазы, см. C).
-
-**Phase 8 — userspace-ступень (решается ПОСЛЕ Phase 2–4).**
-Ступень 1: LOS14.1 на 4.9 как daily-smoke. Ступень 2: LOS16 device-tree
-порт (отдельный план, вехи по HAL'ам). Ступень 3 (fallback): arm32 A10 Go
-GSI + донор-vendor.
-- Выход ступени 1: LOS14.1 welcome-экран на 4.9 (паритет с 3.18).
-- Оценка: ступень 1 — 1–2 сессии; ступень 2 — 8–15 сессий (honest: широкая
-  дисперсия); ступень 3 — 4–8 сессий.
-
----
-
-## E. Честная рекомендация
-
-**Сначала добить два блокера на 3.18, потом стартовать 4.9.** Аргументы:
-
-1. FACT: оба блокера уже локализованы (EINT/CHRDET; отсутствие gt9xx в
-   сборке) и оба на 3.18 — работа на 1–3 сессии суммарно. Их результат —
-   рабочий adb и тач — это **инструментарий, без которого 4.9-порт будет
-   идти вдвое дольше** (каждая фаза D предполагает adb-проверки).
-2. INFERENCE: сам тезис «для Android 9/10 нужно 4.9» — неточен: LOS16 для
-   mt6735 у XRedCubeX ехал на 3.18.119 (FACT, Makefile), MTKZU-alps9 тоже
-   парился с 3.18.119. 4.9-lc даёт свежий LTS, вендорскую Q-базу, configfs
-   и чистую зарядку — это правильная цель, но не пререквизит A9/A10.
-3. Решающие критерии старта 4.9: (а) adb на 3.18 работает; (б) выбран
-   userspace-трек (LOS16-порт против A10-Go-GSI) — от него зависит
-   ARM32/ARM64-развилка Phase 1; (в) есть слот на 2+ сессии подряд для
-   Phase 0–1 без прошивочных рисков (TWRP-канал сохраняется всегда).
-
-**Суммарная оценка 4.9-трека до паритета с текущим LOS14.1** (Phase 0–5 +
-ступень 1): ~8–15 рабочих сессий. До «A10 на устройстве»: +8–15 сверху.
-
-**Топ-3 вероятных провала:**
-1. **Дисплей на 4.9** (Phase 3): порт LCM механический, но связка
-   «4.9 disp ioctl ↔ старый hwcomposer» — непроверенная (B.11); возможен
-   длинный хвост отладки dispsys.
-2. **Userspace-ступень 2/3** (Phase 8): vendor под A9/A10 для mt6735
-   придётся собирать из обёрток и донорских блобов (Mali r26p0!), готового
-   нет; камера почти наверняка деградирует.
-3. **ARM64-графт 4.9-lc** (Phase 1а): официально не существует; если в
-   платформенном коде вылезут arm32-only куски (spm/lowlevel asm),
-   придётся падать на ARM32 и терять текущий arm64-userspace — что
-   автоматически тащит ступень 3 вместо 1.
-
-### Артефакты этого исследования
-- Клоны: `…scratchpad/mtkzu-a10` (MTKZU android-10, 4.9.188),
-  `…scratchpad/woods-49` (вендорский 4.9.117 MT6737);
-  defconfig-снимки: `…scratchpad/{m5c_defconfig_a9,m5c_defconfig_a10,k37mv1_defconfig}`,
-  dts: `…scratchpad/mt6735m_a10.dts` (полный префикс:
-  `/tmp/claude-1000/-srv-forge-android-m5c/145b2c58-faa9-45b2-84d1-967d0b509fd8/scratchpad`).
-  Скретчпад эфемерен — при старте Phase 0 клонировать заново из именованных
-  выше репозиториев.
+- Клоны/снимки (эфемерный скретчпад
+  `/tmp/claude-1000/-srv-forge-android-m5c/145b2c58-…/scratchpad`):
+  `mtkzu-a10` (углублён до 10 коммитов), `woods-49`, `k37_bsp.cfg`,
+  `k37_bsp_k49.cfg`, `ne1_boot.img` (банер ядра NE1), `ne1_files.txt`
+  (инвентарь дампа NE1), `mt6735m_a10.dts`, `lcm_drv_49.h`.
+- Девбокс: `/tmp/m5c-backup-20260817/custom.img` (бэкап p17, sha256 выше);
+  дамп смонтирован/размонтирован read-only, устройство отпущено.
+- Внешние: `nyancrimew/mtk-t-alps-release-q0-kernel-4.9-lc` (базовое дерево
+  для Phase 0), `Firmware-Dumper/nokia_ne1_dump` (донор vendor),
+  `Dekompilyator/twrp_meizu_m5c` (TWRP-дерево для fstab-правок),
+  `/srv/forge/android/meizu_mx6_m95/TREBLE_VENDOR_PARTITION_PLAN.md`
+  (прайор-арт custom→vendor).
