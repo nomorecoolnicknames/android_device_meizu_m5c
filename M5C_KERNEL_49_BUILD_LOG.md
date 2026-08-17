@@ -4,6 +4,46 @@
 Авторитет по железу: `M5C_CHIP_MAP.md`. Формат: FACT / INFERENCE /
 HYPOTHESIS / REJECTED по `/srv/forge/android/CLAUDE.md`.
 
+## 2026-08-17 (P7 результат + P8) Виновник — ram_console_early_init (BUG без LK-контракта)
+
+FACT (team-lead, `boot_49_p7.img`): слот 19 = `0xffffff8008bd7bf8` =
+**`ram_console_early_init`**; веха 20 не встала. REJECTED: гипотеза про
+`mtk_uart_console_init` (адрес …bd54bc в слоте не оказался) — UART-console
+прошёл нормально, повис именно ram console. Ирония: висла ровно та
+подсистема, что дала бы нам текст.
+
+FACT (root cause, source diff 4.9 vs 3.18): Q0-шный `ram_console_early_init`
+ТРЕБУЕТ от LK контракт `chosen/ram_console` + `memory_info`
+(magic1/magic2, dram/pstore/mrdump-поля) и на ЛЮБОЕ отклонение зовёт
+`ram_console_fatal()` → **BUG()** — тихая паника до консоли → WDT-бутлуп.
+Стоковый LK 2017 года этого контракта не даёт. Рабочий 3.18 на этом
+устройстве контракт вообще не читает: `CONFIG_MTK_RAM_CONSOLE_USING_DRAM`
+с фиксированными `0x43F00000/0x10000` (+ pstore `0x43F10000/0xE0000`,
+console/pmsg по `0x10000`) — ровно окна reserved-memory стокового DTB; все
+ошибки — мягкий `return`.
+
+Сделано (P8, коммит `8b7af24d9`, образ `boot_49_p8.img`):
+- `ram_console_parse_memory_info` возвращает ошибку вместо BUG;
+- `ram_console_early_init`: при отсутствующем/битом LK-контракте —
+  фолбэк на проверенную 3.18-раскладку m5c (fixed DRAM + явный
+  `pstore_set_addr_size(0x43f10000, 0xe0000, 0x10000, 0x10000)`);
+- чужая сигнатура буфера — warning, не BUG (init переинициализирует);
+- `ram_console_fatal` удалён совсем: ничто в этом пути не имеет права
+  BUG'ать до консоли.
+- Строка-маркер `"no LK memory_info, using m5c fixed layout"` есть в
+  Image (проверено strings) — она же будет первым признаком в last_kmsg.
+
+Артефакт: `/srv/forge/android/m5c/kernel-m5c-4.9-lc/boot_49_p8.img`, sha256
+`69519c71e810f1c12634fcdf5126acb6a6bdda8d408ebeeaa1e4caef35658c6e`,
+9459712 B, boot (p7); DTB сток (md5 внутри проверен); System.map-p8 рядом
+(адреса initcall'ов НЕ изменились: uart …bd54bc, ram_console …bd7bf8).
+Маркеры 1–20 сохранены, читать как P7 (count=176).
+
+Ожидание: веха 20 встанет (console_init пройден) и — главное — в
+`/proc/last_kmsg` СЛЕДУЮЩЕЙ загрузки появится первый настоящий 4.9-лог
+(грепать `4.9.188`, `m5c+`, `no LK memory_info`). Дальше диагностика
+переходит с маркеров на текст.
+
 ## 2026-08-17 (P6 результат + P7) GIC-порт ПОДТВЕРЖДЁН; смерть в console_init
 
 FACT (team-lead, `boot_49_p6.img`): слоты 1–17 на обоих адресах, 18 нет.
