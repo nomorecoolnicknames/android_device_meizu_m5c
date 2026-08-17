@@ -4,6 +4,33 @@
 Авторитет по железу: `M5C_CHIP_MAP.md`. Формат: FACT / INFERENCE /
 HYPOTHESIS / REJECTED по `/srv/forge/android/CLAUDE.md`.
 
+## 2026-08-17 (аддендум team-lead + P20) Кто тиковое устройство: GPT1 или arch timer?
+
+FACT (team-lead, лог p13): apxgpt-фикс поднял НЕ ТОЛЬКО clocksource
+(GPT2), но и clockevent GPT1 (`[mtk_gpt] gpt1: cmp=52000, hz=250` —
+SPI 184); следом регистрируется arch timer (PPI 29). Какой из двух стал
+тиковым — в логе не видно; от этого зависит, улика ли пустой маркер 55.
+
+FACT (мой, по исходнику): рейтинги — GPT clockevent 300, arch timer 450 →
+тиковым должен стать arch timer. Но фиксируем рантайм.
+
+Сделано (P20 = P19 + аддендум, коммит `1fe3304ff`, образ
+`boot_49_p20.img`, sha256
+`74e95e7c66dac9351f0cd4c3889f7036611df43549d12996fc9e1cded56b1084`,
+System.map-p20): слот 63 = 8 байт имени tick_cpu_device(0).evtdev
+(helper в tick-common.c: "arch_sys" | "mt6580-g"); слот 64 =
+GICD_ISENABLER5 (SPI 184 = бит 24). Плюс всё из P19 (CNTPCT/CNTP_CTL/
+CNTP_CVAL/GICD0, маркеры 61/62 в arch_timer_starting_cpu).
+
+Матрица: 63=arch_sys → ветка PPI (61/62 → 60 биты29/30 → 58 CTL);
+63=gpt → ветка SPI 184 (64 бит 24, дальше GPT1_CON); 57 CNTPCT стоит →
+системный счётчик (cpuxgpt/ATF), ниже обоих clockevent'ов.
+
+Также FACT (по коду, отправлен team-lead): gic_cpu_init на boot CPU
+пишет 0xffff0000 в GIC_DIST_ENABLE_CLEAR — ВСЕ PPI отключаются на init
+(штатно для GIC); PPI 29/30 живут только если enable_percpu_irq
+вызван. Поэтому «request_percpu_irq err=0» ничего не гарантирует.
+
 ## 2026-08-17 (P18 РЕЗУЛЬТАТ + P19) ДОКАЗАНО: arch-таймер PPI не приходит ни разу
 
 FACT (team-lead, `boot_49_p18.img`, recovery 65 с): скобки 33/38/39/41/42/43/
