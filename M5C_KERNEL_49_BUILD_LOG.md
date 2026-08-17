@@ -4,6 +4,61 @@
 Авторитет по железу: `M5C_CHIP_MAP.md`. Формат: FACT / INFERENCE /
 HYPOTHESIS / REJECTED по `/srv/forge/android/CLAUDE.md`.
 
+## 2026-08-17 (P3 результат + P4) asm-вехи 1-4 ЕСТЬ; смерть после MMU → C-маркеры
+
+FACT (team-lead, `boot_49_p3.img`, on-device md5 51e62a08…): бутлуп; маркеры
+ПРОЧИТАНЫ. На ОБОИХ адресах (0x7f000000, 0xb0000000) — магия `FORGE49` и все
+четыре слота вех (1,2,3,4). Т.е. asm bring-up arm64 проходит ПОЛНОСТЬЮ: вход
+в stext → el2_setup → page tables → cpu_setup. 4.9-консоли нет нигде
+(last_kmsg/pstore — снова 3.18-сессия).
+
+INFERENCE: смерть — в `__enable_mmu` / раннем C ДО console_initcall. Графт
+arm64 жизнеспособен как минимум до включения MMU включительно — большой шаг
+от «нет вывода вообще».
+
+FACT: поле на +8 (D: `0000 7200…`, E: `e07c 000f…`) — это НЕиспользуемый слот
+milestone-0 (8+8*0). Я пишу слоты с +16 (ms1). Значит +8 — просто прежнее
+содержимое DRAM, не маркер; расхождение между адресами безвредно и
+неинформативно.
+
+FACT: `CONFIG_RELOCATABLE` и `CONFIG_RANDOMIZE_BASE` уже ВЫКЛючены (проверено)
+— шага релокации в `__primary_switch` нет, эту переменную исключать не надо.
+
+Сделано (P4, коммит `2c92bcc0b`, образ `boot_49_p4.img`): C-маркеры 5–9.
+Физические asm-store не достают дальние scratch-страницы при включённом MMU,
+поэтому вехи после MMU пишутся из C через `early_ioremap` (доступен с
+`early_ioremap_init()`), в те же два адреса, тем же layout:
+- 5 = setup_arch достигнут / early_ioremap жив
+- 6 = setup_machine_fdt (стоковый DTB просканирован)
+- 7 = arm64_memblock_init (memory/reserved ноды разобраны)
+- 8 = paging_init (linear map поднят)
+- 9 = конец setup_arch
+
+Артефакт: `/srv/forge/android/m5c/kernel-m5c-4.9-lc/boot_49_p4.img`, sha256
+`21a000f5be914f0d50665861436d62fea0eb30818dae0290b4011e240dfc33cf`,
+9459712 B, boot (p7); DTB сток (md5 внутри проверен). Маркеры обоих адресов
+в Image по 4 asm-movz; C-функция добавляет слоты 5–9.
+
+Чтение из recovery — те же команды, но count побольше (слот 9 на +80):
+```
+dd if=/dev/mem of=/tmp/fD.bin bs=1 skip=2130706432 count=96   # 0x7f000000
+dd if=/dev/mem of=/tmp/fE.bin bs=1 skip=2952790016 count=96   # 0xb0000000
+od -x /tmp/fD.bin ; od -x /tmp/fE.bin
+```
+Слот вехи N — на смещении 8+8*N (ms5→+48, ms6→+56, ms7→+64, ms8→+72,
+ms9→+80), в od -x виден как `41xx 4152`, xx = номер вехи.
+БИСЕКЦИЯ (что скажет результат):
+- 1-4 есть, 5 нет → умер в `__enable_mmu` ИЛИ прологе start_kernel до
+  setup_arch (или до `early_ioremap_init`). Следующий шаг: маркер в
+  `__primary_switched`/начале start_kernel.
+- 5 есть, 6 нет → на `setup_machine_fdt` (парс стокового DTB).
+- 6 есть, 7 нет → на `arm64_memblock_init` — ГЛАВНЫЙ подозреваемый для
+  чужого DTB (memory/reserved-memory ноды).
+- 7 есть, 8 нет → на `paging_init`.
+- 8/9 есть, но нет 4.9-консоли → дошли до конца setup_arch, смерть дальше
+  (unflatten/bootmem/psci/smp или console init) — тогда ram console вот-вот,
+  смотреть last_kmsg следующей загрузки.
+
 ## 2026-08-17 (rev3) Оба адреса P2 опровергнуты; валидированы 0x7f/0xb0; recovery на нашем ядре
 
 FACT (контроль team-lead, из recovery на нашем ядре, write→reboot→read):
