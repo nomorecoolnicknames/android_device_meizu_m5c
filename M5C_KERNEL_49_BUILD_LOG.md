@@ -4,6 +4,44 @@
 Авторитет по железу: `M5C_CHIP_MAP.md`. Формат: FACT / INFERENCE /
 HYPOTHESIS / REJECTED по `/srv/forge/android/CLAUDE.md`.
 
+## 2026-08-17 (P8 результат + P9) console_init ПРОЙДЕН; лог уносим из-под читателя
+
+FACT (team-lead, `boot_49_p8.img`): вехи 18 И 20 стоят — ram_console-фикс
+работает, console_init завершается полностью. Бутлуп ~50 с (т.е. умирает
+где-то в do_initcalls/позже). 4.9-текста нигде нет: last_kmsg/pstore — снова
+3.18-сессия; сырое окно 0x43f00000 при чтении начинается с `DBGC` —
+структура ram console ТЕКУЩЕГО (recovery) ядра.
+
+INFERENCE (team-lead, принято): читатель уничтожает улику. Recovery — наше
+же 3.18-ядро, оно реинициализирует 0x43f00000/0x43f10000 при своей загрузке,
+до всякого dd. Разделить «4.9 не писал» от «писал, но затёрто» через этот
+канал нельзя. Дополнительно: recovery'шный last_kmsg с PSTORE_CONSOLE
+показывает pstore-контент, а не тело ram console — а pstore у 4.9 пишется
+только с device-initcalls (ramoops probe), до которых мы, видимо, не дожили.
+
+Сделано (P9, коммит `e9bfa81da`, образ `boot_49_p9.img`): debug-раскладка —
+фолбэк ram console теперь указывает на **0x5f000000/0x10000** (pstore
+0x5f010000/0xe0000) — адрес из контрольно-валидированных выживших
+(0x5f000000 пробу пережил; 0x7f/0xb0 заняты маркерами). Recovery это окно не
+трогает → лог 4.9 доживёт до dd. Коммент в коде фиксирует: после появления
+adb вернуть стоковые окна, чтобы last_kmsg работал штатно.
+
+Артефакт: `/srv/forge/android/m5c/kernel-m5c-4.9-lc/boot_49_p9.img`, sha256
+`d829e46a16d6a48b61a728fc267cf0ea61b9fd3e70c6ab95dba74d28506c3700`,
+9459712 B, boot (p7); DTB сток (md5 внутри проверен); System.map-p9 рядом.
+Маркеры 1–20 на месте.
+
+Чтение после бутлупа (из recovery):
+```
+dd if=/dev/mem of=/tmp/rc49.bin bs=1 skip=1593835520 count=65536   # 0x5f000000
+strings /tmp/rc49.bin | head -100    # ждём полный 4.9 boot-лог
+dd if=/dev/mem of=/tmp/fD.bin bs=1 skip=2130706432 count=176 ; od -x /tmp/fD.bin   # маркеры как раньше
+```
+В тексте грепать: `4.9.188`, `m5c+`, `debug layout @0x5f000000`, последние
+строки перед смертью → это и есть точка следующего фикса.
+Если окно 0x5f000000 ПУСТО при вехах 18/20 → flush пути записи ram console
+(console write → DRAM) не доходит — тогда чинить путь записи, а не читатель.
+
 ## 2026-08-17 (P7 результат + P8) Виновник — ram_console_early_init (BUG без LK-контракта)
 
 FACT (team-lead, `boot_49_p7.img`): слот 19 = `0xffffff8008bd7bf8` =
