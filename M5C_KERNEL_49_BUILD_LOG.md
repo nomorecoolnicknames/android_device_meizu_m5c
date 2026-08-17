@@ -4,6 +4,53 @@
 Авторитет по железу: `M5C_CHIP_MAP.md`. Формат: FACT / INFERENCE /
 HYPOTHESIS / REJECTED по `/srv/forge/android/CLAUDE.md`.
 
+## 2026-08-17 (P11 лог + P12 + P13) Лог живой; смерть на SMP-участке; скобки 21-30
+
+FACT (team-lead, `boot_49_p11.img`): ЛОГ РАБОТАЕТ — 103 строки, вся загрузка
+с `Linux version 4.9.188-m5c+ #21`. Путь фолбэка ram console подтверждён
+построчно. Обрыв: последняя строка `[1:swapper/0] CPU0: update cpu_capacity
+1024` — PID 1, участок sched/SMP-инициализации; `CPU1: Booted secondary
+processor` нет. Обрыв не по переполнению (9248/64064 байт).
+
+FACT (живая сверка team-lead с 3.18 на том же железе):
+- `NR_IRQS:64 nr_irqs:64` у 3.18 ИДЕНТИЧНО → REJECTED как расхождение.
+- sched_clock: у 3.18 «32 bits at 13MHz» (это mt_gpt: wraps 330382100403ns
+  = 2^32/13МГц), таймер — MTK ca53_timer; у 4.9 дженерик arm_arch_timer, а
+  sched_clock остался jiffies 250 Hz. Root cause НАЙДЕН в исходнике:
+  4.9 `CLOCKSOURCE_OF_DECLARE("mediatek,APXGPT")` vs стоковый DTB
+  `apxgpt@10004000 compatible="mediatek,mt6735-apxgpt"` (3.18 матчит его).
+  ПЯТЫЙ блокер класса «compatible mismatch» на m5c. Фикс: второй
+  OF_DECLARE (коммит `f6e001116`).
+- `Fail to set polarity of interrupt 29/30` — только у 4.9 (дженерик лезет
+  в MTK sysirq за полярностью PPI); косметика, контекст к таймеру.
+- H2-строки (`Invalid sched_group_energy`, `init_heavy_tlb cid=-1`) у 3.18
+  отсутствуют, но и кода того в 3.18 нет; конфиг-паритет уже выполнен
+  (SCHED_TUNE/ENERGY_AWARE/MTK_UNIFY_POWER выключены, RQAVG=y как у 3.18).
+- 3.18 поднимает 4 ядра за 82 мс → железо/PSCI исправны, вопрос в 4.9-коде.
+
+FACT (`boot_49_p12.img` = ядро p11 + maxcpus=1): поведение КАЧЕСТВЕННО
+изменилось — за 200+ с ни recovery (нет WDT-возврата, который LK делает при
+wdt_by_pass_pwk), ни USB-устройства на шине вообще. INFERENCE: сброса по WDT
+не было; ядро либо ушло дальше и висит там, где WDT кикается, либо стоит
+без USB-гаджета. Лог снимет владелец при ручном входе в recovery.
+
+INFERENCE (уточнение формулировки, team-lead + моё): «вис на подъёме
+вторичных ядер» слишком широко — arm64 __cpu_up при невзлетевшем secondary
+печатает "failed to come online" через 5 с и продолжает. Молчание до WDT →
+спин под спинлоком в mtcmos-полле ЛИБО развал системы от secondary,
+стартовавшего в плохом состоянии.
+
+Сделано (P13, коммиты `f6e001116` + `0f18a0138`, образ `boot_49_p13.img`,
+sha256 `5ecd987784e73f1037e6c266c85701d2dd04f9748d8c8090276af18422b7b320`,
+System.map-p13): apxgpt-фикс + маркеры 21-30 (скобки smp_prepare_cpus /
+smp_init; mt_psci_cpu_prepare 23/24; cpu_boot 25, после psci cpu_on 26,
+после mtcmos POWER_ON 27; 30 = вход в secondary_start_kernel — штамп с
+самого вторичного ядра). Читать count=256; бисекция: 25-без-26 = SMC в ATF;
+26-без-27 = mtcmos-полл; 27-без-30 = secondary не исполняет C; 30-без-29 =
+secondary жив, но система разваливается.
+
+Захват p11: `captures/20260817-49-p11/` (лог+бинарь, снял team-lead).
+
 ## 2026-08-17 (P10 результат + P11) Вторая развилка sram_log_save; WDT-переоценка
 
 FACT (team-lead, `boot_49_p10.img`): 4.9 ДОКАЗАННО отработало — в окне
