@@ -807,3 +807,145 @@ HYPOTHESIS: `FL_Enable()` вызывается, но либо i2c-запись �
 REJECTED: «фонарик не работает, потому что осталось донорское userspace». Логкат
 показывает, что userspace как раз доходит до HAL и меняет статус; молчит именно
 ядро.
+
+## 2026-08-17 (ночь) mBack, фонарик, иконка камеры — закрыты на железе
+
+Работа шла четырьмя параллельными агентами, каждому — свой `git worktree` ядра
+(`/srv/forge/android/m5c/k-worktrees/{mback,camotp,torch}`), прошивку делала
+только родительская сессия. Их подробные ленты: `M5C_TOUCHKEY_LANE.md`,
+`M5C_FLASHLIGHT_LANE.md`, `M5C_CAMERA_ORIENTATION_LANE.md`,
+`M5C_CAMERA_OTP_LANE.md`, `M5C_KERNEL_49_BUILD_LOG.md`.
+
+### mBack — РАБОТАЕТ (подтверждено владельцем)
+
+FACT: причина — драйвер синтезировал тап по захардкоженным координатам вместо
+key-события: `GTP_KEY_MAP_ARRAY` в
+`GT9XXTB_hotknot/include/tpd_gt9xx_common.h:39` = `{{60,850},{180,850},{300,850}}`
+(референсный дизайн 480x800), и `gt9xx_driver.c` брал `input_x = maping[i].x` →
+`tpd_down()`. На 720x1280 точка `(60,850)` попадает внутрь экрана.
+
+FACT (замер на устройстве до правки, три ловушки `getevent -c N` одновременно):
+нажатие давало на `event5` ровно `ABS_MT_TOUCH_MAJOR=100`, `BTN_TOUCH=1`,
+`X=60`, `Y=850`, **без** `ABS_MT_TRACKING_ID`; на `event6` (mtk-tpd-kpd) и
+`event1` (mtk-kpd) — ноль событий; счётчик `mtk-kpd` (irq 196) не двигался, а
+`TOUCH_PANEL-eint` (irq 350) рос. То есть кнопка ёмкостная, на панели, и
+firmware поднимает бит 0 в `key_value`.
+
+FACT: `TPD_KEYS_DIM`, `GTP_KEY_TAB` и `TPD_HAVE_BUTTON` в этом драйвере —
+мёртвый код (их читают GT928/GT910/GT9XX_hotknot_scp/ft5x46, но не наш);
+живой путь гейтится только на `tpd_dts_data.use_tpd_button`, который равен 1 из
+DT. `ABS_MT_TOUCH_MAJOR=100` тоже не от ширины кнопки: это хардкод в `tpd_down()`
+для случая `size==0 && id==0`, там же пропускается tracking id.
+
+Исправление (ядро, коммит `55c14fdc`, слит в master как `e56d6726`): отдавать
+настоящий `EV_KEY` на `tpd->kpd`, код и геометрию брать из
+`tpd_dts_data.tpd_key_local/tpd_key_dim_local` (бит 0 → `0x9e` = `KEY_BACK`),
+`GTP_KEY_MAP_ARRAY` удалён. Заодно исправлен `tpd_button.c`: там
+`j += sprintf(buf, "%s...", buf, ...)` складывал частичные длины, из-за чего
+`/sys/board_properties/virtualkeys.mtk-tpd` отдавал 150 байт вместо 75.
+
+FACT: userspace-половина маршрута уже была готова —
+`/system/usr/keylayout/mtk-tpd-kpd.kl` содержит `key 158 BACK VIRTUAL`, менять в
+ROM ничего не потребовалось.
+
+Проверка после прошивки: `virtualkeys.mtk-tpd` = ровно **75 байт**; владелец
+подтвердил, что кнопка работает как «Назад».
+
+### Фонарик — РАБОТАЕТ (подтверждено владельцем)
+
+FACT: два независимых дефекта.
+1. Узел `flashlight { compatible = "mediatek,mt6737-flashlight" }` в стоковом DTB
+   **ни к какому драйверу не привязывался**: строка `mt6737-flashlight`
+   встречается только в DTS, потребителя не было. Замер до правки:
+   в `/sys/devices/bus/bus:flashlight/` не было symlink'а `driver`. Поэтому
+   pinctrl-состояния (`hwen_low/high`, `torch_*`, `flash_*`; GPIO9 HWEN,
+   GPIO78 TORCH, GPIO80 FLASH) никогда не выбирались и HWEN оставался как его
+   бросил LK. Тот же класс дефекта, что зарядник/alsps/lp3101, но здесь
+   отсутствовал сам потребитель, а не совпадало имя.
+2. Чип — **не LM3642**. Сток сохраняет имя драйвера `leds-LM3642`, но живой код
+   у него `SY7806_*`: регистры 0x01 (enable/mode), 0x03/0x04 (flash),
+   0x05/0x06 (torch), 0x08 (тайминги). У стокового `FL_Enable` от LM3642
+   (пишущего 0x09/0x0A — на SY7806 это Temperature и read-only Flag1)
+   **ноль вызывающих** во всём образе.
+
+REJECTED: «включить dynamic debug на `leds_strobe.c` и посмотреть». `PK_DBG`
+там разворачивается в **пустой** макрос (`DEBUG_LEDS_STROBE` закомментирован),
+это не `pr_debug`, поэтому dynamic debug не напечатал бы ничего. Молчание ядра
+объяснялось конфигом сборки и не было уликой о пути исполнения.
+
+Исправление (ядро, коммит `ba5b9145`, слит как `80fd92ed`): привязать DT-узел
+(`FLASHLIGHT_of_match` + `flashlight_gpio_init/set`), программировать реальный
+SY7806, продублировать путь strobe id 2 (сток программирует чип именно оттуда),
+логи поднять до `pr_info`.
+
+Маркеры после прошивки, все сошлись: `flashlight_gpio_init done, ret = 0`;
+`/sys/devices/bus/bus:flashlight/driver -> kd_camera_flashlight`;
+на нажатии `FL_Enable: torch on, duty = 0, level = 0x23`,
+`pin(0) state(1) ret(0)`, `strobe_main_sid2_part1: forwarding to the constant
+flashlight strobe`; на отпускании `FL_Disable: off` + `pin(0) state(0)`.
+
+FACT (новое, с железа): `FL_Enable: readback enable = 0x0b flag1 = 0x00
+devid = 0x18` — регистр enable читается обратно тем же значением, что записали,
+а **device id (рег 0x0C) = 0x18**. Идентификация чипа теперь замер, а не
+вывод из стокового кода.
+
+### Иконка камеры в лончере — восстановлена
+
+FACT: приложение `org.cyanogenmod.snap` было установлено, включено и
+запускалось (я поднимал его интентом, активность в фокусе, HAL отдавал полный
+список параметров вплоть до 2560x1920), но в лончере иконки не было.
+Причина: в `disabledComponents` пакета лежали
+`com.android.camera.CameraLauncher` **и** `com.android.camera.DisableCameraReceiver`.
+
+INFERENCE: это штатный механизм LOS — `DisableCameraReceiver` на первой загрузке
+видит «камер в системе нет», убирает иконку и отключает сам себя. Он отработал
+до того, как мы исправили i2c-адреса сенсоров, и его решение осталось
+залипшим. Лечится одной командой:
+`pm enable org.cyanogenmod.snap/com.android.camera.CameraLauncher`
+(проверено, владелец подтвердил появление иконки). Стоит помнить как класс:
+userspace-решения, принятые при сломанном железе, переживают починку железа.
+
+### Поворот камеры — обе гипотезы опровергнуты на железе
+
+REJECTED: таблица `SensorOrientation_T` в `libcameracustom.so`. Патч (main=270,
+затем и main2=270) применён, `mediaserver` его действительно грузит
+(проверено по `/proc/<pid>/maps`, отдельного `cameraserver` в этой сборке нет),
+`dumpsys media.camera` всё равно отдаёт `Orientation: 90`. Причина промаха
+агента: оба вызова `getSensorOrientation()` в `libcam.halsensor.so` лежат внутри
+`ImgSensorDrv::sendCommand(SENSOR_DEV_ENUM,…)` — значение идёт ВНИЗ в ядро, а не
+в `camera_info`.
+
+REJECTED: 4-байтовая правка fallback'а в
+`MetadataProvider::getDeviceWantedOrientation` (`libcam.metadataprovider.so`,
+смещение `0x00015E06`). Патч загружен тем же процессом (md5 сверен на
+устройстве), `Orientation` остался 90.
+
+FACT (важнее самого поворота): в этих блобах **нет таблиц метаданных для наших
+сенсоров вообще**. `strings | grep -oE 'SENSOR_DRVNAME_[A-Z0-9_]+' | sort -u`
+по `libcam.halsensor.so`, `libcam.metadataprovider.so`, `libcameracustom.so`,
+`camera.mt6737m.so` даёт ровно пять имён: GC0310, GC2145, GC2355, IMX135,
+IMX219. Ни одного `S5K4H8`/`S5K5E8`. Поиск идёт через
+`impConstructStaticMetadata_by_SymbolName`, поэтому для наших сенсоров
+характеристики берутся из generic-заглушки MTK — не только ориентация.
+
+INFERENCE: правильная цель — не гнуть fallback, а добавить таблицу метаданных
+для `S5K4H8`/`S5K5E8`; тогда чинится и ориентация, и остальные статические
+характеристики. Оба стоковых блоба восстановлены, устройство чистое.
+
+### Цвет камеры — причина уточнена (лента продолжается)
+
+FACT: калибровка главной камеры лежит **не в сенсоре**, а в отдельной EEPROM
+**GT24C64A** на камерной i2c0, 8-битный write id `0xA0`: сток читает 1868 байт
+таблицы шейдинга (`LscSize = 0x074C` в `Data[21..22]`) со смещения `0x51`,
+раскладка как у MTK imx135 cam_cal. У нас `CONFIG_MTK_CAM_CAL` не включён вовсе,
+драйвера нет → `ERR_NO_SHADING` и мусорная таблица.
+
+FACT: сток выбирает вариант модуля по байту `0x0001` в EEPROM
+(ofilm 5 / st 8 / holitech 9 / sunwin 0x0A) и затем сообщает sensor id
+`0x4088 + offset`, чтобы `kd_sensorlist` отдал HAL соответствующее имя драйвера.
+Фронтальный S5K5E8 использует OTP-страницу 4 сенсора (id `0x5E80..0x5E83`,
+модули 3/7/9/0x0A) и несёт **только AWB, без шейдинга**.
+
+REJECTED: «быстрый нейтральный шейдинг». Синтезировать единичную таблицу на
+1868 байт без знания кодировки MTK — выдумывание; правильный драйвер — тот же
+объём работы.
