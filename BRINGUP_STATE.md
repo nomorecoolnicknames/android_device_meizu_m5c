@@ -1449,3 +1449,51 @@ P13 ноль строк `calling `, флаг выключен, а рабочее
 маркеры-скобки на `do_pre_smp_initcalls()` и `lockup_detector_init()`; (3)
 конфиг-опыт: выключить MTK-шные EAS/heavy-tlb, которых на рабочем 3.18 нет
 вовсе, вместо попыток починить топологию.
+
+## 4.9 arm64: P15 — вис локализован в `workqueue_init()` (2026-08-17)
+
+Прошит `boot_49_p15.img` (sha256 `42952abc72e51767d14b22e5ae0e375fc5763b3a01e7db8f38ae66435a5aeea5`)
+= p13 + `initcall_debug` в cmdline + маркеры 31 (`workqueue_init` прошёл) и 32
+(pre-smp initcalls прошли). Капчур: `captures/20260817-49-p15/`.
+
+FACT (улика 1, маркеры): выставлены 21–24, **не выставлены 25–32**, включая новые
+31 и 32. `workqueue_init()` не завершился.
+
+FACT (улика 2, независимая): `initcall_debug` доехал до ядра (присутствует в
+`Kernel command line`), но в логе **ноль** строк `calling ` — ни один initcall не
+исполнялся. Лог кончается той же строкой, что на P11 и P13:
+`[0.011967] (0)[1:swapper/0]CPU0: update cpu_capacity 1024`.
+
+INFERENCE: зависание внутри **`workqueue_init()`**, до первого initcall.
+`do_pre_smp_initcalls()` и `lockup_detector_init()` из подозреваемых выбывают.
+В 4.9 `kernel_init_freeable()` вызывает `workqueue_init()` сразу после
+`smp_prepare_cpus()`, что согласуется с маркерами 22 (стоит) и 31 (нет).
+
+REJECTED (моя трактовка P13 «виснет в цикле energy-кода на переходе к CPU1»):
+проверено прямым подсчётом строк лога — в раннем проходе (PID 0) цикл прошёл ВСЕ
+четыре ядра (строки 37–44: CPU0, CPU1, CPU2, CPU3, затем четыре
+`Invalid sched_group_energy` подряд), а строка при PID 1 одиночная и печатается
+из `store_cpu_topology(cpu0)` внутри `smp_prepare_cpus`. Цикл к висанию
+отношения не имеет; та строка — просто последняя печать перед тихой зоной.
+
+Следующая проба (в работе): скобки-маркеры внутри `workqueue_init()` по
+участкам — `wq_numa_init()`; цикл `for_each_online_cpu` с созданием per-cpu пулов
+и `BUG_ON(!create_worker(pool))`; создание unbound/ordered wq; `wq_watchdog_init()`
+— и отдельно вокруг первого `create_worker()`, то есть первого в этом окне
+создания и пробуждения kthread. Замечание: `create_worker()` при неудаче даёт
+`BUG_ON`, а не вис, поэтому «висит» указывает скорее на пробуждение/планировщик,
+чем на нехватку памяти. Косвенно в ту же сторону: `init_heavy_tlb start.`
+печатается на 0.011714 и вызывается лениво из планировочного хука
+`sched_update_nr_heavy_prod`, то есть хук MTK уже срабатывал.
+
+FACT (уточнение к конфиг-опыту H2, чтобы не строить вывод на ложной посылке):
+`init_heavy_tlb` живёт в `drivers/misc/mediatek/sched/sched_avg.c` под
+`CONFIG_MTK_SCHED_RQAVG_KS`. Эта опция включена и в 3.18-defconfig
+(`CONFIG_MTK_SCHED_RQAVG_KS=y`, `_US=y`, строки 1338–1339) — просто в
+3.18-исходниках функции `init_heavy_tlb` нет вовсе. То есть конфиги тут
+совпадают, различается код за одним и тем же именем опции; выключение в 4.9
+остаётся осмысленным опытом, но не как «приведение к рабочему конфигу».
+FACT: `CONFIG_MTK_UNIFY_POWER`, `CONFIG_SCHED_TUNE`, `CONFIG_ENERGY_AWARE` в
+m5c_defconfig отсутствуют — upower-ветки `cpu_core_energy`/`cpu_cluster_energy`
+скомпилированы вне, полноценный EAS не включён, поэтому механизм «вис в
+energy-aware выборе ядра при пробуждении» ослаблен.

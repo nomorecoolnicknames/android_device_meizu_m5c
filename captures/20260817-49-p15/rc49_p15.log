@@ -1,0 +1,116 @@
+[    0.000000] -(0)[0:swapper]Booting Linux on physical CPU 0x0
+[    0.000000] -(0)[0:swapper]Linux version 4.9.188-m5c+ (n8n@n8nagent) (gcc version 4.9 20150123 (prerelease) (GCC) ) #24 SMP PREEMPT Mon Aug 17 18:38:00 MSK 2026
+[    0.000000] -(0)[0:swapper]Boot CPU: AArch64 Processor [410fd034]
+[    0.000000] -(0)[0:swapper]OF: reserved mem: initialized node reserve-memory-dram_r1_dummy_read, compatible id reserve-memory-dram_r1_dummy_read
+[    0.000000] -(0)[0:swapper]OF: reserved mem: initialized node reserve-memory-dram_r0_dummy_read, compatible id reserve-memory-dram_r0_dummy_read
+[    0.000000] -(0)[0:swapper][memblock]mediatek,ram_console: 0x43f00000 - 0x43f10000 (0x10000)
+[    0.000000] -(0)[0:swapper]OF: reserved mem: initialized node ram_console-reserved-memory@43f00000, compatible id mediatek,ram_console
+[    0.000000] -(0)[0:swapper][memblock]mediatek,pstore: 0x43f10000 - 0x43ff0000 (0xe0000)
+[    0.000000] -(0)[0:swapper]OF: reserved mem: initialized node pstore-reserved-memory@43f10000, compatible id mediatek,pstore
+[    0.000000] -(0)[0:swapper]psci: probing for conduit method from DT.
+[    0.000000] -(0)[0:swapper]psci: Using PSCI v0.1 Function IDs from DT
+[    0.000000] -(0)[0:swapper]percpu: Embedded 23 pages/cpu s56320 r8192 d29696 u94208
+[    0.000000] -(0)[0:swapper]Detected VIPT I-cache on CPU0
+[    0.000000] -(0)[0:swapper]CPU features: enabling workaround for ARM erratum 845719
+[    0.000000] -(0)[0:swapper]CPU features: enabling workaround for ARM errata 855873
+[    0.000000] -(0)[0:swapper]Built 1 zonelists in Zone order, mobility grouping on.  Total pages: 498211
+[    0.000000] -(0)[0:swapper]Kernel command line: console=tty0 console=ttyMT0,921600n1 root=/dev/ram vmalloc=496M androidboot.hardware=mt6735 slub_max_order=0 slub_debug=O bootopt=64S3,32N2,64N2 androidboot.selinux=permissive buildvariant=userdebug initcall_debug lcm=1-ili9881c_dsi_vdo_dj_hd720 fps=5850 vram=13172736 printk.disable_uart=1 bootprof.pl_t=3387 bootprof.lk_t=5076 boot_reason=4 psn=710HZZ116V09059A androidboot.serialno=710HVBR923RYK androidboot.bootreason=wdt_by_pass_pwk androidboot.cus_param=0x71051002 androidboot.cus_color=M710E gpt=1
+[    0.000000] -(0)[0:swapper]PID hash table entries: 4096 (order: 3, 32768 bytes)
+[    0.000000] -(0)[0:swapper]Dentry cache hash table entries: 262144 (order: 9, 2097152 bytes)
+[    0.000000] -(0)[0:swapper]Inode-cache hash table entries: 131072 (order: 8, 1048576 bytes)
+[    0.000000] -(0)[0:swapper]Memory: 1971100K/2025408K available (8894K kernel code, 954K rwdata, 2444K rodata, 704K init, 1868K bss, 54308K reserved, 0K cma-reserved)
+[    0.000000] -(0)[0:swapper]Virtual kernel memory layout:
+[    0.000000] -(0)[0:swapper]    modules : 0xffffff8000000000 - 0xffffff8008000000   (   128 MB)
+[    0.000000] -(0)[0:swapper]    vmalloc : 0xffffff8008000000 - 0xffffffbebfff0000   (   250 GB)
+[    0.000000] -(0)[0:swapper]      .text : 0x        (ptrval) - 0x        (ptrval)   (  8896 KB)
+[    0.000000] -(0)[0:swapper]    .rodata : 0x        (ptrval) - 0x        (ptrval)   (  2496 KB)
+[    0.000000] -(0)[0:swapper]      .init : 0x        (ptrval) - 0x        (ptrval)   (   704 KB)
+[    0.000000] -(0)[0:swapper]      .data : 0x        (ptrval) - 0x        (ptrval)   (   955 KB)
+[    0.000000] -(0)[0:swapper]       .bss : 0x        (ptrval) - 0x        (ptrval)   (  1869 KB)
+[    0.000000] -(0)[0:swapper]    fixed   : 0xffffffbefe7fb000 - 0xffffffbefec00000   (  4116 KB)
+[    0.000000] -(0)[0:swapper]    PCI I/O : 0xffffffbefee00000 - 0xffffffbeffe00000   (    16 MB)
+[    0.000000] -(0)[0:swapper]    vmemmap : 0xffffffbf00000000 - 0xffffffc000000000   (     4 GB maximum)
+[    0.000000] -(0)[0:swapper]              0xffffffbf00000000 - 0xffffffbf01fccc00   (    31 MB actual)
+[    0.000000] -(0)[0:swapper]    memory  : 0xffffffc000000000 - 0xffffffc07f330000   (  2035 MB)
+[    0.000000] -(0)[0:swapper]SLUB: HWalign=64, Order=0-0, MinObjects=0, CPUs=4, Nodes=1
+[    0.000000] -(0)[0:swapper/0]sched-energy: CPU device node has no sched-energy-costs
+[    0.000000] -(0)[0:swapper/0]Invalid sched_group_energy for CPU0
+[    0.000000] -(0)[0:swapper/0]CPU0: update cpu_capacity 1024
+[    0.000000] -(0)[0:swapper/0]Invalid sched_group_energy for CPU1
+[    0.000000] -(0)[0:swapper/0]CPU1: update cpu_capacity 1024
+[    0.000000] -(0)[0:swapper/0]Invalid sched_group_energy for CPU2
+[    0.000000] -(0)[0:swapper/0]CPU2: update cpu_capacity 1024
+[    0.000000] -(0)[0:swapper/0]Invalid sched_group_energy for CPU3
+[    0.000000] -(0)[0:swapper/0]CPU3: update cpu_capacity 1024
+[    0.000000] -(0)[0:swapper/0]Invalid sched_group_energy for CPU0
+[    0.000000] -(0)[0:swapper/0]Invalid sched_group_energy for CPU1
+[    0.000000] -(0)[0:swapper/0]Invalid sched_group_energy for CPU2
+[    0.000000] -(0)[0:swapper/0]Invalid sched_group_energy for CPU3
+[    0.000000] -(0)[0:swapper/0]Preemptible hierarchical RCU implementation.
+[    0.000000] -(0)[0:swapper/0]	Build-time adjustment of leaf fanout to 64.
+[    0.000000] -(0)[0:swapper/0]	RCU restricting CPUs from NR_CPUS=8 to nr_cpu_ids=4.
+[    0.000000] -(0)[0:swapper/0]RCU: Adjusting geometry for rcu_fanout_leaf=64, nr_cpu_ids=4
+[    0.000000] -(0)[0:swapper/0]
+[    0.000000] -(0)[0:swapper/0]**********************************************************
+[    0.000000] -(0)[0:swapper/0]**   NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE   **
+[    0.000000] -(0)[0:swapper/0]**                                                      **
+[    0.000000] -(0)[0:swapper/0]** trace_printk() being used. Allocating extra memory.  **
+[    0.000000] -(0)[0:swapper/0]**                                                      **
+[    0.000000] -(0)[0:swapper/0]** This means that this is a DEBUG kernel and it is     **
+[    0.000000] -(0)[0:swapper/0]** unsafe for production use.                           **
+[    0.000000] -(0)[0:swapper/0]**                                                      **
+[    0.000000] -(0)[0:swapper/0]** If you see this message and you are not debugging    **
+[    0.000000] -(0)[0:swapper/0]** the kernel, report this immediately to your vendor!  **
+[    0.000000] -(0)[0:swapper/0]**                                                      **
+[    0.000000] -(0)[0:swapper/0]**   NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE   **
+[    0.000000] -(0)[0:swapper/0]**********************************************************
+[    0.000000] -(0)[0:swapper/0]NR_IRQS:64 nr_irqs:64 0
+[    0.000000] -(0)[0:swapper/0]cpuxgpt_r.start = 0x10200000
+[    0.000000] -(0)[0:swapper/0]mt_gpt_init: tmr_regs=0xffffff8008009000, tmr_irq=184, freq=13000000
+[    0.000000] -(0)[0:swapper/0][mtk_gpt] gpt1, base=0xffffff8008009010
+[    0.000000] -(0)[0:swapper/0][mtk_gpt] gpt2, base=0xffffff8008009020
+[    0.000000] -(0)[0:swapper/0][mtk_gpt] gpt3, base=0xffffff8008009030
+[    0.000000] -(0)[0:swapper/0][mtk_gpt] gpt4, base=0xffffff8008009040
+[    0.000000] -(0)[0:swapper/0][mtk_gpt] gpt5, base=0xffffff8008009050
+[    0.000000] -(0)[0:swapper/0][mtk_gpt] gpt6, base=0xffffff8008009060
+[    0.000000] -(0)[0:swapper/0]setup_clksrc1: dev->base_addr=0xffffff8008009020 GPT2_CON=0x0
+[    0.000005] -(0)[0:swapper/0]sched_clock: 32 bits at 13MHz, resolution 76ns, wraps every 165191050201ns
+[    0.000017] -(0)[0:swapper/0]clocksource: mt6580-gpt: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 147020034397 ns
+[    0.000030] -(0)[0:swapper/0]setup_clksrc2: dev->base_addr=0xffffff8008009020 GPT2_CON=0x31
+[    0.000064] -(0)[0:swapper/0][mtk_gpt] gpt1: cmp=52000, hz=250, freq=13000000
+[    0.000137] -(0)[0:swapper/0]cpuxgpt_r.start = 0x10200000
+[    0.000162] -(0)[0:swapper/0]fwq sysc count
+[    0.000210] -(0)[0:swapper/0]arm_arch_timer: arch_timer_uses_ppi=0
+[    0.000222] -(0)[0:swapper/0]Fail to set polarity of interrupt 29
+[    0.000232] -(0)[0:swapper/0]arm_arch_timer: arch_timer_register: request_percpu_irq ppi=29 err=0
+[    0.000243] -(0)[0:swapper/0]Fail to set polarity of interrupt 30
+[    0.000252] -(0)[0:swapper/0]arm_arch_timer: arch_timer_register:request_percpu_irq PHYS_NONSECURE_PPI err=0
+[    0.000278] -(0)[0:swapper/0]Fail to set polarity of interrupt 29
+[    0.000289] -(0)[0:swapper/0]Fail to set polarity of interrupt 30
+[    0.000610] -(0)[0:swapper/0]arm_arch_timer: Architected cp15 timer(s) running at 13.00MHz (phys).
+[    0.002100]  (0)[0:swapper/0]console [ttyMT0] enabled
+[    0.002137]  (0)[0:swapper/0]ram_console: [DT] offset:0x0 illegal
+[    0.002146]  (0)[0:swapper/0]ram_console: no LK memory_info, using m5c debug layout @0x5f000000
+[    0.002164]  (0)[0:swapper/0]ram_console: buffer start: 0xffffff8008019000, size: 0x10000
+[    0.009657]  (0)[0:swapper/0]pmic & external buck: 0xff
+[    0.009667]  (0)[0:swapper/0]ram_console: CPU notifier status: 0, 0, 0x0, 0
+[    0.009677]  (0)[0:swapper/0]ram_console: CPU HPS footprint: 0, 0x0, 0, 0
+[    0.009685]  (0)[0:swapper/0]ram_console: last init function: 0x0
+[    0.010618]  (0)[0:swapper/0]console [ram-1] enabled
+[    0.010644] Calibrating delay loop (skipped), value calculated using timer frequency.. 26.00 BogoMIPS (lpj=52000)
+[    0.010665]  (0)[0:swapper/0]pid_max: default: 32768 minimum: 301
+[    0.010767]  (0)[0:swapper/0]Security Framework initialized
+[    0.010783]  (0)[0:swapper/0]SELinux:  Initializing.
+[    0.010866]  (0)[0:swapper/0]Mount-cache hash table entries: 4096 (order: 3, 32768 bytes)
+[    0.010882]  (0)[0:swapper/0]Mountpoint-cache hash table entries: 4096 (order: 3, 32768 bytes)
+[    0.011714] -(0)[0:swapper/0]init_heavy_tlb start.
+[    0.011737] -(0)[0:swapper/0]init_heavy_tlb: cid=-1 is out of nr=1
+[    0.011751] -(0)[0:swapper/0]init_heavy_tlb: cpu=0 thresh_l=0 thresh_h=0 max_capaicy=0
+[    0.011764] -(0)[0:swapper/0]init_heavy_tlb: cid=-1 is out of nr=1
+[    0.011778] -(0)[0:swapper/0]init_heavy_tlb: cpu=1 thresh_l=0 thresh_h=0 max_capaicy=0
+[    0.011791] -(0)[0:swapper/0]init_heavy_tlb: cid=-1 is out of nr=1
+[    0.011804] -(0)[0:swapper/0]init_heavy_tlb: cpu=2 thresh_l=0 thresh_h=0 max_capaicy=0
+[    0.011817] -(0)[0:swapper/0]init_heavy_tlb: cid=-1 is out of nr=1
+[    0.011830] -(0)[0:swapper/0]init_heavy_tlb: cpu=3 thresh_l=0 thresh_h=0 max_capaicy=0
+[    0.011952]  (0)[1:swapper/0]Invalid sched_group_energy for CPU0
+[    0.011967]  (0)[1:swapper/0]CPU0: update cpu_capacity 1024
