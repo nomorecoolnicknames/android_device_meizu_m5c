@@ -4,6 +4,34 @@
 Авторитет по железу: `M5C_CHIP_MAP.md`. Формат: FACT / INFERENCE /
 HYPOTHESIS / REJECTED по `/srv/forge/android/CLAUDE.md`.
 
+## 2026-08-17 (фоновая подготовка Phase A/B/C, пока P10 ждёт окна)
+
+Всё скомпилировано и закоммичено в `m5c-arm64`; в P0-defconfig НЕ включено
+(диагностические образы не меняются), кроме fan5405 (нужен Phase A):
+
+- **LCM-стек** (коммит `93b7d2cd2`): панели `ili9881c_dsi_vdo_dj_hd720`
+  (С поправленными на железе стоковыми таблицами из 4137458e) и
+  `jd9365_dsi_vdo_holitech_hd720` + bias `lp3101.c` (из committed HEAD,
+  in-flight правки НЕ взяты) перенесены в 4.9; заведены в
+  `mt65xx_lcm_list` (jd9365 первым, ili9881c вторым — LK передаёт
+  `lcm=1-ili9881c…`); в `lcm_drv.h` добавлены compat-typedef'ы
+  (4.9-хедер только с тегами структур). Компилируются все объекты;
+  warnings идентичны 3.18-базе. jd9365-таблицы пока 3.18-версии (225
+  записей) — байт-точные стоковые 227 приложить на верификации Phase B.
+- **fan5405** (коммиты `9067aab41`, `58aa21c2d`, `f5f007061`, ВКЛЮЧЁН в
+  defconfig): зеркало проверенного 3.18-фикса 2f918464 — compatible
+  `mediatek,swithing_charger` в of_match, BUSNUM 3→1, fallback of_find;
+  плюс два линк-фикса Q0-пары (fan5405 нигде не определял
+  `chargin_hw_init_done`; `chr_control_interface` был с префиксом
+  `fan5405_`, который никто не зовёт). Полный Image.gz-dtb линкуется.
+- **Тач GT9XXTB_hotknot** (коммит `29e0cbd69`): проверенный 3.18-драйвер
+  (с фиксами 2f918464: ориентация 180°, GTP_MAX 720x1280, политика
+  «фабричный конфиг панели», header-FW-update off) перенесён; 4.9-правки:
+  `rtpm_prio.h` умер — RTPM_PRIO_TPD=4 локально; каталог выведен из-под
+  mediatek `-Werror` на два безобидных 3.18-warning'а. Все три объекта
+  собираются и линкуются. FocalTech-сосуществование — на этапе defconfig
+  Phase C (нативный focaltech_touch в 4.9 есть).
+
 ## 2026-08-17 (P9 результат + P10) Найден и закрыт разрыв записи: register_console за #ifndef PSTORE
 
 FACT (team-lead, `boot_49_p9.img`): вехи 18/20 стоят; окно 0x5f000000
