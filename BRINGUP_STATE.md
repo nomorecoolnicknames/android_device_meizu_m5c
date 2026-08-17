@@ -1002,3 +1002,117 @@ INFERENCE: дальше стоит собрать TWRP полностью из �
 тогда в recovery будут и наши исправления тача/дисплея, и можно добавить
 инструменты (xxd, полноценный od, python) для разбора маркеров на месте.
 Текущая подмена ядра — быстрый вариант, который уже работает.
+
+## 2026-08-17 (ночь, ещё позже) Камера: поворот исправлен, cam_cal читает EEPROM, цвет и фронталка открыты
+
+### Поворот на 180° — ИСПРАВЛЕН (подтверждено владельцем)
+
+FACT: значение, которое видит фреймворк, приходит по цепочке
+`CameraService::getCameraInfo` → `camera.mt6737m.so:CamDeviceManagerBase::getDeviceInfo`
+(`camera_info.orientation` ← `EnumInfo+20`) →
+`CamDeviceManagerImp::enumDeviceLocked` (`EnumInfo+20` ← `IMetadataProvider` vtable+40)
+→ `libcam.metadataprovider.so`.
+
+FACT: решающая улика — собственная отладочная строка HAL в `camera.mt6737m.so`,
+её видно в живом логе без всяких патчей:
+`MtkCam/devicemgr: [enumDeviceLocked] [0x00] DeviceVersion:0x100 metadata:0x… facing:0 orientation(wanted/setup)=(90/90)`.
+Она сразу показывает и `wanted`, и `setup`, и потому это самый дешёвый способ
+проверки в этой ленте — дешевле и информативнее `dumpsys`.
+
+FACT: `HalSensorList::buildStaticInfo` (`libcam.halsensor.so` @0xf524) делает
+**двухуровневый** `dlsym`: сначала имя таблицы под конкретный сенсор, при
+промахе — default-имя. Для наших сенсоров таблиц первого уровня нет (в блобах
+присутствуют только GC0310, GC2145, GC2355, IMX135, IMX219), поэтому всегда
+берётся `constructCustStaticMetadata_DEVICE_CAMERA_COMMON`
+(`libcam.metadataprovider.so` @0x7bf4), где по `facing==0` стоит
+`mov.w sl, #90` (@0x7cd0), и этот же регистр пишется в оба тега —
+`MTK_SENSOR_INFO_ORIENTATION (0x000F000B)` и
+`MTK_SENSOR_INFO_WANTED_ORIENTATION (0x000F0012)`.
+
+Правка: 4 байта по файловому смещению `0x00006CD0`,
+`4f f0 5a 0a` (`mov.w sl,#90`) → `4f f4 87 7a` (`mov.w sl,#270`). Ветка
+`facing==1` (фронталка) уже давала 270 и не тронута. Проверено на устройстве:
+`dumpsys media.camera` → `Orientation: 270`, лог HAL → `(270/270)`, владелец
+подтвердил, что превью и снимок больше не перевёрнуты.
+
+REJECTED (две предыдущие версии, обе проверены прошивкой на железе):
+1. таблица `SensorOrientation_T` в `libcameracustom.so` — оба вызова
+   `getSensorOrientation()` лежат внутри
+   `ImgSensorDrv::sendCommand(SENSOR_DEV_ENUM,…)`, т.е. значение идёт ВНИЗ в
+   ядро, а не в `camera_info`;
+2. NOP'ирование хардкода `90` в fallback'е
+   `MetadataProvider::getDeviceWantedOrientation` — лог `(90/90)` при
+   загруженном патче доказал, что теги выставлены и fallback не исполняется.
+
+Ловушка на будущее: константы `#90` (@0x7ec6) и `#66` (@0x7d0a) в том же файле —
+это **номера строк для логов**, не градусы. Слепой grep по `#90` уводит в сторону.
+
+Минус выбранного решения записан: правка живёт в прибилде и умрёт при следующем
+прогоне `extract-files.sh`; страховка — скрипт `patch_camera_orientation.py`
+(`--check/--apply/--revert`) и эта запись. Альтернатива «добавить нормальную
+таблицу метаданных под наши сенсоры» отвергнута не по лени: поиск идёт по имени
+символа, и наша библиотека действительно перебила бы default, но таблица первого
+уровня **заменяет всю категорию**, а не дополняет — пришлось бы воспроизвести
+все теги COMMON-таблицы против реверс-инженерного ABI, и любой пропущенный тег
+стал бы молча потерянной характеристикой камеры.
+
+### cam_cal / OTP — драйвер читает EEPROM, но HAL стучится в чужой узел
+
+FACT: калибровка главной камеры лежит в EEPROM **GT24C64A** на камерной i2c0,
+8-битный write id `0xA0`; 1868 байт LSC по смещению `0x51`, `LscSize = 0x074C`
+в `Data[21..22]`. Вариант модуля сток определяет по байту `0x0001`
+(ofilm 5 / st 8 / holitech 9 / sunwin 0x0A). Фронтальный S5K5E8 использует
+OTP-страницу 4 самого сенсора и несёт только AWB, шейдинга там нет.
+
+Сделано (ветка `forge/camotp`, слита как `07e2a164`): портированы cam_cal-драйверы
+для восьми вариантов модулей, к ним добавлены права в ramdisk —
+`chmod 0660` + `chown system camera` на восемь узлов после строк
+`/dev/CAM_CAL_DRV` в `init.mt6735.rc` (без этого узлы создаются как
+`root:root 0600` и HAL получает `EACCES`).
+
+FACT (на железе, работает): все восемь узлов есть с правами
+`system:camera 0660`; EEPROM реально читается —
+`[S5K4H8_OTP] S5K4H8_ST_OTP LSC 1868 bytes read, first=0xff 0x00 0x02 last=0x58`;
+вариант разрешается — `camera module id 8 -> variant 1, sensor id 0x4089`;
+и HAL впервые запускает обработку шейдинга (`ShadingTrans_RA: [LscRaSwMain]`,
+`isp_tuning_custom: [evaluate_Shading_CCT_index] … i4CCT = 6500`) вместо
+прежнего `ERR_NO_SHADING`.
+
+FACT (остающийся дефект): HAL открывает **не тот** узел —
+`S5K4H8_SUNWIN_OTP`, при том что модуль ST:
+ядро пишет `S5K4H8_SUNWIN_OTP opened but no calibration was read`, HAL —
+`s5k4h8_sunwinErr: LayoutType= 0x5`, `result= 0x8fffffff`,
+`Return ERROR ERR_NO_3A_GAIN`. То есть sensor id, который мы сообщаем для
+модуля 8 (`0x4089`), HAL сопоставляет с sunwin-именем, а не с st.
+
+FACT: цвет после этой прошивки стал **хуже**, а не лучше: пятна крупнее и
+насыщеннее (кадры сохранены:
+`captures/20260817-camera/01_before_camcal_rainbow.jpg` и
+`02_after_camcal_worse.jpg` с хешами). Геометрия, резкость и ориентация при этом
+правильные.
+
+INFERENCE: судить о цвете пока нельзя — HAL получает данные из узла, в который
+ничего не прочитано, и, видимо, откатывается на что-то ещё худшее. Сначала
+нужно согласовать соответствие «вариант → имя драйвера», и только потом
+измерять цвет.
+
+Открыто также: `[Read_CamOtpInfo_CheckSum] read otp module flag fail!!!` →
+`[Otp_Calibration] read otp fail` → `[open] otp apply fail` — это путь OTP
+внутри самого сенсора (не EEPROM); безвреден он или что-то блокирует, пока не
+установлено.
+
+### Фронтальная камера отсутствует — её не ищут вовсе
+
+FACT: `dumpsys media.camera` → `Number of camera devices: 1`.
+FACT: за всю загрузку в ядре **ни одной** попытки опроса sub-сенсора: нет строк
+`s5k5e8yx`, нет обращений `i2c write id: 0x78`, нет `GetSensorID` на слоте SUB.
+Единственная строка про эту шину — `i2c-bus2 speed is 100Khz`. Для сравнения,
+главный сенсор опрашивается и отвечает (`i2c write id: 0x20, sensor id: 0x4088`).
+FACT: при этом cam_cal-узлы фронталки регистрируются нормально
+(`/dev/S5K5E8_ST_OTP registered (major 235)` и три остальных).
+
+INFERENCE: молчание на слоте SUB — это не отказ i2c, а отсутствие запроса:
+HAL просит `SENSOR_DRVNAME_S5K5E8_ST_MIPI_RAW`, и если ядро объявляет драйвер
+под другим именем, HAL просто не поручает ядру опрашивать слот SUB.
+Проверяется сверкой имени, которое реально объявляет наш sub-драйвер, с тем,
+что запрашивает HAL.
