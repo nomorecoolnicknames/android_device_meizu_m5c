@@ -4,6 +4,56 @@
 Авторитет по железу: `M5C_CHIP_MAP.md`. Формат: FACT / INFERENCE /
 HYPOTHESIS / REJECTED по `/srv/forge/android/CLAUDE.md`.
 
+## 2026-08-17 (P6 результат + P7) GIC-порт ПОДТВЕРЖДЁН; смерть в console_init
+
+FACT (team-lead, `boot_49_p6.img`): слоты 1–17 на обоих адресах, 18 нет.
+init_IRQ (14) и time_init (16) ПРОЙДЕНЫ портированным mt-gic и mt_gpt —
+диагноз GIC подтверждён на железе. `console_init` (между 17 и 18) не
+возвращается. 4.9-текста в last_kmsg по-прежнему нет.
+
+FACT: в этой конфигурации собраны РОВНО два console-initcall'а
+(`grep console_initcall` + наличие .o): `mtk_uart_console_init`
+(drivers/misc/mediatek/uart/uart.c) и `ram_console_early_init`
+(ram_console/mtk_ram_console.c). Адреса из System.map-p7:
+- `mtk_uart_console_init` = `ffffff8008bd54bc` (в списке ПЕРВЫЙ)
+- `ram_console_early_init` = `ffffff8008bd7bf8`
+
+HYPOTHESIS (ранжирована): виснет `mtk_uart_console_init`. Cmdline несёт
+`console=tty0 console=ttyMT3,921600n1` (в нашем boot — ttyMT), физического
+UART на этом экземпляре нет; MT UART console-probe, ждущий железо/клок,
+虚 — правдоподобный вис. Фальсификация — слот 19 (см. ниже) назовёт
+функцию за одну загрузку.
+
+Сделано (P7, коммит `484fe6b12`, образ `boot_49_p7.img`): маркер 19/20.
+В `console_init()` (drivers/tty/tty_io.c) перед каждым `(*call)()`
+пишется АДРЕС этого initcall в слот 19 (`forge_kmark_ptr`), после цикла —
+веха 20. Выживший в слоте 19 адрес прямо укажет зависшую функцию по
+System.map-p7.
+
+Артефакт: `/srv/forge/android/m5c/kernel-m5c-4.9-lc/boot_49_p7.img`, sha256
+`201a6d8217d947442fb96025f2bb652deb436fb6c959ac78637007c2f82c825d`,
+9459712 B, boot (p7). System.map этой сборки сохранён рядом:
+`kernel-m5c-4.9-lc/System.map-p7`. DTB сток (md5 внутри проверен).
+
+Чтение (слот 19 на +160, 20 на +168 — читаем 176):
+```
+dd if=/dev/mem of=/tmp/fD.bin bs=1 skip=2130706432 count=176
+dd if=/dev/mem of=/tmp/fE.bin bs=1 skip=2952790016 count=176
+od -x /tmp/fD.bin ; od -x /tmp/fE.bin
+```
+На +160 (слот 19) — 8-байтовый АДРЕС (od -x: 4 слова LE). Расшифровка:
+- `bd54bc..` (…8008bd54bc) → зависла `mtk_uart_console_init` → правим
+  UART-console (убрать `console=ttyMT*` из cmdline или отключить его
+  console-initcall; на этом юните UART нет).
+- `bd7bf8..` (…8008bd7bf8) → зависла `ram_console_early_init` → правим
+  ram console (parse reserved-memory / of_scan).
+- Веха 20 на +168 стоит → оба console-initcall прошли, console_init вышел,
+  смерть дальше в start_kernel (тогда ram console жив — сразу last_kmsg
+  следующей загрузки на 4.9-текст).
+
+СТАТУС: телефон занят (team-lead чинит регрессию дисплея на 3.18) — P7
+ждёт освобождения устройства, НЕ прошивать до сигнала.
+
 ## 2026-08-17 (P5 результат + P6) Смерть в init_IRQ; портирован проверенный 3.18 mt-gic
 
 FACT (team-lead, `boot_49_p5.img`, md5 470e7fc7…): слоты 1–13 на обоих
