@@ -267,28 +267,77 @@ FACT: сборка прошла чисто (новых warning'ов в доба�
        7 846 494 B
 образ: /tmp/claude-1000/-srv-forge-android-m5c/145b2c58-faa9-45b2-84d1-967d0b509fd8/
        scratchpad/boot_camotp.img
-       9 472 000 B
-       sha256 2aa44bde0046a1c3615169df73d8c711f4ea06ad5030c564c8fc63fcc0ab0589
+       9 467 904 B
+       sha256 07caef15e68983a94be3a3aff49d2f2df035ea2f618c2662deb6f41f29bb0b56
 раздел: boot  (/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/boot)
+```
+
+Прошивка (на телефоне `dd` требует численный `bs`):
+
+```
+dd if=/data/local/tmp/boot_camotp.img \
+   of=/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/boot bs=1048576
 ```
 
 Сборка образа: контейнер и ramdisk взяты из `boot_k19.img`
 (sha256 `45ac9d05ad1215b7a8f151bff6e40ddb5680f502273f4f851e931724a1ea961a`,
-это ядро, загруженное на телефоне 2026-08-17 15:15), заменено только ядро:
+это ядро, загруженное на телефоне 2026-08-17 15:15); заменено ядро **и**
+пропатчен `init.mt6735.rc` в ramdisk (см. §4.1):
 
 ```
 abootimg -x boot_k19.img bootimg.cfg zImage initrd.img
 sed -i 's/^bootsize = .*/bootsize = 0x0/' bootimg.cfg
+# cpio newc пересобран скриптом на Python: заменено только содержимое
+# init.mt6735.rc и поле filesize в его заголовке, все uid/gid/mode сохранены
+# (распаковывать/запаковывать через cpio от непривилегированного юзера нельзя —
+#  потеряется root:root)
 abootimg --create boot_camotp.img -f bootimg.cfg \
-         -k <camotp>/arch/arm64/boot/Image.gz-dtb -r initrd.img
+         -k <camotp>/arch/arm64/boot/Image.gz-dtb -r initrd_camotp.img
 ```
 
-Проверки образа (все прошли): ramdisk побайтно совпадает с исходным;
-вытащенное ядро побайтно совпадает с `Image.gz-dtb`; `gunzip` даёт 19 223 232 B
-с магией `ARMd` по смещению `0x38`; внутри есть строки `S5K4H8_ST_OTP`,
-`s5k4h8stmipiraw`, `S5K5E8_SUNWIN_OTP`. Порядок собранного `kdSensorList`
-(вынут из нашего `vmlinux` тем же скриптом, что и стоковый) совпадает со
-стоковым из §2.5 по id и по именам.
+Проверки образа (все прошли): вытащенное ядро побайтно совпадает с
+`Image.gz-dtb`; `gunzip` даёт 19 223 232 B с магией `ARMd` по смещению `0x38`;
+внутри есть строки `S5K4H8_ST_OTP`, `s5k4h8stmipiraw`, `S5K5E8_SUNWIN_OTP`;
+листинг ramdisk (`cpio -itv`) совпадает с исходным по владельцам, режимам и
+составу (52 записи, всё root:root), отличается только размер `init.mt6735.rc`;
+в нём 16 новых строк `S5K*_OTP`. Порядок собранного `kdSensorList` (вынут из
+нашего `vmlinux` тем же скриптом, что и стоковый) совпадает со стоковым из §2.5
+по id и по именам.
+
+### 4.1 Обязательная правка userspace (её надо внести в дерево)
+
+FACT: `device/meizu/m5c/rootdir/root/init.mt6735.rc` даёт права только на
+`/dev/CAM_CAL_DRV` (строки 400 и 411) — это имя из эпохи imx135. Наши восемь
+узлов создаются devtmpfs как `root:root 0600`, а камерный HAL живёт в
+`mediaserver`, поэтому без правки он получит `EACCES` на `open()` и ошибка
+`can't open CAM_CAL` **останется**, хотя узлы будут существовать.
+
+В тестовом `boot_camotp.img` эта правка уже внесена прямо в ramdisk, чтобы
+образ был самодостаточным. В дерево её надо внести отдельно (файл принадлежит
+другой дорожке, сам не правил):
+
+`device/meizu/m5c/rootdir/root/init.mt6735.rc` — после строки
+`    chmod 0660 /dev/CAM_CAL_DRV` добавить
+
+```
+    chmod 0660 /dev/S5K4H8_OFILM_OTP
+    chmod 0660 /dev/S5K4H8_ST_OTP
+    chmod 0660 /dev/S5K4H8_HOLITECH_OTP
+    chmod 0660 /dev/S5K4H8_SUNWIN_OTP
+    chmod 0660 /dev/S5K5E8_ST_OTP
+    chmod 0660 /dev/S5K5E8_QH_OTP
+    chmod 0660 /dev/S5K5E8_HOLITECH_OTP
+    chmod 0660 /dev/S5K5E8_SUNWIN_OTP
+```
+
+и после строки `    chown system camera /dev/CAM_CAL_DRV` — те же восемь узлов с
+`chown system camera`.
+
+HYPOTHESIS: sepolicy пока не помеха — cmdline этого boot содержит
+`androidboot.selinux=permissive`, так что метки узлов не проверяются. Когда
+дерево пойдёт в enforcing, для восьми узлов понадобится `file_contexts` с типом
+вроде `camera_device` и разрешение для домена камеры. Falsify: при enforcing в
+логах появится `avc: denied { open } ... scontext=...:mediaserver`.
 
 Заметка про сборочное окружение: хостовый `scripts/dtc` этого дерева не
 линкуется современным GCC (`multiple definition of 'yylloc'`, `-fno-common`
