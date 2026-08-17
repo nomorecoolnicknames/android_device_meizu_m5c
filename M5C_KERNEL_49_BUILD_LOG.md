@@ -4,6 +4,38 @@
 Авторитет по железу: `M5C_CHIP_MAP.md`. Формат: FACT / INFERENCE /
 HYPOTHESIS / REJECTED по `/srv/forge/android/CLAUDE.md`.
 
+## 2026-08-17 (P13 результат + P15) H1 ОТВЕРГНУТА маркерами; вис в тихом pre-smp окне
+
+FACT (team-lead, `boot_49_p13.img`, возврат в recovery за 65 с = WDT, улики
+целы): apxgpt-фикс РАБОТАЕТ — таймстампы настоящие, ядро умирает через
+**12 мс** после старта (последняя строка [0.012000]), WDT добивает на ~60 с.
+Лог обрывается байт-в-байт там же, где p11. Слоты: 1–18, 20, **21–24**
+стоят; **25–30 НЕ стоят** (оба зеркала согласны).
+
+REJECTED: **H1 (подъём вторичных ядер)** — слот 25 (вход в cpu_boot) не
+выставлен, в путь secondary мы не входили вовсе; SMC/mtcmos ни при чём.
+
+FACT (бисекция слотами): 22 (после smp_prepare_cpus) есть, 28 (перед
+smp_init) нет → вис строго в окне, где ровно три вызова:
+`workqueue_init()`, `do_pre_smp_initcalls()`, `lockup_detector_init()`
+(проверено по коду; team-lead назвал два — workqueue_init добавлен).
+
+Поправка к «висит в цикле energy-кода» (проверено по исходнику):
+PID1-строки "Invalid sched_group_energy for CPU0 / CPU0: update
+cpu_capacity" печатает `store_cpu_topology(cpu0)` ИЗНУТРИ
+`smp_prepare_cpus` — единственный вызов, не цикл; 22 стоит → она
+вернулась. CPU0-строка — последний print перед тихой зоной, H2 остаётся
+гипотезой второго порядка.
+
+Сделано (P15, коммит `2334eca85`, образ `boot_49_p15.img`, sha256
+`42952abc72e51767d14b22e5ae0e375fc5763b3a01e7db8f38ae66435a5aeea5`):
+- cmdline + `initcall_debug` (в p13 его не было — 0 строк "calling";
+  рабочее 3.18 грузится с ним) → имя зависшего initcall прямо в логе;
+- маркеры 31 (+256: workqueue_init прошёл) и 32 (+264: pre-smp initcalls
+  прошли); flush kmark расширен до 512 B. System.map-p15.
+Бисекция: 22-без-31 = workqueue_init; 31-без-32 = early_initcall (имя по
+"calling" в хвосте); 32-без-28 = lockup_detector_init.
+
 ## 2026-08-17 (p12 разбор + WDT deadman + p14)
 
 FACT (team-lead/владелец): p12 висел на бутлого (LK отработал, ядро повисло);
