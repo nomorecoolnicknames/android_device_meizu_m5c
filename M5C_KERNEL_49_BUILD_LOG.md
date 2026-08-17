@@ -4,6 +4,44 @@
 Авторитет по железу: `M5C_CHIP_MAP.md`. Формат: FACT / INFERENCE /
 HYPOTHESIS / REJECTED по `/srv/forge/android/CLAUDE.md`.
 
+## 2026-08-17 (P5 результат + P6) Смерть в init_IRQ; портирован проверенный 3.18 mt-gic
+
+FACT (team-lead, `boot_49_p5.img`, md5 470e7fc7…): слоты 1–13 на обоих
+адресах, слот 14 ОТСУТСТВУЕТ → ядро умирает **внутри `init_IRQ`** — в GIC-
+драйвере. Кэш-флаш C-маркеров работает (все C-вехи до 13 легли).
+
+FACT (root cause на уровне исходников, без прошивки): наш РАБОЧИЙ 3.18 arm64
+собирает `CONFIG_MTK_GIC=y` → `drivers/irqchip/irq-mt-gic.c`, а
+`CONFIG_MTK_IRQ` у него **выключен**. В 4.9-lc `irq-mt-gic.c`/`MTK_GIC` нет
+вообще; включённый мной `misc/mediatek/irq/mt6735/irq.c` (MTK_IRQ) в 4.9-lc
+жил только в arm32-мире (mt6735 на 4.9-lc arm32-only) и на arm64 не работал
+никогда. REJECTED: чинить arm32-драйвер; правильный ход — перенести
+hardware-proven драйвер.
+
+Сделано (P6, коммит `5b856e40a`, образ `boot_49_p6.img`): `irq-mt-gic.c`
+(1489 строк) портирован из 3.18-дерева в 4.9 с фиксами API-дрейфа:
+- `gic_irq()` теперь из mtk-gic-extend.h (у 4.9 он есть в хедере);
+- `d->affinity` → `irq_data_get_affinity_mask(d)`;
+- cascade-handler: сигнатура `(struct irq_desc *)`, `handle_bad_irq(desc)`;
+- `gic_{dist,cpu}_{save,restore}` → `mt_*` (в 4.9 arm-gic.h есть одноимённые
+  прототипы с другими сигнатурами);
+- `set_irq_flags`/`IRQF_VALID` → `irq_set_status_flags`/`irq_set_probe`;
+- `d->of_node` → `irq_domain_get_of_node(d)`;
+- CPU_STARTING-нотифаер → `cpuhp_setup_state_nocalls(GIC_STARTING)`;
+- `IS_ERR_VALUE(int)` → `irq_base < 0`;
+- + 4 hwirq-хелпера для 4.9 cirq (`mt_irq_{set,get}_pending_hw`,
+  `mt_irq_get_pending_vec`, `mt_irq_get_pol_hw`) подняты дословно из
+  4.9 irq.c (те же глобалы GIC_DIST_BASE/INT_POL_CTL0).
+`MACH_MT6735M` теперь select'ит `MTK_GIC` вместо `MTK_IRQ` — ровно как в
+проверенном 3.18. Сборка чистая (EXIT=0, undefined refs нет).
+
+Артефакт: `/srv/forge/android/m5c/kernel-m5c-4.9-lc/boot_49_p6.img`, sha256
+`f4d4be3888e77bb56cfe113aaffaed3d6273a4fb703f7a22c87326b147141c83`,
+9459712 B, boot (p7); DTB сток (md5 внутри проверен); маркеры 1–18 на
+обоих адресах сохранены (те же команды чтения, count=176).
+Ожидание: слоты пройдут 14 (init_IRQ/mt-gic) и дальше; при 17→18 ram
+console оживёт и появится ПЕРВЫЙ 4.9-текст в last_kmsg следующей загрузки.
+
 ## 2026-08-17 (P4 результат + P5) setup_arch проходит ПОЛНОСТЬЮ; смерть в start_kernel
 
 FACT (team-lead, `boot_49_p4.img`, md5 4b9d0ba4…): бутлуп ~50 с; на ОБОИХ
