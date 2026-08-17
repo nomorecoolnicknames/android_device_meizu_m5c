@@ -4,6 +4,40 @@
 Авторитет по железу: `M5C_CHIP_MAP.md`. Формат: FACT / INFERENCE /
 HYPOTHESIS / REJECTED по `/srv/forge/android/CLAUDE.md`.
 
+## 2026-08-17 (P16 результат + P18) kthreadd невиновен; подозрение — первый таймерный сон
+
+FACT (team-lead, `boot_49_p16.img`, recovery за 65 с): слоты 33, 38, 39
+СТОЯТ; 40, 35, 36 НЕТ. kthread_create_on_node ВЕРНУЛСЯ → kthreadd (PID 2)
+исполнялся, поток создан. REJECTED: гипотеза «kthreadd не бегает»
+(планировщик в принципе переключает задачи). Вис — между 39 и 40:
+set_user_nice → kthread_bind_mask → worker_attach_to_pool →
+spin_lock_irq{enter_idle, wake_up_process}.
+
+HYPOTHESIS (главная, team-lead + моё уточнение): kthread_bind_mask →
+wait_task_inactive — ПЕРВЫЙ ТАЙМЕРНЫЙ СОН всей загрузки. Уточнение по
+дереву: в 4.9 сон — `schedule_hrtimeout(1 tick)` (не jiffies-таймаут), но
+hrtimer программирует тот же arch-clockevent. Механика попадания: при
+PREEMPT свежий kthread вытесняется между complete() и schedule() →
+родитель видит queued → ветка hrtimeout. Если PPI arch-таймера не
+стреляет (те самые «Fail to set polarity of interrupt 29/30» из моего
+mt-gic ПЕРЕСТАЮТ быть косметикой) — сон вечен и молчалив. Вторая
+гипотеза: wake_up_process под spin_lock_irq (пик с вырожденной
+топологией).
+
+Сделано (P18, коммит `be52d752c`, образ `boot_49_p18.img`, sha256
+`8c39250af0b44876cd30ae20ba143235ddb3d7e61763b4b52a857e0169d5ec68`,
+System.map-p18; надмножество p17 — kthreadd-слоты 41–43 внутри):
+- скобки 44/45/46 (set_user_nice / kthread_bind_mask /
+  worker_attach_to_pool);
+- ПОЗИТИВНЫЕ свидетели-значения: 48/49 jiffies+CNTVCT до bind, 50/51
+  после; 52/53/54 jiffies/CNTVCT/витки ВНУТРИ цикла wait_task_inactive
+  (gated SYSTEM_BOOTING); 55 one-shot в arch_timer_handler_phys (PPI
+  выстрелил хоть раз), 56 счётчик тиков загрузки.
+Ключевой разрез: 52=замороженные jiffies (старт 0xFFFF…B4B0 = -300*HZ,
+HZ=250) + растущий 53 + пустой 55 → «тик не приходит» доказан
+ИЗМЕРЕНИЕМ. Тогда цель — clockevent/полярность PPI в портированном
+mt-gic или порт ca53_timer из 3.18.
+
 ## 2026-08-17 (анализ team-lead + P17) kthreadd под подозрением; init_heavy_tlb невиновен
 
 FACT (team-lead, чтение sched_avg.c:1095+): `init_heavy_tlb` при cid=-1
