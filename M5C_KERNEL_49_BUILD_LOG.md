@@ -4,6 +4,58 @@
 Авторитет по железу: `M5C_CHIP_MAP.md`. Формат: FACT / INFERENCE /
 HYPOTHESIS / REJECTED по `/srv/forge/android/CLAUDE.md`.
 
+## 2026-08-17 (P4 результат + P5) setup_arch проходит ПОЛНОСТЬЮ; смерть в start_kernel
+
+FACT (team-lead, `boot_49_p4.img`, md5 4b9d0ba4…): бутлуп ~50 с; на ОБОИХ
+адресах прочитаны ВСЕ ДЕВЯТЬ вех (1–9). Т.е. `__enable_mmu` пережит,
+early_ioremap работает, стоковый DTB просканирован (ms6),
+`arm64_memblock_init` разобрал memory/reserved БЕЗ смерти (ms7 — мой главный
+подозреваемый СНЯТ), `paging_init` поднял linear map (ms8), `setup_arch`
+вернулся (ms9). C-маркеры через early_ioremap работают. 4.9-консоли по-
+прежнему нет (last_kmsg = 3.18-сессия).
+
+INFERENCE: смерть — в `start_kernel` между возвратом `setup_arch` и первым
+flush printk (`console_init`). В окне: unflatten_device_tree, mm_init,
+sched_init, init_IRQ (**mt-gic**), time_init (**mt_gpt**), console_init.
+SMP через mt_psci/mt-boot — ЕЩЁ позже (rest_init→kernel_init→smp_init), в
+окно этой смерти пока не попадает, но был назван риском №1.
+
+Сделано (P5, коммит `61bada78c`, образ `boot_49_p5.img`): маркеры 10–18 в
+`start_kernel`. early_ioremap к этому моменту снесён, поэтому `forge_kmark`
+пишет через (кэшированный) linear map по `phys_to_virt` и **флашит
+cacheline в DRAM** (`__flush_dcache_area`, 256 B) — иначе запись осела бы в
+кэше и /dev/mem из recovery её бы не увидел при зависе. Точки:
+- 10 = вернулись в start_kernel; 11 = mm_init; 12 = sched_init;
+- 13 = ПЕРЕД init_IRQ (mt-gic); 14 = init_IRQ пройден;
+- 15 = ПЕРЕД time_init (mt_gpt); 16 = time_init пройден;
+- 17 = ПЕРЕД console_init; 18 = console_init пройден (ram console должен ожить).
+`forge_kmark` — `__weak` пустышка в init/main.c, перекрыта сильным arm64-
+определением (другие арки/сборки без маркеров всё равно линкуются).
+
+Артефакт: `/srv/forge/android/m5c/kernel-m5c-4.9-lc/boot_49_p5.img`, sha256
+`bf685a3ea1574565b18654e663795c8b5600f82d16a4b8f9540015788ea1eb84`,
+9459712 B, boot (p7); DTB сток (md5 внутри проверен). asm-маркеры 1–4 обоих
+адресов на месте (по 4 movz), C добавляет 5–18.
+
+Чтение из recovery (слот 18 на +152, читаем с запасом):
+```
+dd if=/dev/mem of=/tmp/fD.bin bs=1 skip=2130706432 count=176   # 0x7f000000
+dd if=/dev/mem of=/tmp/fE.bin bs=1 skip=2952790016 count=176   # 0xb0000000
+od -x /tmp/fD.bin ; od -x /tmp/fE.bin
+```
+Слот вехи N — на +8+8*N (ms10→+88, 11→+96, 12→+104, 13→+112, 14→+120,
+15→+128, 16→+136, 17→+144, 18→+152), в od -x как `41xx 4152`, xx=N в hex
+(10→0a, 13→0d, 18→12).
+БИСЕКЦИЯ:
+- 9 есть, 10 нет → умер в прологе start_kernel (trap_init и т.п.) до 10.
+- 13 есть, 14 нет → **init_IRQ / mt-gic** (наш GIC-драйвер).
+- 15 есть, 16 нет → **time_init / mt_gpt** (наш clocksource).
+- 17 есть, 18 нет → **console_init** сам.
+- 18 есть, но нет текста 4.9 в last_kmsg → console_init прошёл, но ram
+  console не пишет / умерли на первом же реальном drivers-initcall; тогда
+  ram console инициализирован — проверить last_kmsg следующей загрузки на
+  предмет 4.9-строк.
+
 ## 2026-08-17 (P3 результат + P4) asm-вехи 1-4 ЕСТЬ; смерть после MMU → C-маркеры
 
 FACT (team-lead, `boot_49_p3.img`, on-device md5 51e62a08…): бутлуп; маркеры
