@@ -1312,3 +1312,62 @@ INFERENCE (метод): различай «нет ни магии, ни текс
 Открыто: первый настоящий текст лога 4.9 — после P11. В момент записи телефон
 оставлен в TWRP в ожидании P11; резервная копия рабочего 3.18-boot лежит на
 устройстве как `/sdcard/ba.img`.
+
+## 4.9 arm64: P11 — ПЕРВЫЙ НАСТОЯЩИЙ ЛОГ, обрыв на подъёме вторичных CPU (2026-08-17)
+
+Прошит `boot_49_p11.img` (sha256 `07f341b5a9063274394d2a66dc2d39b9ab0b88d7f6a392af6945e0f55f6c8d12`),
+в котором DRAM-писатель вынесен из ветки `#else` в always-compiled
+`ram_console_dram_save()` и вызывается из обоих вариантов `sram_log_save`.
+Readback раздела бит-в-бит, md5 `e5b65d8666af27f0c0c4de7ece3b015e`.
+
+FACT: путь записи ожил. В окне `0x5f000000` 9275 ненулевых байт, 103 строки,
+`log_size=0x2420`. Свежесть: `Linux version 4.9.188-m5c+ … #21 SMP PREEMPT Mon
+Aug 17 18:14:28 MSK 2026` — сборка P11. Капчур:
+`captures/20260817-49-p11/` (`rc49_p11.bin` sha256 `8db055f5…cb92`,
+плюс расшифрованный `rc49_p11.log`).
+
+FACT: фолбэк раскладки работает как задумано —
+`ram_console: [DT] offset:0x0 illegal` → `no LK memory_info, using m5c debug
+layout @0x5f000000` → `buffer start: 0xffffff8008015000, size: 0x10000` →
+`console [ram-1] enabled`.
+
+FACT: `start_kernel` пройден ЦЕЛИКОМ. Пройдены init_IRQ, arch timer
+(`Architected cp15 timer(s) running at 13.00MHz`), `console [ttyMT0] enabled`,
+calibrate_delay, pid_max, Security Framework, `SELinux: Initializing.`,
+mount-cache. Последние строки:
+
+```
+init_heavy_tlb: cid=-1 is out of nr=1   (cpu=0..3, thresh_l=0 thresh_h=0 max_capaicy=0)
+[0.000000]  (0)[1:swapper/0]Invalid sched_group_energy for CPU0
+[0.000000]  (0)[1:swapper/0]CPU0: update cpu_capacity 1024      <- последняя
+```
+
+FACT: обрыв не по переполнению — занято 9248 из 64064 байт, оборачивания нет.
+FACT: префикс сменился с `[0:swapper]` на `[1:swapper/0]`, то есть `rest_init`
+отработал и это поток `kernel_init`. Ожидаемых `CPU1: Booted secondary
+processor` и `Brought up 4 CPUs` нет.
+
+INFERENCE: зависание в `kernel_init` → `sched_init_smp`/`smp_init`, на подъёме
+вторичных ядер, с последующим сбросом по watchdog (характер смерти установлен на
+P10).
+
+Гипотезы с опровергающими тестами (в работе у лоты 4.9):
+- H1 (главная): виснет подъём вторичных CPU; PSCI v0.1 с function ID из DT,
+  MTK hotplug/MCDI. Тест: `maxcpus=1` — если лог уходит дальше, подтверждено.
+- H2: MTK-шные EAS/heavy-tlb получают пустую топологию (`nr=1`, `max_capaicy=0`,
+  `sched-energy: CPU device node has no sched-energy-costs`) и зацикливаются.
+  Тест на различение: печатает ли наше рабочее 3.18 те же строки.
+- H3: ядро живо, а ослепла запись — `ram_console_write` выходит сразу при
+  `rc_in_fiq`, который ставят `aee_disable_ram_console_write()` и
+  `aee_sram_fiq_log()`. Тест: маркер-слот ПОСЛЕ `smp_init`; выставится при пустом
+  хвосте лога — виснем не там, где кончился текст.
+
+Два расхождения, подлежащие сверке с 3.18 (могут быть безвредны, но подозрительны):
+FACT `sched_clock: 64 bits at 250 Hz` — дженерик jiffies-овый, а не arch timer на
+13 МГц; отсюда все метки времени `0.000000`. Если 3.18 регистрирует sched_clock от
+arch timer, то в 4.9 источник времени не встал, а от него зависят и watchdog kick,
+и таймауты подъёма CPU — тогда H1 становится следствием, а не причиной.
+FACT `NR_IRQS:64 nr_irqs:64 0` — у рабочего 3.18 на этом же железе живёт IRQ 494,
+то есть домен там заведомо больше 64; сверить, не поднял ли GIC в 4.9 урезанный домен.
+`Fail to set polarity of interrupt 29/30` — это PPI, регистров полярности в MTK
+SYSIRQ у них нет; вероятно шум, сверить заодно.
