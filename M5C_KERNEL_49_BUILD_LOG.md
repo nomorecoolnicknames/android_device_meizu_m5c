@@ -4,6 +4,47 @@
 Авторитет по железу: `M5C_CHIP_MAP.md`. Формат: FACT / INFERENCE /
 HYPOTHESIS / REJECTED по `/srv/forge/android/CLAUDE.md`.
 
+## 2026-08-17 (ROOT CAUSE + P22) Неверные MTK SIP-ID: SMC не доходят до стокового ATF
+
+FACT (team-lead, дифф заголовков, прошивка не нужна): ВСЕ 10 общих
+`MTK_SIP_KERNEL_*` в нашем 4.9 заголовке перенумерованы относительно
+рабочего 3.18 (та же платформа, тот же файл). Стоковый ATF 2017 г. (не
+перешивался) реализует СТАРУЮ нумерацию → каждый SMC уходит с неизвестным
+ATF номером → тихо отбрасывается.
+```
+                        4.9 (наш)     3.18/ATF (верно)
+MCUSYS_WRITE            0x82000287 -> 0x82000201   <- блокер (счётчик)
+MCUSYS_ACCESS_COUNT     0x82000288 -> 0x82000202
+L2_SHARING             0x82000286 -> 0x82000203
+WDT                    0x82000200 -> 0x82000204   <- нужно для deadman
+GIC_DUMP               0x82000201 -> 0x82000205   <- аliasил MCUSYS_WRITE!
+DAPC_INIT              0x8200026E -> 0x82000206
+EMIMPU_WRITE/READ/SET  0x82000260/1/2 -> 0x82000207/8/9
+MSG                    0x82000214 -> 0x820002ff
+```
+Механизм виса замкнулся: enable_cpuxgpt() пишет MCUCFG через
+mcusys_smc_write_phy = SMC(MCUSYS_WRITE); мы слали 0x82000287, ATF ждал
+0x82000201 → EN_CPUXGPT не встал → CNTPCT=0 (p19) → первый таймерный сон
+(kthread_bind_mask→wait_task_inactive→schedule_hrtimeout) не проснулся →
+вис в workqueue_init (запинён p13..p20).
+
+FACT (моя ошибка прошлого круга): я сверил НАЛИЧИЕ MTK_PSCI=y (в обоих),
+но не ЗНАЧЕНИЯ ID. Отсюда неверный вывод «SMC-путь не сломан». team-lead
+сверил значения — вот и корень.
+
+Сделано (P22, коммит `68e66c073`, образ `boot_49_p22.img`, sha256
+`188b01f6a0745b3ae3899bc171f9702a77062478b685bee96f2da8fcf97faeab`,
+System.map-p22): все 10 общих ID → значения стокового ATF байт-в-байт;
+коллизия GIC_DUMP↔MCUSYS_WRITE снята; WDT-ID починен (deadman); TIME_SYNC
+уведён с 0x82000202 на 0x820002fe (atf_logger собран); ICACHE_DUMP/GPIO_*
+— no-op на этом ATF. Диагностика p19/p21 (57/58/59/60/65/66/67 CTL/CNTPCT/
+CNTFRQ) сохранена для положительного подтверждения (66 бит0=1 = EN встал).
+
+**Это КАНДИДАТ НА ЗАГРУЗКУ, не диагностика.** Ожидаемая цепочка: SMC
+доходит → EN → CNTPCT идёт → PPI 30 → jiffies → wait_task_inactive
+возвращается → workqueue_init → initcalls. Шестой и самый глубокий блокер
+класса «расхождение со стоком».
+
 ## 2026-08-17 (P19 РЕЗУЛЬТАТ + P21) Счётчик СТОИТ; путь прерывания исправен
 
 FACT (team-lead, p19, od count=1024): 57 CNTPCT_EL0 = 0 (физсчётчик СТОИТ);
