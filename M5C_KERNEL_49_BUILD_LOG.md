@@ -4,6 +4,43 @@
 Авторитет по железу: `M5C_CHIP_MAP.md`. Формат: FACT / INFERENCE /
 HYPOTHESIS / REJECTED по `/srv/forge/android/CLAUDE.md`.
 
+## 2026-08-17 (P15 результат + P16) Вис — внутри workqueue_init(), до первого initcall
+
+FACT (team-lead, `boot_49_p15.img`, recovery за 175 с): две независимые
+улики сходятся. Слоты: 21–24 стоят, 25–32 НЕТ (включая 31 «workqueue_init
+прошёл»). initcall_debug доехал до ядра (есть в Kernel command line), но в
+логе НОЛЬ строк "calling" → ни один initcall не запускался.
+ВЫВОД: вис внутри `workqueue_init()` — do_pre_smp_initcalls и
+lockup_detector_init выбывают. (workqueue_init как третий кандидат окна
+добавил я; он и оказался виновником.)
+
+REJECTED (team-lead, подтвердил подсчётом по логу): его трактовка
+асимметрии CPU0/CPU1 — ранний PID0-проход прошёл все 4 ядра, PID1-строка
+одиночная из store_cpu_topology(cpu0). Цикл energy-кода ни при чём.
+
+FACT (структура в этом дереве): в 4.9.188 wq_numa_init и создание
+unbound/ordered wq живут в workqueue_init_early (прошёл давно); тело
+workqueue_init = per-cpu create_worker цикл → unbound-пулы →
+wq_watchdog_init. create_worker при провале даёт BUG_ON (печать), тишина
+= ОЖИДАНИЕ — главный подозреваемый kthread_create_on_node, вечно ждущий
+kthreadd (планировщик не даёт PID 2 исполниться; MTK-хуки пика с нулевыми
+capacity — кандидат механизма; ленивый init_heavy_tlb уже дёргался из
+sched-хука на 0.0117).
+
+Сделано (P16, коммит `ba8ceb80b`, образ `boot_49_p16.img`, sha256
+`a1a399fb3c66c8a4e9a7c19b3047e1bd58304907018d7781da228c6a73e6d888`,
+System.map-p16, initcall_debug сохранён): маркеры 33 (вход), 38/39/40
+(one-shot трасса первого create_worker: вход / kthread_create_on_node
+вернулся / worker разбужен), 35 (per-cpu цикл), 36 (unbound), 31 (выход).
+Решающая пара: 38-без-39 = ждём kthreadd → планировщик/пик; 39-без-40 =
+bind/attach/wake.
+
+Уточнение по H2-конфигу (team-lead): CONFIG_MTK_SCHED_RQAVG_KS=y И у
+рабочего 3.18 (код за опцией разный — init_heavy_tlb есть только в 4.9),
+так что опыт «выключить» валиден как «убрать код, которого на рабочем
+ядре нет», но НЕ как «привести конфиг к 3.18». UNIFY_POWER/SCHED_TUNE/
+ENERGY_AWARE выключены → upower-ветки вне сборки, полноценного EAS нет.
+
 ## 2026-08-17 (P13 результат + P15) H1 ОТВЕРГНУТА маркерами; вис в тихом pre-smp окне
 
 FACT (team-lead, `boot_49_p13.img`, возврат в recovery за 65 с = WDT, улики
