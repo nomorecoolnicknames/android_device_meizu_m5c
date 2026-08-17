@@ -4,6 +4,78 @@
 Авторитет по железу: `M5C_CHIP_MAP.md`. Формат: FACT / INFERENCE /
 HYPOTHESIS / REJECTED по `/srv/forge/android/CLAUDE.md`.
 
+## 2026-08-17 (позже) P0 boot #1 УПАЛ до консоли → ранние маркеры + EFI off
+
+FACT (от team-lead, прошивка `boot_49_p0.img`, on-device md5
+`d6e64720a6211619886df807a34e3f6d` = артефакт, dd в by-name/boot 9459712 B):
+устройство **бутлупит**, adb за 3 мин не поднялся. `/proc/last_kmsg` (65598 B),
+`/sys/fs/pstore/console-ramoops` (65524 B) и expdb (2 MiB) — во ВСЕХ только
+предыдущая 3.18-сессия (камерные строки S5K4H8, ~1923 s), НИ ОДНОЙ строки 4.9.
+
+INFERENCE: ядро 4.9 умерло **до инициализации MTK ram console**, т.е. очень
+рано — decompress / head.S / CPU bring-up / MMU / DTB parse, не в драйверах.
+
+FACT (сравнение arm64-заголовков, team-lead): 4.9 P0 vs рабочее 3.18:
+- code0 `0x91005a4d` (EFI-stub «MZ»-трюк, `CONFIG_EFI=y`) vs 3.18 `0x14000010`
+  (простой branch); text_offset у обоих 0x80000, грузятся в 0x40080000.
+- flags 4.9 = 0xa (бит 4K-страниц + PHYS_BASE), 3.18 = 0x0.
+
+Сделано (коммит `8a07a96`, образ `boot_49_p1.img`):
+1. **Ранние FORGE-маркеры в `arch/arm64/kernel/head.S`.** Магия `FORGE49` +
+   u32 milestone пишется физически (MMU+dcache OFF, `dsb sy`) в
+   **phys 0x43ff0800** — окно minirdump стокового DTB (`reg=<0x43ff0000
+   0x10000>`, mapped + reserved, ни одно ядро не юзает его как обычную
+   память, LK сохраняет; +0x800 чтобы миновать minidump-заголовок).
+   Точки: **milestone 1** = вход в stext; **milestone 4** = asm bring-up
+   закончен, MMU сейчас включится. Только x14/x15 (x0=FDT не тронут).
+   Верифицировано: инструкция `movz x14,#0x43ff,lsl16` встречается в Image
+   ровно 2 раза.
+   - Лестница диагностики: НЕТ маркера → умер до входа в ядро
+     (decompress/загрузчик); **1** → умер в el2_setup/page_tables/cpu_setup;
+     **4** → умер на enable_mmu / relocate / раннем C до console_initcall;
+     реальный last_kmsg 4.9 → дошёл до ram console.
+2. **`CONFIG_EFI` off** → code0 стал `0x142c8000` (простой branch, класс как
+   у 3.18), снят EFI-stub как переменная. flags остались 0xa (корректны для
+   4.9: это page-size/PHYS_BASE биты новой спеки, LK грузит по фиксированному
+   адресу и их игнорирует — зануление = ложь про размер страницы).
+
+### Артефакт для прошивки: `boot_49_p1.img`
+
+- Путь: `/srv/forge/android/m5c/kernel-m5c-4.9-lc/boot_49_p1.img`, sha256
+  `ebd5ed10b4ca41fabcd6a861ac236ca7adf9f3c0a46950710e5af622cabc142d`,
+  9459712 B, партиция **boot (p7)**.
+- Состав: Image.gz #7 (markers, EFI off) + стоковый DTB (md5 e17a0910…
+  проверен внутри по смещению kernel_size−69427) + LOS-ramdisk с forge-логгером.
+- Как читать маркер из TWRP после бутлупа (root adb; телефон — bs числом,
+  awk на устройстве НЕТ):
+  ```
+  dd if=/dev/mem of=/tmp/fmark.bin bs=1 skip=1140787200 count=32   # 0x43ff0800
+  xxd /tmp/fmark.bin        # ждём "FORG E49\0" + u32 milestone (LE)
+  ```
+  milestone: 01 00 00 00 = дошёл до stext; 04 00 00 00 = прошёл asm-setup.
+  Если магии нет вовсе — умер до входа в ядро (проверить, что LK вообще
+  распаковал/прыгнул) ИЛИ /dev/mem не даёт читать этот адрес (тогда
+  продублировать чтением всего окна `skip=1140785152 count=65536` =
+  0x43ff0000..0x44000000 и грепнуть `FORG`).
+- Плюс: если ядро всё же дойдёт до ram console — текст ляжет в last_kmsg
+  следующей загрузки (адреса 0x43f00000/0x43f10000 из стокового DTB).
+
+### HYPOTHESIS по причине ранней смерти (до маркеров — расставит их результат)
+
+- H_early1: LK не любит EFH-stub code0 / несовпадение заголовка → не доходит
+  даже до stext (маркер отсутствует). Митигация уже в p1 (EFI off).
+- H_early2: DTB parse / `__create_page_tables` спотыкается о reserved-memory
+  или memory-ноды (маркер=1, не 4). Проверка: если встанем на 1 — смотреть
+  early fixmap/FDT-путь и memory node стокового DTB.
+- H_early3: MMU enable / relocate (маркер=4, но нет last_kmsg). Проверка:
+  RELOCATABLE/KASLR-путь, идентичность page-table кода.
+- H_early4 (INFERENCE, вероятная): стоковый LK ждёт ровно тот формат
+  ядра/заголовка, что у 3.18 (тот же LK грузит наше 3.18 #26). После EFI-off
+  code0 совпал по классу — если p1 доходит до маркера, гипотеза H_early1
+  подтверждается частично.
+
+---
+
 ## 2026-08-17 Phase P0: arm64-графт 4.9-lc
 
 ### Дерево
