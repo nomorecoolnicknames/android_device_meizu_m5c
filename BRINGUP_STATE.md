@@ -402,3 +402,100 @@ Next action (по приоритету):
 
 Захват: `captures/20260817-los-first-boot/` (dmesg/logcat/heartbeat/ps/props/
 last_kmsg + оба DTB). Карта железа: `M5C_CHIP_MAP.md`.
+
+## 2026-08-17 (позже) Уточнение: LOS грузится полностью; настоящие причины найдены
+
+### Коррекция предыдущей записи
+
+REJECTED: гипотеза «USB мёртв из-за сломанной регистрации PMIC EINT
+(`Unbalanced enable for IRQ 494`)». Две независимые проверки её убили:
+1. Код `drivers/misc/mediatek/power/mt6735/pmic.c`: `request_irq()` на строке
+   3315 (IRQ включён по умолчанию), обработчик `mt_pmic_eint_irq` делает
+   `disable_irq_nosync()` (стр. 3199), а `pmic_thread_kthread` в конце каждого
+   прохода вызывает `enable_irq()` (стр. 3435). Первый проход поток делает по
+   `wake_up_process()` при создании — без предшествующего disable, отсюда
+   разовый WARNING. Это штатное поведение стока, не дефект.
+2. Замер на устройстве: в нашем ядре `/proc/interrupts` показывает
+   `494: 8 mt-eint 206 pmic-eint` — прерывания PMIC приходят и обрабатываются.
+
+### FACT: LOS 14.1 на нашем ядре загружается ДО КОНЦА
+
+Захват `captures/20260817-los-first-boot/` (второй прогон, `heartbeat.txt`):
+на 57 с `boot_completed=1`, `bootanim=stopped`, `adbd=running`,
+`surfaceflinger=running`, `zygote=running`. Дисплей работает (владелец видит
+экран Welcome). Неработоспособны только USB и тач.
+
+### FACT: причина мёртвого USB — драйвер зарядника не биндится (compatible)
+
+Замер `i2c.txt` в нашем ядре против стока:
+- `1-006a swithing_charger` → **driver пусто** (в стоке `fan5405`)
+- `2-0048 alsps` → **driver пусто** (в стоке `stk3x1x`)
+- `1-005d cap_touch` → `ft5x46_ts` (в стоке `gt9xx`)
+- `3-006b ext_buck` → `mt6311` (в стоке НЕ биндится — расхождение, пока не трогаем)
+
+Причина найдена в match-таблицах против стокового DTB (`dtc -I dtb` от
+`captures/.../dtb_stock.dtb`):
+- DTB: `swithing_charger@6a { compatible = "mediatek,swithing_charger"; }`,
+  а `drivers/misc/mediatek/power/mt6735/fan5405.c`:
+  `fan5405_of_match[] = {{.compatible = "fan5405"},{}}` → **не совпадает**.
+- DTB: `alsps@48 { compatible = "mediatek,alsps"; }`,
+  а `drivers/misc/mediatek/alsps/stk3x1x/stk3x1x.c`:
+  `alsps_of_match[] = {{.compatible = "mediatek,alsps2"},{}}` → **не совпадает**.
+
+INFERENCE (цепочка USB): нет биндинга `fan5405` → нет BC1.2-детекта типа
+зарядника → `g_chr_type` остаётся 0 → `usb_cable_connected 592: type(0)` →
+`mt_usb` не поднимает peripheral → `android_usb state=DISCONNECTED` при
+`functions=adb, enable=1` → adbd работает, но шины нет. Подтверждающие замеры:
+`musb-hdrc` IRQ = **0** за всю загрузку (в стоке 1785),
+`power_supply usb/online=0`, `ac/online=0`, `battery status=Not charging`,
+`capacity=50` (фолбэк вместо реальных 93% со стока).
+
+### FACT: причина мёртвого тача
+
+Реальный чип — Goodix (сток биндит `gt9xx`, см. `M5C_CHIP_MAP.md`). Из
+gt9xx-каталогов в нашем дереве стоковым строкам лога соответствуют ровно два:
+`GT9XXTB_hotknot` и `GT9XX_hotknot_scp` — только в них есть весь набор
+`pre_touch:`, `[Esd]`, `Init external watchdog`, `GTP wakeup sleep`,
+`buffer not ready`, `guitar_update` (в `GT928`/`GT911`/`GT910` нет `[Esd]`).
+`GT1151` — это gt1x, другое семейство. У всех of_match = `mediatek,cap_touch`,
+как и у ft5x46, поэтому адрес забирал тот, кто собран.
+
+### Патч-набор ядра (kernel #12), собирается
+
+Category: PROPER-FIX
+
+1. `drivers/misc/mediatek/power/mt6735/fan5405.c` — в `fan5405_of_match`
+   добавлен `{.compatible = "mediatek,swithing_charger",}`.
+2. `drivers/misc/mediatek/alsps/stk3x1x/stk3x1x.c` — в `alsps_of_match`
+   добавлен `{.compatible = "mediatek,alsps"}`.
+3. `arch/arm64/configs/m5c_defconfig`:
+   `CONFIG_TOUCHSCREEN_MTK_GT9XXTB_HOTKNOT=y` (было not set),
+   `CONFIG_TOUCHSCREEN_MTK_FT5x46` выключен (чтобы не занимал `1-005d`),
+   `CONFIG_GTP_DRIVER_SEND_CFG` выключен — намеренно: конфиг-массив в
+   каталоге рассчитан на другую панель, пусть GT917D работает на своём
+   заводском конфиге. Заодно зафиксировано, что `CONFIG_TOUCHSCREEN_MTK_GT9XX`
+   в defconfig — мёртвая опция (в Kconfig такого символа нет, `make
+   m5c_defconfig` её выбрасывает).
+
+Ожидаемые маркеры на следующей загрузке:
+- `i2c.txt`: `1-006a ... driver=fan5405`, `1-005d ... driver=gt9xx`,
+  `2-0048 ... driver=stk3x1x`;
+- dmesg: строки `<<-GTP-INFO->>`/`<<-GTP-DEBUG->>` вместо `ft5x46_ts`,
+  `usb_cable_connected` с type != 0;
+- `/proc/interrupts`: ненулевой счётчик `musb-hdrc.0.auto`;
+- `android_usb state=CONFIGURED` и живой `adb devices` через девбокс;
+- `power_supply usb/online=1`, `battery status=Charging` с реальной ёмкостью.
+
+Rollback condition: если тач не поднимается — пробовать
+`GT9XX_hotknot_scp`, затем портировать плоский `GT9XX_hotknot` из
+`XRedCubeX/android_kernel_m5c:nougat`; если USB поднялся, а зарядка ведёт себя
+неверно — проверять `ext_buck`/`mt6311` (у нас биндится, в стоке нет).
+
+### Диагностический ramdisk
+
+FACT: `init.forge.sh` в ramdisk расширен: `/proc/interrupts`, таблица
+`/sys/bus/i2c/devices/*` с драйверами, `/sys/class/input/*`, все
+`/sys/class/power_supply/*`. Замечено ограничение: сервис умирает примерно на
+6-й итерации (~57 с, вероятно LMK на 2 ГБ во время dexopt), поэтому
+добавленный `reboot recovery` в конце цикла не срабатывает — возврат в TWRP
+пока руками.
