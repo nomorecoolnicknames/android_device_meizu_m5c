@@ -45,6 +45,23 @@ CNTFRQ) сохранена для положительного подтверж�
 возвращается → workqueue_init → initcalls. Шестой и самый глубокий блокер
 класса «расхождение со стоком».
 
+### Проверка include-order (без прошивки, по запросу team-lead)
+
+FACT: в дереве 3 secure_api-заголовка. mt6580 (0xC2000201) — не наша
+платформа. **mt6735/mach/mt_secure_api.h — исправлен (MCUSYS_WRITE
+0x82000201)**; блокер-путь (mt_cpuxgpt.c, irq-mt-gic.c, devapc.c) включает
+именно его через `<mach/mt_secure_api.h>`; mt_cpuxgpt.o пересобран после
+правки (mtime .o > .h). 0 warning «redefined» → ни один TU не тянет оба
+заголовка, mach-версия авторитетна. Deadman армит WDT прямым MMIO
+(toprgu_base), не SMC — от WDT-SIP-ID не зависит; на p21 не сработал
+из-за виса ДО его probe.
+Известный НЕ-блокер: `mt-plat/mtk_secure_api.h` (новый, MCUSYS_WRITE
+0x82000287|AARCH_BIT) включают 7 собранных не-boot-драйверов (rng,
+atf_logger, aee×2, amms, dm-crypt, atf/mt_secure_call). Их SMC на стоке
+тоже отвалятся, но никто не на ранней загрузке и не включает счётчик.
+Отдельная ABI-поверхность (v1.3/v1.4 ID) — трогать только при конкретном
+отказе после boot; p22 не пересобираем.
+
 ## 2026-08-17 (P19 РЕЗУЛЬТАТ + P21) Счётчик СТОИТ; путь прерывания исправен
 
 FACT (team-lead, p19, od count=1024): 57 CNTPCT_EL0 = 0 (физсчётчик СТОИТ);
