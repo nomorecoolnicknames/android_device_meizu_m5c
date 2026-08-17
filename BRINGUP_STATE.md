@@ -131,3 +131,143 @@ INFERENCE: For this exact M5c tree the MTK patch stack is required: without the 
 INFERENCE: These patches should not be copied wholesale to existing Meizu/MTK devices. They are useful as a donor catalogue for proven blockers on matching legacy MTK Android 7 vendor stacks, but blind application would mix unrelated audio, camera, graphics, SELinux, init, netd, telephony, and app changes and can regress already-working devices. Port only narrow pieces after a build/runtime log proves the same ABI or framework gap.
 
 Next action: provide the author the artifact hash and this state file. Runtime status is not verified; the current FACT only proves the patched source tree builds and packages successfully.
+
+## 2026-08-17 Инвентаризация: своё ядро, база ядра, чужие репозитории
+
+Аудит без сборки и без прошивки. Устройство не подключено (`adb devices` пусто на
+5037 и на туннеле 15038, `lsusb` без 0e8d/Meizu).
+
+### Что у нас есть по ядру
+
+FACT: from-source ядро m5c существует и собрано: `Linux version 3.18.19
+(valakas@n8nagent) (gcc 4.9 20150123) #11 SMP PREEMPT Sun Jun 14 23:16:12 CDT
+2026`. Дерево: `/home/valakas/m5c/android_kernel_meizu_m5c`, HEAD
+`d2d6975c` (`lcm: lp3101: prevent early boot crash...`).
+
+FACT: артефакты сборки ядра в `/home/valakas/m5c/`: `boot_debug.img`
+(sha256 `b6e8df0f45076042a0db67e603769202eb77729000aebab800f77b433774f28b`),
+`boot_working_final.img` (`4e66472ee66141499f468f8ce973309f62197d35d407ccc01aa51f19b17be1e2`),
+флешабельный `m5c_source_kernel_debug.zip` (boot.img + update-binary).
+
+FACT: собранный ROM `lineage-14.1-20260615-UNOFFICIAL-m5c.zip`
+(`/home/n8n/gdrive/`) содержит именно это ядро: его `boot.img`
+(sha256 `a166ea14aecad0a45dacfb1a711adb1f2e31e4282b25f692daf506bf96278672`,
+9480192 B) распакован — kernel = `#11 ... valakas@n8nagent`, board name
+`mt6737`, cmdline `bootopt=64S3,32N2,64N2 androidboot.selinux=permissive
+buildvariant=userdebug`.
+
+FACT: в ramdisk этого boot.img лежит `sepolicy` 212408 B, **POLICYDB version
+29** (проверено разбором заголовка). То есть подтверждённый блокер загрузки
+(v30 xperms против MTK-формата `AVTAB_OP`, см. память
+`m5c-boot-blocker-selinux`) в этом артефакте уже закрыт.
+
+FACT: ROM-сборка Build Station `0870fd54-55ec-4bc9-91a3-2cd1cea26912`
+(`/home/n8n/forge-work/m5c/rom-0870fd54.../build.log`) завершилась успешно:
+`Package Complete: /work/out/target/product/m5c/lineage-14.1-20260615-UNOFFICIAL-m5c.zip`,
+`make completed successfully (01:02:48)`.
+
+INFERENCE: единственный неизвестный по этому артефакту — рантайм. Свежего
+`last_kmsg`/`ramoops` после 2026-06-15 нет; локальные `last_kmsg.txt` и
+`ramoops.txt` от 2026-06-13 (сборка с v30 sepolicy) — СТАРЫЕ, для оценки
+текущего образа непригодны.
+
+WARN (in-flight, не мой коммит): в `/home/valakas/m5c/android_kernel_meizu_m5c`
+незакоммичены 3 файла — `drivers/misc/mediatek/lcm/lp3101.c`,
+`security/selinux/ss/avtab.c`, `security/selinux/ss/policydb.c` (откат 5
+SELinux-«заглушек» к сток-поведению `-EINVAL`, обоснован Python-репликой
+парсера policydb). Локальный HEAD `d2d6975c` при этом ОТСТАЁТ от origin на
+коммит `3204aace5` «Add reverse-engineered component drivers (Ghidra, stock m5c
+kernel)» — этот коммит есть только на GitHub, локально объекта нет.
+
+### База ядра: что мы взяли и какие есть альтернативы
+
+FACT: цепочка форков нашего ядра:
+`nomorecoolnicknames/android_kernel_meizu_m5c-old` →
+`XRedCubeX/android_kernel_meizu_m5c-old` →
+`chelghouf/ALPS-MP-M0.MP1-V2.55.6_VZ6737M_65_A_M0_KERNEL`.
+То есть база — сырой ALPS M0.MP1 (Android 6) для reference-борда VZ6737M,
+kernel 3.18.19; m5c-специфику (dts, LCM, тач) добавил XRedCubeX в 2021 г.
+(`947d5e29b` … `5a02b42c4`), остальное реверсили мы.
+
+FACT: наш `arch/arm64/configs/m5c_defconfig`: `CONFIG_ARCH_MT6735M=y`,
+`CONFIG_MTK_PLATFORM="mt6735"`, `CONFIG_ARCH_MTK_PROJECT="hq6737m_65_1mz_m0"`,
+`CONFIG_CUSTOM_KERNEL_LCM="ili9881c_dsi_vdo_dj_hd720 jd9365_dsi_vdo_holitech_hd720"`,
+720x1280 — т.е. проект действительно m5c-овый, а не reference.
+
+FACT: альтернативные базы с уже готовым `m5c_defconfig` и тем же проектом:
+- `XRedCubeX/android_kernel_m5c` ветка `nougat` — kernel **3.18.79**,
+  `CONFIG_ARCH_MTK_PROJECT="hq6737m_65_1mz_m0"`,
+  `CONFIG_CUSTOM_KERNEL_LCM="jd9365_dsi_vdo_holitech_hd720"`,
+  `CONFIG_CUSTOM_KERNEL_IMGSENSOR="s5k4h8_mipi_raw s5k5e8_mipi_raw"`
+  (т.е. драйверы камер есть в исходниках), плюс `m5c_recovery_defconfig`.
+- `XRedCubeX/android_kernel_m5c` ветка `oreo` — kernel **3.18.79**, тот же
+  проект и LCM, IMGSENSOR пустой.
+- `MTKZU/android_kernel_meizu_m5c` ветки `android-9` / `android-10` — kernel
+  **4.9.188**, `CONFIG_ARCH_MTK_PROJECT="m5c"`, но `CUSTOM_KERNEL_LCM=""` и
+  в `drivers/misc/mediatek/lcm/` НЕТ `jd9365_dsi_vdo_holitech_hd720`
+  (только ili9881c-варианты под nt50358/rt5081) → панель m5c там не заведена.
+
+HYPOTHESIS: 3.18.79 (`nougat`) — лучшая база, чем наша 3.18.19: тот же проект,
+живые исходники сенсоров камер, вендор LOS-14.1-эры. Falsify: собрать
+`m5c_defconfig` из этой ветки и сравнить набор MTK kernel↔userspace ABI
+(ion/m4u/ged/cmdq/imgsensor ioctl, ccci) с тем, что ожидают блобы
+`vendor/meizu/m5c` (они из Flyme 6 / Android 6, ALPS M0.MP1). Если ABI
+расходится — 3.18.79 даст чёрный экран/камеру/модем при формально
+загрузившемся ядре.
+
+REJECTED: «взять ядро с гитхаба автора». `Dekompilyator/kernel_meizu_m5c-old`
+— это форк НАШЕГО репозитория (`parent: nomorecoolnicknames/...`), список
+коммитов побайтово совпадает с нашим, включая наш `3204aace5` от
+2026-06-15T07:48. Брать там нечего: автор взял наше ядро, а не наоборот.
+
+REJECTED (для ядра m5c): репозитории Skyrimus. Они про Wileyfox Porridge
+(MT6735, `kernel_porridge_3.18.xx`, `device_kernel_porridge` 2025-01-09,
+`lk_porridge_unlocked` alps-7.0) — другой проект и другая панель, m5c_defconfig
+там нет. Ценность — донорская: проверенные MT6735/3.18-фиксы под LOS и
+разлоченный LK, но не как база.
+
+### Что реально устарело у нас — device tree, не ядро
+
+FACT: наш клон `device/meizu/m5c` стоит на `adcc71a` (2026-05-16). Upstream
+`Dekompilyator/android_device_meizu_m5c` (los-14.1) с тех пор ушёл на 30
+коммитов до 2026-07-24, включая: `Finalize device tree bringup` (a55206949),
+`import new mtk patches` (6765ed408), `m5c: Finalize MTK patches` (e0c0c2445),
+`Fix patches path in "apply-patches.sh"` (a5f473bcb), `Update SEPolicy`
+(8c44a2cdd), `Update Power HAL` (4241ce5b6), `Update RIL to latest release`
+(ae1147d62), `Fix bootloop after Magisk flash` (801bd72a4), `m5c: Update
+graphics parameters` (65701933c), `Update include with mt6735 common
+configurations` (939881882).
+
+FACT: структура дерева автора изменена: каталог `patches_mtk/` → `patches/`,
+proprietary MTK-исходники вынесены в `mtk/`, добавлены `start-build.sh`,
+`egl.cfg`, `device.mk` вместо `device_m5c.mk`. Инструкция сборки теперь
+`source device/meizu/m5c/patches/apply-patches.sh` + `source
+device/meizu/m5c/start-build.sh`. Наши локальные патчи путей
+(`TARGET_SPECIFIC_HEADER_PATH`, Settings `.orig`, Snap Java 7,
+`make_recovery_patch`) к этой структуре напрямую не приложатся.
+
+FACT: README автора теперь указывает `Touchscreen | Goodix GT917D` и оба LCM
+(`ili9881c_dsi_vdo_dj_hd720`, `jd9365_dsi_vdo_holitech_hd720`), а в credits
+первым стоит `nomorecoolnicknames` — наши правки у него влиты.
+
+### In-flight состояние рабочего дерева (не тронуто)
+
+FACT: в `/srv/forge/android/m5c/los14.1-m5c-patched/device/meizu/m5c` не
+закоммичены: `AndroidProducts.mk`, `board/bluetooth.mk`, `board/kernel.mk`,
+`product/prop.mk`, `product/ramdisk.mk`, `rootdir/kernel` (заменён на наше
+ядро #11) + untracked `rootdir/kernel.orig-v30` (сток Flyme
+`3.18.19+ flyme@Mz-Builder-l10`, Apr 3 2019). Эти файлы сохранены как есть,
+коммит этого раздела делается точечным `git add` только `BRINGUP_STATE.md`.
+
+### Следующий шаг (порядок)
+
+1. Прошить и снять факты, а не пересобирать: `lineage-14.1-20260615-UNOFFICIAL-m5c.zip`
+   (или `m5c_source_kernel_debug.zip` только на boot) → свежий
+   `last_kmsg`/`ramoops` + `dmesg`. Без этого любой выбор базы — гадание:
+   у нас есть ядро с v29-политикой, ни разу не проверенное на железе.
+2. Подтянуть device/vendor автора до 2026-07-24 и переналожить наши 4 фикса
+   на новую структуру `patches/` + `mtk/`; проверить, что в собранном
+   `root/sepolicy` версия 29.
+3. Только если п.1 упирается в кернельный блокер (не userspace) — пробовать
+   базу `XRedCubeX/android_kernel_m5c:nougat` (3.18.79) с проверкой MTK ABI
+   против блобов Android 6.
