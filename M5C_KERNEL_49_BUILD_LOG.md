@@ -4,6 +4,41 @@
 Авторитет по железу: `M5C_CHIP_MAP.md`. Формат: FACT / INFERENCE /
 HYPOTHESIS / REJECTED по `/srv/forge/android/CLAUDE.md`.
 
+## 2026-08-17 (P19 РЕЗУЛЬТАТ + P21) Счётчик СТОИТ; путь прерывания исправен
+
+FACT (team-lead, p19, od count=1024): 57 CNTPCT_EL0 = 0 (физсчётчик СТОИТ);
+58 CNTP_CTL_EL0 = 0x1 (ENABLE=1, IMASK=0, ISTATUS=0); 59 CNTP_CVAL=52000;
+60 GICD_ISENABLER0 = 0x6000dfff (PPI 29 И 30 размаскированы); 52 jiffies
+стартовые; маркеры 44✔ 45✘ 61✘ 62✘. Читается однозначно: таймер включён,
+не замаскирован, компаратор заряжен, PPI на дистрибьюторе включены — а
+прерывания нет, потому что СЧЁТЧИК НЕ ИДЁТ (CNTPCT=0 и ISTATUS=0
+подтверждают друг друга; за 12 мс при 13 МГц прошло бы ~143000 > 52000).
+
+REJECTED вся линия PPI/тиковое устройство — прерывания ни при чём. p20 не
+нужен. Живой 3.18 (эталон): clockevent0=arch_sys_timer, /proc/interrupts
+30: 11047 arch_timer → на этом железе тикает АРХ-ТАЙМЕР, PPI 30, и счётчик
+ИСПРАВЕН (значит дефект софтовый, запуск счётчика).
+
+FACT (team-lead, по исходникам): setup_syscnt() вызывается (лог `fwq sysc
+count`), тело идентично 3.18, CPUXGPT_BASE/INDEX/CTL/EN одинаковы,
+маппинг ок (cpuxgpt_r.start=0x10200000). Значит код запуска исполняется и
+совпадает с рабочим, а счётчик стоит → запись не доходит или отменяется.
+
+FACT (моя поправка по коду): __write_cpuxgpt использует mcusys_smc_write_PHY
+(= mt_secure_call MTK_SIP_KERNEL_MCUSYS_WRITE = SMC в ATF), не прямой
+writel; под CONFIG_MTK_PSCI. НО MTK_PSCI=y И у 3.18 → 3.18 тоже идёт SMC
+и тикает → SMC-путь не сломан, ATF honorit SIP. Значит разница в
+моменте/состоянии либо запись не садится по иной причине.
+
+Сделано (P21, коммит `7bc95c2e3`, образ `boot_49_p21.img`, sha256
+`656af67609cf28356656b0d55e8e3b84fe39dde64f75f2de0f74889842641c6a`,
+System.map-p21): чтение INDEX_CTL_REG обратно тем же SMC-путём — слот 65
+до enable, 66 после, 67 в цикле wait_task_inactive; 68 CNTFRQ_EL0, 69
+второе CNTPCT. Разрез: 66 EN=0 → запись глотается (смотреть mt_secure_call
+ASM/INDEX_BASE_PHY); EN=1 & CNTPCT=0 → включён но не тактируется
+(делитель/CNTFRQ); 66 EN=1 & 67 EN=0 → гасится позже (disable_cpuxgpt из
+idle/hotplug, cpuidle_v1 собран).
+
 ## 2026-08-17 (аддендум team-lead + P20) Кто тиковое устройство: GPT1 или arch timer?
 
 FACT (team-lead, лог p13): apxgpt-фикс поднял НЕ ТОЛЬКО clocksource
