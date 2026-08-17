@@ -4,6 +4,42 @@
 Авторитет по железу: `M5C_CHIP_MAP.md`. Формат: FACT / INFERENCE /
 HYPOTHESIS / REJECTED по `/srv/forge/android/CLAUDE.md`.
 
+## 2026-08-17 (P18 РЕЗУЛЬТАТ + P19) ДОКАЗАНО: arch-таймер PPI не приходит ни разу
+
+FACT (team-lead, `boot_49_p18.img`, recovery 65 с): скобки 33/38/39/41/42/43/
+**44** стоят, **45 НЕ стоит** → вис в `kthread_bind_mask()`. Свидетели:
+48 jiffies до bind = 0x…FFFEDB08 (= -300*HZ, старт), 52 внутри цикла
+wait_task_inactive = ТО ЖЕ (jiffies не двигаются), 54=1 виток,
+**55 (arch_timer_handler_phys) = 0**, **56 (счётчик тиков) = 0**.
+ДОКАЗАНО прямым измерением в трёх точках: **таймерное прерывание не
+приходит ни разу за загрузку**; ядро висит в первом таймерном сне
+(kthread_bind_mask → wait_task_inactive → schedule_hrtimeout).
+
+FACT (team-lead, две поправки к измерению): (1) слот 48 усечён до 32 бит
+у ИСТОЧНИКА (writer u64-корректен); (2) CNTVCT читал ВИРТУАЛЬНЫЙ счётчик,
+а ядро при arch_timer_uses_ppi=0 работает с ФИЗИЧЕСКИМ — мерить CNTPCT_EL0.
+REJECTED (team-lead, чтение кода): «cpuxgpt не собран» — MACH_MT6735M=y,
+setup_syscnt() собран, лог cpuxgpt_r.start=0x10200000 без ошибок.
+RETRACTED окончательно: полярность PPI 29/30 — косметика (геттер
+mt_irq_get_pol_hw печатает «Fail to set» и врёт; mt_gic_set_type уже
+настроил тип штатным GIC-путём и вернул 0; err=0 при request_percpu_irq).
+
+Сделано (P19, коммит `6a487c6ff`, образ `boot_49_p19.img`, sha256
+`5aef805b2917d26942e2e94d55404a028de2284c1f85e9b5fb4c3c89cdce33f4`,
+System.map-p19): физрегистры полной ширины в цикле wait_task_inactive —
+57 CNTPCT_EL0, 58 CNTP_CTL_EL0 (ENABLE/IMASK/ISTATUS), 59 CNTP_CVAL_EL0,
+60 GICD_ISENABLER0 (PPI 29/30); 52 → get_jiffies_64(); маркеры 61
+(arch_timer_starting_cpu вошёл на boot CPU) и 62 (enable_percpu_irq
+вызван). `forge_gicd_isenabler0()` добавлен в irq-mt-gic.c. flush→1024.
+
+ВЕДУЩАЯ ГИПОТЕЗА (team-lead): в 4.9 per-cpu enable PPI перенесён в
+CPUHP_AP_ARM_ARCH_TIMER_STARTING; если состояние не проехало на boot CPU,
+request_percpu_irq вернул err=0, но PPI остался ЗАМАСКИРОВАН. Разрез: 61
+пуст = callback не выполнялся; 61/62 есть, 60 без бит 29/30 = дистрибьютор
+не размаскировал (баг mt_gic для PPI); 58 ENABLE=0 = компаратор не
+запрограммирован. Возможная связь с моей cpuhp-регистрацией gic_starting_cpu
+(CPUHP_AP_IRQ_GIC_STARTING) — проверить порядок состояний.
+
 ## 2026-08-17 (P16 результат + P18) kthreadd невиновен; подозрение — первый таймерный сон
 
 FACT (team-lead, `boot_49_p16.img`, recovery за 65 с): слоты 33, 38, 39
