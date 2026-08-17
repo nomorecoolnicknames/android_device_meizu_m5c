@@ -4,6 +4,45 @@
 Авторитет по железу: `M5C_CHIP_MAP.md`. Формат: FACT / INFERENCE /
 HYPOTHESIS / REJECTED по `/srv/forge/android/CLAUDE.md`.
 
+## 2026-08-17 (P10 результат + P11) Вторая развилка sram_log_save; WDT-переоценка
+
+FACT (team-lead, `boot_49_p10.img`): 4.9 ДОКАЗАННО отработало — в окне
+0x5f000000 свежие поля (+0x208=0x0d15ab1e, +0x210=указатель
+`0xffffff8008da0fe8` — диапазон ядерных VA 4.9; у 3.18 `0xffffffc0…`).
+Смерть — по watchdog: `androidboot.bootreason=wdt_by_pass_pwk`,
+`boot_reason=4`. Тело лога снова пустое при валидном заголовке.
+
+REJECTED (переоценка, team-lead): «50→90 с = ядро прошло дальше» —
+длительность бутлупа задаётся таймаутом WDT от последнего kick, а не
+глубиной загрузки. Из трактовок убрать. Зато «висит, а не паникует» —
+улика сама по себе.
+
+FACT (root cause #2, team-lead по исходнику): у `sram_log_save` ДВЕ
+реализации. При `CONFIG_PSTORE=y` компилируется вариант, который лишь
+форвардит в `pstore_bconsole_write()` — а тот no-op до регистрации
+ramoops (device-initcall; `fs/pstore/platform.c` проверяет psinfo).
+Настоящий DRAM-писатель жил под `#else`. Мой P10-фикс (register_console)
+был необходим, но закрыл только первую из двух развилок: консоль честно
+звала sram_log_save → в пустоту.
+
+Сделано (P11, коммит `f1d4d19d9`, образ `boot_49_p11.img`): по рецепту
+team-lead — DRAM-писатель вынесен в always-compiled
+`ram_console_dram_save()` (тело без изменений), оба варианта
+`sram_log_save` зовут его (pstore-форвард сохранён — не конфликтуют),
+bounds-check в `aee_sram_fiq_log` выведен из-под `#ifndef PSTORE` +
+NULL-guard. Раскладка 0x5f000000 и безусловный register_console на месте.
+
+Артефакт: `/srv/forge/android/m5c/kernel-m5c-4.9-lc/boot_49_p11.img`,
+sha256 `07f341b5a9063274394d2a66dc2d39b9ab0b88d7f6a392af6945e0f55f6c8d12`,
+9459712 B, boot (p7); System.map-p11 рядом. ОТЛИЧИЕ от P10 кроме рецепта:
+в defconfig включён fan5405 (Phase A, см. ниже) — charging_hw сменился с
+pmic на fan5405; на раннюю загрузку не влияет, при упоре хвоста лога в
+battery/charging-init учитывать.
+
+Ожидание: тело = ВСЯ загрузка с первого printk (CON_PRINTBUFFER);
+хвост strings = операция, на которой висим до WDT. «head пуст, tail есть»
+— отдельный сигнал.
+
 ## 2026-08-17 (фоновая подготовка Phase A/B/C, пока P10 ждёт окна)
 
 Всё скомпилировано и закоммичено в `m5c-arm64`; в P0-defconfig НЕ включено
