@@ -349,3 +349,226 @@ eMMC-зеркало маркеров не пишется, DRAM-капчи съе
 Не предлагай: «выключи всё лишнее» широкими списками, fake-ready заглушки,
 переход на configfs-рамдиск (рамдиск трогать нельзя — он общий со сток-3.18),
 или «купи UART». Дисциплина: FACT/INFERENCE/HYPOTHESIS разделять явно.
+
+---
+
+## 11. АНАЛИЗ 2026-08-20 (Fable 5, сессия m5c): root cause p31–p34 найден в коде
+
+Все ссылки — на дерево `kernel-m5c-4.9-lc` @ `479f6366d`.
+
+### 11.1. BUG A: audio_source не может проинициализироваться ни на одном p31–p34 буте
+
+- FACT: в `.config` НЕТ `CONFIG_USB_F_AUDIO_SRC` (p31 снял `select`, т.к. нужен ALSA;
+  `f_audio_source.c` в android.c НЕ инклюдится; standalone `usb_f_audio_source.o`
+  не собирается — `function/Makefile:53-54`). Никто не регистрирует usb-функцию
+  `"audio_source"`.
+- FACT: в ПРОШИТЫХ билдах p31–p34 (`git show 4a5f59eea`) `supported_functions[]`
+  содержит `&audio_source_function` (таблицу урезал только p35).
+- FACT: `audio_source_function_init` (android.c:1623) →
+  `usb_get_function_instance("audio_source")` → -ENOENT. `f->config` при этом
+  НЕ присваивается (остаётся NULL), локальный kzalloc течёт.
+- INFERENCE: `request_module("usbfunc:audio_source")` не виснет: /sbin/modprobe
+  в рамдиске нет, exec быстро фейлится.
+
+### 11.2. BUG B: unwind после ошибки init крашит ядро (oops в kernel_init)
+
+Цепочка (FACT по коду):
+1. `android_init_functions` (android.c:1846): err → `err_out:
+   device_destroy(f->dev)` — указатель `f->dev` НЕ обнуляется; `err_create:
+   kfree(f->dev_name)` — тоже не обнуляется.
+2. `android_bind` → err → `composite_bind` (composite.c:2293) → `fail:
+   __composite_unbind` → `android_usb_unbind` (android.c:2460) →
+   `android_cleanup_functions` по ВСЕЙ таблице.
+3. Для audio_source: `if (f->dev)` — dangling → чтение `f->dev->devt` из
+   освобождённой памяти (UAF) + ПОВТОРНЫЙ `kfree(f->dev_name)` (double free);
+   затем `audio_source_function_cleanup` (android.c:1646): `config == NULL` →
+   `config->f_aud` → **разыменование NULL → oops**. Контекст: kernel_init
+   (PID 1), late_initcall, маркер 102 уже стоит, 103 НЕ будет никогда.
+
+### 11.3. BUG C: oops в этом окне = ВЕЧНЫЙ silent hang, а не ребут
+
+- FACT: arm64 die() → notify_die → `ipanic_die`
+  (aee/ipanic/ipanic_rom.c:170; CONFIG_MTK_AEE_IPANIC=y) → пишет oops-дамп в
+  ram console/aee sram → `aee_exception_reboot()` (aee-common.c:367).
+- FACT: `aee_exception_reboot` → `get_wd_api()`; `g_wd_api_obj.ready`
+  выставляется только в `wd_api_init()`, который зовётся из `wdk_work_callback`
+  (wd_common_drv.c:884) — workqueue, запланированная из `init_wk` =
+  late_initcall в drivers/watchdog/. А drivers/usb/ линкуется РАНЬШЕ
+  (drivers/Makefile:105 vs 118) → на момент oops из USB-init `get_wd_api` = -2 →
+  ветка `while (1) cpu_relax();` (aee-common.c:378) — **вечный спин, ребута НЕТ**.
+- INFERENCE: IRQ остаются включёнными, остальные CPU и нити живут → дедмэн
+  продолжает кикать WDT как ни в чём не бывало.
+
+### 11.4. Как это объясняет ВСЮ матрицу §5.3 и парадоксы §5.4 (INFERENCE на FACT-базе)
+
+| Образ | Модель |
+|---|---|
+| p31poll | oops@~7-10с → вечный спин; дедмэн p31 = kick-forever → WDT НИКОГДА не сработает → вечный логотип, ноль USB, ни одной preloader-вспышки. Совпадение 1:1. |
+| p33 | тот же oops; дедлайн 180с (sched_clock) → кики стоят на 180с → WDT-ресет ~210с → цикл ~220с. Тёплый ресет визуально не меняет логотип → «не моргнул за 5 мин». |
+| p34poll | дедлайн 120 циклов ≈ 125с + 30с WDT → ресет ~155с; юзер с Vol+ поймал TWRP ~200с ✓. |
+| p36b | таблица УЖЕ урезана (p35 в предках) → BUG A/B не применимы. ОТКРЫТ (см. 11.6). |
+
+Парадоксы:
+- «Кнопки живы» — long-press power = аппаратный PMIC hard-off, Vol+ ловит LK
+  после ресета. Оба работают при полностью мёртвом ядре. Наблюдение не несёт
+  информации о ядре (FACT о природе механизмов).
+- «Нет мигания = нет ресета» — ложная посылка. LK-исходников в дереве нет
+  (проверить redraw-код нельзя), но p30v2poll-цикл юзер обнаружил ПО USB, а не
+  по логотипу → тёплые ресеты эмпирически незаметны на экране (INFERENCE).
+- «Дампы молчат» — ipanic УСПЕВАЕТ записать oops в rc49 (0x5f000000) до спина.
+  Тёплая капча rc49 из TWRP должна показать бэктрейс
+  `audio_source_function_cleanup → android_cleanup_functions →
+  __composite_unbind → usb_composite_probe`. Это ГЛАВНАЯ проверка гипотезы.
+
+### 11.5. Ловушка-мина: все forge-окна — обычная выделяемая память
+
+- FACT: сток-DTB memory node = 0x40000000 + 0x1f000000 (496МБ, конец РОВНО на
+  0x5f000000), но p29-факт (маркеры по 0x7f000000/0xb0000000 пишутся через
+  phys_to_virt и читаются) доказывает: LK отдаёт реальные ~2ГБ, окна в linear map.
+- FACT: НИ setup.c, НИ mtk_ram_console.c не делают memblock_reserve для
+  0x5f000000 (rc 64К + pstore 0xe0000 по 0x5f010000), 0x7f000000, 0xb0000000 →
+  все эти страницы лежат в buddy-аллокаторе как свободные.
+- INFERENCE: ram console непрерывно пишет 64К, forge_kmark — 1К×2 (heartbeat 77
+  каждые 50мс!) в память, которую аллокатор может отдать кому угодно. Ранний бут
+  (<100-150МБ, раздача с верхних адресов) обычно не задет, но полный Android-бут
+  дойдёт и до 0x7f000000, и до 0x5f000000 → случайная коррапция. Фикс P4
+  обязателен ДО любых «странных» падений в userspace.
+
+### 11.6. p36b: открыт; почему зеркало молчало
+
+- FACT: MKDEV(179,10) корректен (CONFIG_MMC_BLOCK_MINORS=32, EFI_PARTITION=y,
+  GPT тот же → p10=expdb). -ENXIO-навсегда исключён.
+- FACT (дефекты кода зеркала): (а) `forge_write_at` игнорирует возврат
+  `submit_bio_wait` — тихие EIO невидимы; (б) зеркало сидит В ТОЙ ЖЕ нити, что
+  кикает WDT → любой затык submit_bio_wait = стоп киков = WDT-ресет через 30с,
+  диагноз спутан; (в) rc49 читается через КЭШИРУЕМЫЙ linear-алиас, а ram_console
+  пишет через некэшируемый vmap → риск чтения стейла; (г) паник/дай-хука нет.
+- HYPOTHESis-ранжирование для «вспышек t=40/50с»: H1 зеркало открылось на ~5-8с
+  и повисло в submit_bio_wait → кики встали → WDT-ресет ~35-40с (t=40 ✓), второй
+  цикл умер иначе/быстрее (t=50); ПРОТИВ: третьей вспышки не было. H2 ffs-гейтинг:
+  бут жив, enable=1 при неоткрытом ffs → нет pullup пока adbd не запишет
+  дескрипторы; ноль USB при живом ядре; ПРОТИВ: не объясняет вспышки и молчание
+  зеркала. H3 коррапция из 11.5. Разрешается p37 (слоты 106/111-114).
+
+### 11.7. p37 — одна прошивка, закрывающая всё (патчи P1–P5)
+
+**P1 android.c (обязателен):** в `android_init_functions` err-путях обнулить
+указатели; guard в audio_source cleanup:
+```c
+ err_out:
+ 	device_destroy(android_class, f->dev->devt);
++	f->dev = NULL;
+ err_create:
+ 	kfree(f->dev_name);
++	f->dev_name = NULL;
+ 	return err;
+```
+```c
+ static void audio_source_function_cleanup(struct android_usb_function *f)
+ {
+ 	struct audio_source_function_config *config = f->config;
++	if (!config)
++		return;
+```
+(Таблицу оставить урезанной p35: ffs+acm+mtp+ptp. audio_source в неё НЕ
+возвращать, пока не появится ALSA.)
+
+**P2 aee-common.c (обязателен):** убить вечный спин:
+```c
+ 	if (res < 0) {
+ 		pr_info("arch_reset, get wd api error %d\n", res);
++		/* forge p37: wd_api готов только после wdk workqueue
++		 * (late_initcall + schedule). Исключение раньше этого
++		 * зависало тут навечно: ни ребута, ни дампа. PSCI-ресет
++		 * стокового ATF доступен с early boot. */
++		emergency_restart();
+ 		while (1)
+ 			cpu_relax();
+ 	}
+```
+(psci.c:572 ставит `arm_pm_restart = psci_sys_reset` рано; стандартный
+PSCI SYSTEM_RESET — не MTK SIP, стоковый ATF его обслуживает: FACT для
+cpu_on/off по p29, INFERENCE для system_reset.)
+
+**P3 mtk_wdt.c:** die/panic-нотификаторы (слоты 107-110, приоритет INT_MAX —
+раньше ipanic_die) + зеркало в ОТДЕЛЬНОЙ нити + слот 106:
+```c
+#include <linux/kdebug.h>
+static int forge_die_cb(struct notifier_block *nb, unsigned long cmd, void *p)
+{
+	struct die_args *a = p;
+
+	forge_kmark_ptr(107, 0xD1E0000 | (cmd & 0xffff));
+	if (a && a->regs) {
+		forge_kmark_ptr(108, a->regs->pc);
+		forge_kmark_ptr(109, a->regs->regs[30]);
+	}
+	return NOTIFY_DONE;
+}
+static struct notifier_block forge_die_nb = {
+	.notifier_call = forge_die_cb, .priority = 0x7fffffff };
+static int forge_panic_cb(struct notifier_block *nb, unsigned long ev, void *p)
+{
+	forge_kmark_ptr(110, (unsigned long)p); /* msg ptr; факт паники */
+	return NOTIFY_DONE;
+}
+static struct notifier_block forge_panic_nb = {
+	.notifier_call = forge_panic_cb, .priority = 0x7fffffff };
+/* в probe: register_die_notifier(&forge_die_nb);
+ * atomic_notifier_chain_register(&panic_notifier_list, &forge_panic_nb); */
+```
+Ключевое свойство: слоты ≥106 здоровый бут никогда не штампует → они переживают
+ЛЮБОЕ число тёплых циклов до первого холодного off. Зеркало: `forge_write_at`
+возвращает статус; отдельная нить `forge_mirror_fn` (kthread из probe), дедмэн
+только кикает; после каждой попытки `forge_kmark_ptr(106, (ok<<32)|(-err))`.
+
+**P4 setup.c (обязателен):** после `arm64_memblock_init()`:
+```c
+	/* forge: окна маркеров/rc/pstore — вывести из buddy-аллокатора */
+	memblock_reserve(0x5f000000, 0x100000);
+	memblock_reserve(0x7f000000, PAGE_SIZE);
+	memblock_reserve(0xb0000000, PAGE_SIZE);
+```
+и там же (конец setup_arch) копия предыдущей страницы A:
+`memcpy(phys_to_virt(0x7f000400), phys_to_virt(0x7f000000), 0x400)` + flush —
+история умершего бута переживает перештамповку новым.
+
+**P5 android.c (маркеры userspace-прогресса):**
+- `functions_store` вход: `u64 v=0; memcpy(&v, buff, min(sizeof(v), size));
+  forge_kmark_ptr(111, v);` (увидим «mtp,adb» как ASCII);
+- `enable_store`: `forge_kmark_ptr(112, enabled);`
+- `functionfs_ready_callback`: `forge_kmark(113);`
+- `android_enable` перед `usb_gadget_connect`: `forge_kmark(114);`
+
+**Чтение (TWRP, тёплый Vol+ после ~4 мин):** страница A (`dd if=/dev/mem
+bs=1024 skip=2080768 count=1`), rc49 (`skip=1556480 count=64`), expdb.
+Decision table:
+| Наблюдение | Вывод |
+|---|---|
+| 102 есть, 103 нет, 107/108 есть | oops внутри probe; PC/LR по System.map = имя виновника (при урезанной таблице НЕ ожидается) |
+| 103=0, 111 нет | ядро живо/умерло позже — смотреть пульсы 95/96 и 107; init не дошёл до usb rc |
+| 111=«mtp,adb», 112=1, 113 нет | ядро чисто; adbd/functionfs не открыл ep0 — фронт userspace |
+| 113 и 114 есть, хост молчит | инструментировать musb (расширить слот 77 байтом MUSB_POWER) — прошивка №2 |
+| 106 hi>0 | зеркало пишет → конец капча-лотереи; если hi=0 — lo=errno |
+| rc49 содержит oops-бэктрейс | прямое подтверждение 11.2 (для p31-p34-стиля) |
+
+**Прошивка №2** (только после чистой №1): тот же бинарь со сток-cmdline (без
+idle=poll) — валидация p32 mt_gpt фикса: пульсы 95/96 продолжаются после
+первого idle → фикс верен; замирают на ~5с → фикс неверен (данные всё равно
+соберутся через 106/107).
+
+### 11.8. Ответ на вопрос §3 (blkdev_get_by_dev / submit_bio_wait)
+
+`blkdev_get_by_dev(MKDEV(179,10))` до завершения GPT-скана (mmc_rescan —
+асинхронная workqueue, ~3-8с) возвращает -ENXIO — ретраи в коде корректны.
+Номер (179,10) верен (MINORS=32; boot0/boot1/rpmb — отдельные gendisk со
+своими минорами, нумерацию p10 не сдвигают). На p31–p34-модели зеркала ещё не
+было; на p36b нулевая запись объясняется либо H1 (повис в submit_bio_wait —
+киков нет — ресет на 30-й секунде раньше первой успешной записи… при этом
+`forge_write_at` глотает ошибки), либо смертью бута до скана. Паник-запись в
+eMMC из panic-контекста НЕ делать (block layer мёртв); вместо этого: паника →
+слоты 107-110 в DRAM (дёшево, не может отказать) → тёплый ресет → следующий
+бут зеркалит DRAM в expdb, как только блок-слой поднялся. Это и есть
+«пуленепробиваемо»: запись на eMMC всегда выполняется ЗДОРОВОЙ фазой
+следующего бута, а не умирающей.
+
