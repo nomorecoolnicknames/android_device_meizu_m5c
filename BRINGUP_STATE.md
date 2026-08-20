@@ -1714,3 +1714,346 @@ GIC. Это не «вызов не сработал», а потенциальн
 компаратор на 52000 срабатывает → PPI 30 приходит (размаскирован по P19; на
 рабочем 3.18 на нём 11047 прерываний) → jiffies идут → `wait_task_inactive`
 возвращается → `workqueue_init` завершается → загрузка уходит в initcalls.
+
+## 4.9 arm64: P22 — SIP-фикс сработал, ядро в device initcalls; новый блокер BUG() в mrdump_mini_init (2026-08-17, зафиксировано вечерней офлайн-сессией)
+
+FACT (по капче p22 и транскрипту дневной сессии): после фикса SIP ID
+(`68e66c073`) контрольный замер показал `EN_CPUXGPT` встаёт (`0x201`), CNTPCT
+идёт; ядро прошло `workqueue_init`, pre-smp initcalls, `smp_init` — 4 CPU
+подняты, лог 466 строк, последняя метка 1.154 с (было 116 строк / 0.012 с).
+Новый блокер другого качества — честная паника: `BUG()` внутри
+`mrdump_mini_init`, затем AEE/ipanic уходит в рекурсивную панику.
+
+FACT (root cause, разобран офлайн по `rc49_p22.bin` + `System.map-p22`,
+полный разбор: `M5C_KERNEL_49_MRDUMP_P22.md`): PC = `mrdump_mini_fatal+0x34`,
+вызван из `mrdump_mini_init+0x6fc` (inlined `mrdump_mini_elf_header_init`,
+`mrdump_mini.c:1004`) — ветка «addr==0 && size==0 → FATAL:illegal addr size».
+LK 2017 не отдаёт memory_info, fallback-ветка ram_console не зовёт
+`mrdump_mini_set_addr_size()`; `mrdump_mini.o` собирается по
+**CONFIG_MTK_AEE_IPANIC=y** (не по MRDUMP — поэтому «MRDUMP is not set» на
+p22 ничего не давало). Рекурсия: обработчик паники `mrdump_mini_cpu_regs`
+при NULL ehdr повторно зовёт `mrdump_mini_init()` → тот же BUG. Эталон 3.18
+в той же ситуации делает kmalloc-fallback и не падает.
+
+P23 (предложение, PROPER-FIX/BOOT-UNBLOCK, ещё не собрано): 3 правки в
+`mrdump_mini.c` — fatal→LOGE+return в elf_header_init (и снять `__init`),
+guard `ehdr==NULL` в начале `mrdump_mini_init`, убрать повторный вызов
+`mrdump_mini_init()` из `mrdump_mini_cpu_regs` (return -1). Запасной вариант
+(ISOLATION): выключить `CONFIG_MTK_AEE_IPANIC`, но теряется ipanic-лог.
+Expected marker: «minirdump: disabled (no buffer)», `initcall
+mrdump_mini_init returned 0`, далее `mt_cirq_init`, рост лога за 1.154 с.
+Прогноз следующих блокеров (INFERENCE): mt_cirq/lastpc/systracker →
+MTK_M4U (IOMMU) → mtkthermal/mt_auxadc/msdc. Уже видны WARN'ы: «[GIC] not
+correct trigger type» ×4 (mt_cpu_dormant_init), «[SPM] find SCP_I2Cx node
+failed».
+
+## Офлайн-анализы вечерней сессии 2026-08-17 (4 субагента, без прошивок)
+
+FACT: GAP-анализ порта 4.9 против 3.18 записан в
+`M5C_KERNEL_49_GAP_ANALYSIS.md`: из 35 подсистем ГОТОВО 10, СЛОМАНО 6,
+ВЫКЛ/частично 11, НЕТ 6. Топ-блокеры Android-загрузки: **msdc** —
+`msdc_cust.h:42` «mediatek,msdc» против стокового «mediatek,mt6735m-mmc»
+(eMMC не probe → нет rootfs); дисплейный блок выключен + `mtkfb.c:2603`
+«mediatek,mtkfb» vs сток «mediatek,MTKFB», `lp3101.c:169` vs сток
+«mediatek,lcd_bais_pinctrl»; тач `mtk_tpd.c:53` vs сток «mt6735-touch»;
+keypad `kpd.c:468` vs сток «mt6735-keypad»; connectivity (wmt/stp/wlan/gps)
+в 4.9-дереве отсутствует полностью (Phase H — самый большой порт).
+«Седьмое расхождение» — это кластер одного класса: Q0-дерево синхронизировало
+compatible под свой референс-DTS, а мы грузим стоковый DTB 2017.
+
+FACT: разбор камеры дописан как §10 в `M5C_CAMERA_OTP_LANE.md` (+заметка в
+`M5C_CAMERA_ORIENTATION_LANE.md`). Механика «после camcal хуже» доказана:
+HAL открывал `/dev/S5K4H8_SUNWIN_OTP`, чей буфер никогда не заполнялся
+(EEPROM читается только в dev варианта ST), и программировал ISP из нулей
+(`LayoutType=0x5`, `ERR_NO_3A_GAIN`); хрома-ошибка выросла 25.2/36.6 →
+33.5/39.5. В worktree camotp лежат две незакоммиченные правки: open()
+пустого OTP-узла → -ENODEV (прямое лечение) и LOG_PROBE для S5K5E8 через
+pr_info (его xlog компилируется в ((void)0) — фронталка молчала по
+построению). Следующий шаг лана: закоммитить, собрать, снять серый лист;
+маркеры — «module id 8 -> variant 1», «S5K4H8_ST_OTP LSC 1868 bytes read»,
+отсутствие ERR_NO_3A_GAIN/ERR_NO_SHADING.
+
+FACT: триаж первого бута LOS записан в `M5C_LOS_FIRST_BOOT_TRIAGE.md`:
+3 блокера (fan5405 of_match — с паникой в `fan5405_read_byte` из
+pmic_thread, фикс уже в #12+; тач — ft5x46 без chip-id захватил
+`cap_touch@5d`, фикс в #12+; mBack как следствие тача), 17 дефектов, ~20
+шума. Новые находки: msensord падает (нет `service akmd09912` в
+init.mt6735.rc — компас), mtk_agpsd краш-луп (ICU 55
+UCNV_FROM_U_CALLBACK_STOP_55), AudDrv_GPIO — 9 pinctrl-состояний отсутствуют,
+9 демонов из init.rc отсутствуют в vendor. Подтверждено работающим: WiFi
+полностью (consys E1, скан сетей), модем (ready, USIM ×2), дисплей+GPU,
+шифрованная /data, акселерометр.
+
+### 2026-08-17 p23: mrdump BUG-fix + пять compatible под стоковый DTB (kernel-m5c-4.9-lc commit `0b19cb314`)
+
+Category: PROPER-FIX (mrdump) + BOOT-UNBLOCK (msdc, kpd) + подготовительные inert-правки (mtkfb, lp3101, mtk_tpd — драйверы пока не собираются).
+
+Hypothesis: паника p22 — BUG() в `mrdump_mini_init` из-за нулевых addr/size (LK 2017 не отдаёт memory_info, ноды minirdump в DTB нет), плюс рекурсия через повторный вызов init из panic-пути. Пять compatible-строк Q0-дерева не матчат стоковый DTB 2017 (тот же класс дефекта, что fan5405/apxgpt/SIP).
+
+Evidence: `rc49_p22.bin` + `System.map-p22` (разбор в `M5C_KERNEL_49_MRDUMP_P22.md`); dtc-дамп `dtb_stock.dtb` (md5 e17a0910…): msdc0/1 «mediatek,mt6735m-mmc», «mediatek,MTKFB», «mediatek,lcd_bais_pinctrl», «mediatek,mt6735-touch», «mediatek,mt6735-keypad»; те же строки в рабочем 3.18.
+
+Files changed: `mrdump_mini.c` (fatal→LOGE+return ×2, guard ehdr==NULL в init с печатью «minirdump: disabled (no buffer)», ранний return в ke_cpu_regs, return -1 вместо ре-инициализации в cpu_regs); `ComboA/mt6735/msdc_cust.h` DT_COMPATIBLE_NAME→«mediatek,mt6735m-mmc» (собирается: CONFIG_MMC_MTK_PRO=y); `kpd.c`→«mediatek,mt6735-keypad» (собирается: CONFIG_KEYBOARD_MTK=y); `mtk_tpd.c`→«mediatek,mt6735-touch», `mtkfb.c`→«mediatek,MTKFB», `lp3101.c`→«mediatek,lcd_bais_pinctrl» (inert до включения дисплея/тача).
+
+Expected next marker: `boot_49_p23.img` (sha256 `23566aa346e80c5ffde58e0e69a480e5384ee2bd94b90711fff5a5fc174c41ae`) — «minirdump: disabled (no buffer)», initcall mrdump_mini_init returned 0, рост лога за 1.154 с в mt_cirq_init / M4U / mtkthermal / msdc probe.
+
+Rollback condition: новый вис/паника на или до mrdump_mini_init, либо падение msdc на base_top → откат соответствующего куска (`git revert 0b19cb314` целиком либо точечно).
+
+Verification commands: прошить p23; из recovery снять ram-console; strings по капче: «minirdump: disabled», «mt_cirq», «msdc»; новые PC декодировать строго по `System.map-p23`.
+
+FACT: параллельно закоммичены камерные правки ветки forge/camotp (3.18, `/home/valakas/m5c/android_kernel_meizu_m5c`, commit `96f7eb44`): open() пустого OTP-узла → -ENODEV (лечение «после camcal хуже»), LOG_PROBE через pr_info для фронталки S5K5E8. Собраны, но образ 3.18 не пересобирался — следующий шаг камерного лана.
+
+## 4.9 arm64: P23–P26 — eMMC ожил, найден вис ~4.6 с в Android init; убийца локализуется маркерами (2026-08-17 вечер)
+
+FACT (p23, sha256 23566aa3…): mrdump-фикс работает — ядро прошло все initcalls
+без паники и ушло в Android init (PID 1, Mount_START 1.34 с). kpd
+забиндился (input0). «minirdump: disabled» не видно — ранняя часть лога
+затёрта рингом. cfg80211 WARN_ONCE (reg.c:516 «db.txt is empty»,
+regulatory_init+0xa4 = brk) — нефатальный, отдельный дефолт: в дереве
+пустой regulatory db.
+
+FACT (p24, dd39fd96…): msdc index-fallback оживил eMMC: «DT probe msdc00!»,
+«device renamed to bootdevice», mmc0 DF4016 14.7 GiB HS400, разделы p1..p26.
+FACT: телефон стабильно умирает на ~4.6 с (p23: 4.612, p24: 4.591,
+p24idleoff: 4.599, p25: 4.616, p26: 4.603) — тотальный стоп ВСЕХ CPU,
+init доходит до Mount_START и молчит (ни EXT4, ни fs_mgr в логе).
+
+REJECTED (проверками): cpuidle (p24+cpuidle.off=1 — идентичный стоп);
+WDT как причина (p27 с DIAG_HARD=off: wdtk кикают, а телефон всё равно
+встал колом с мёртвой кнопкой — наблюдение юзера; дедмэн был СПАСЕНИЕМ
+от виза, bootloop = WDT-респаун после заморозки); DVFS-транзакция
+(слоты 70/71 парные — завершена); msdc hw (слот 78 = XFER_COMPL|
+DXFER_DONE — чтение завершено); USB pullup (слот 73 = 0 — не дошли);
+PTP (слот 72 записан — завершён).
+
+FACT (p26 маркеры): heartbeat-слот 77 = 67 тиков по 50 мс → смерть ≈4.6 с;
+слот 75 = CMD18 (read) host0 — в момент смерти шло чтение eMMC (mount
+init'ом), транзакция на железе завершилась.
+
+HYPOTHESIS (текущая): вис — либо CPU-hotplug/MTCMOS-путь (HPS глушил
+ядра 1.25–2.13 с; ATF cpu_die / spm_mtcmos), либо зона между записью
+init в android_usb и входом в musb_gadget_pullup (слот 73 не сработал,
+но 3.18 в этой фазе как раз реконфигурирует гаджет ~4.7 с).
+
+NEXT (подготовлено, ждёт оживления телефона): (а) ISOLATION p26+maxcpus=1
+(boot_49_p26mc1.img md5 adc196a7…) — разрез «hotplug vs остальное» без
+пересборки; (б) boot_49_p28.img (md5 c32c0fa0…, DIAG_HARD обратно
+включён) с маркерами 80 usb_gadget_connect / 81-82 mt_usb_enable/disable /
+83-84 musb_start/stop / 85 cpu_die / 86 spm_mtcmos_ctrl_cpu — локализует
+точку смерти. kernel commit f94e2b320.
+
+## 2026-08-18 (ночь) — офлайн-порты, пока телефон разряжается (p27-вис)
+
+Телефон после p27 (DIAG_HARD=off) завис насмерть, разряжается; adb пуст.
+Проведена серия офлайн-портов 4.9 (без железа, критерий = компиляция/линк):
+
+FACT (все работы зафиксированы коммитами):
+1. kernel m5c-arm64 `fdeb90897`: accdet compatible + jd9365 таблица.
+   accdet: сток-DTB `mediatek,mt6735-accdet`(+m-fallback), Q0-дерево
+   матчило только mt8173/pmic → accdet никогда не пробился (тот же класс,
+   что 6 фиксов p23). jd9365: повреждённая ячейка `{0x01,0x00,{0x00}}` →
+   `{0x00,0x01,{0x00}}` по сток-vmlinux таблице; после фикса init 227/227
+   и suspend 6/6 бьются с captures/lcm-stock-tables/jd9365_stock_tables.c.
+2. Камера — ветка forge/cam49 (worktree k49-worktrees/cam49), 6 коммитов
+   `cdd3becb2..ed0ca1525`: порт S5K4H8+S5K5E8 драйверов из 3.18, sensorlist
+   = стоковому порядку (инд. 0-3 s5k5e8варианты, 4-7 s5k4h8варианты —
+   критично для camcal-блоба), DW9714 AF (DWS i2c 0x0C→0x18 под сток-DTB),
+   legacy constant_flashlight с GPIO-фиксами ba5b9145/b400984c (DWS канал
+   I2C 2→1), CMDQ include-fix, mmdvfs bring-up (BOOT-UNBLOCK, честно
+   помечен). Полный Image.gz-dtb 6.3MB собран, 0 ошибок. CONFIG-список —
+   в M5C_COMPONENT_MATRIX.md и коммите ed0ca1525.
+3. Сенсоры — ветка forge/sensors49 (worktree k49-worktrees/sensors49),
+   4 коммита `bf73835ff..b22b2e536`: legacy hwmsen-стек из 3.18 целиком
+   (core/mc3410/akm09912/stk3x1x). КЛЮЧЕВОЙ FACT: HAL-блоб
+   sensors.mt6737m.so говорит в /dev/hwmsensor (legacy ABI) — sensors-1.0
+   из 4.9-дерева несовместим, потому порт legacy, а не адаптация под 1.0.
+   Починена stk3x1x legacy BOOL-проблема (в 3.18 не собиралась вообще) +
+   добавлен __weak-стаб pmic_ldo_suspend_enable (иначе гарантированный
+   NULL-call при PS enable — в стоке никогда не выполнялся из-за
+   собранного-выкл stk3x1x). of_match всех трёх чипов со сток-DTB
+   совпали без правок. Полный Image.gz-dtb собран, 0 ошибок/0 варнингов.
+   Адаптации 4.9: wakelock→pm_wakeup, i2c suspend/resume→dev_pm_ops,
+   misc_deregister void — задокументированы в коммитах.
+
+Состояние веток: m5c-arm64 = fdeb90897 (линия расследования виза 4.6с
+не загрязнена — оба порт-домена в side-ветках, мерж после прогона на
+железе). Матрица компонентов обновлена: M5C_COMPONENT_MATRIX.md.
+
+RUNTIME НЕ ПРОВЕРЕН (офлайн): camera probe/OTP/AF/вспышка, sensor
+probe/данные — за будущими прогонами после фикса виза.
+
+NEXT: (а) как оживёт телефон — вернуться к p26mc1/p28 (см. секцию выше);
+(б) офлайн следующее: Phase H connectivity wmt/consys (WiFi/BT/GPS/FM) —
+самый большой оставшийся порт; Phase C аудио (конфиги + pinctrl-состояния
+AudDrv_GPIO из дефекта A2); GPU Phase E.
+
+### Продолжение 2026-08-18 (ночь) — Phase H-1 connectivity
+
+4. Connectivity — ветка forge/conn49 (worktree k49-worktrees/conn49),
+   4 коммита `c9c1fcd96..6688d86cd`: wmt/stp/consys (common_detect +
+   conn_soc + mt6735 platform) + gps. КЛЮЧЕВОЙ FACT скоупа: common/combo
+   НЕ нужен — в 3.18 он только для MT6620/6628/6630; для CONSYS_6735 весь
+   core живёт в common/conn_soc. connadp-шимы 4.9 исключены из линковки
+   (дублируют gConEmiPhyBase, рассчитаны на отсутствующий standalone-репо).
+   Чар-девайсы в vmlinux: /dev/stpwmt(190), /dev/stpbt(192),
+   /dev/wmtWifi(153), /dev/stpgps(191), /dev/gps(mt3326-gps),
+   /dev/wmtdetect(154) — полное совпадение с 3.18. consys@18070000 и
+   consys-reserve-memory в DT байт-в-байт = сток-DTB. eccci1 (не eccci) —
+   include-пути и ipc_ilm адаптированы. Полный Image.gz-dtb 6.2MB,
+   0 ошибок (лог conn49-logs/full-build-3.log).
+   Осталось: wlan gen2+cfg80211 (Phase H-2, отдельный прогон),
+   fmradio (в 4.9-дереве нет вообще), BT runtime.
+
+Итог ночи: 3 side-ветки (cam49/sensors49/conn49) поверх fdeb90897,
+все полные сборки зелёные. Мерж в m5c-arm64 — ТОЛЬКО после прогона
+на железе (линия виза 4.6с не загрязнена).
+
+### Продолжение 2026-08-18 (ночь) — Phase H-2 wlan + Phase E GPU
+
+5. WiFi — forge/conn49 поверх H-1, коммиты `aae484074`+`dc7cc3833`:
+   wlan gen2 (69 .c) verbatim из 3.18 (FACT: CONSYS_6735→gen2, gen3 —
+   только MT6630/6797), cfg80211 3.18→4.9 адаптация ПОЛНАЯ без TODO-гардов
+   (scan_done→scan_info, del_station→station_del_parameters, vendor_event
+   +wdev, sched_scan→scan_plans, IEEE80211_BAND→NL80211_BAND 33 сайта,
+   wakelock→локальный shim над wakeup_source). P2P/GSCAN/PNO/WEXT/MET
+   компилируются. g_IsNeedDoChipReset strong symbol замкнул H-1 мост.
+   Полный Image.gz-dtb 6.4MB, 0 ошибок/0 варнингов (full-build-h2-04.log).
+6. GPU — forge/gpu49, коммиты `d637bee3b`+`4bf07405f`: platform/mt6735
+   восстановлен verbatim из 3.18 (4.9 BSP его выкинул), dma-attrs compat,
+   mt_gpufreq include. FACT: обе ветки — Mali Midgard DDK r7p0-02rel0 →
+   ABI к NE1-блобам низкий риск. gpu-узлы в собранном dtb байт-в-байт =
+   сток-DTB (MALI@13040000 550MHz, G3D_CONFIG). Image.gz-dtb 0 ошибок.
+
+Итог: 4 side-ветки поверх fdeb90897 (cam49, sensors49, conn49, gpu49),
+все сборки зелёные. Осталось офлайн: fmradio (нет драйвера в 4.9),
+модем eccci enablement, VDEC/VENC/JPEG compile-check. Мерж — после
+прогона на железе.
+
+### Продолжение 2026-08-18 (ночь) — FM + модем + видео
+
+7. FM — forge/conn49 `7be1cca09`: fmradio mt6627 из 3.18 (47 файлов);
+   FACT: 3.18 CONFIG_MTK_FM_CHIP="MT6625_FM" собирает тот же mt6627-код
+   (Makefile-ветка) — противоречия «MT6627 FM config» в dmesg нет.
+   /dev/fm + /proc/fm, ioctl magic 0xf5 — ABI как в 3.18. Единственная
+   4.9-адаптация: file_inode(). mtk_wcn_fm_init замкнут на H-1.
+8. Модем+видео — forge/av49 `9771cb929`+`bf0f3d7f1`: eccci1 включён
+   (MTK_ECCCI_DRIVER/CLDMA, MD1_SUPPORT=5 lwg), vdec/venc/jpeg + SMI_EXT.
+   КЛЮЧЕВОЙ FACT: 4.9 eccci1 = строгий суперсет 3.18 ABI (все ioctl и
+   /dev/ccci_* сохранены, только добавлены новые) → mtkrild/ccci_fsd под
+   3.18 не сломаются. DT: SIM1 hot-plug EINT полярность исправлена под
+   сток (LEVEL_LOW, drvgen cust.dtsi давал LEVEL_HIGH), лишний SIM2-узел
+   удалён; VDEC/VENC/JPEG-узлы = стоку. mmdvfs DISP_GetScreenWidth гард
+   под MTK_FB (BOOT-UNBLOCK, самоустраняется при включении дисплея).
+   Image.gz-dtb 0 ошибок.
+
+Итог ночи: 5 side-веток поверх fdeb90897 — cam49 (камера), sensors49
+(сенсоры), conn49 (wmt/gps/wlan/fm), gpu49 (GPU), av49 (модем+видео).
+Все полные сборки зелёные. Осталось офлайн: аудио Phase C (MT_SND_SOC_V3
+compile-enablement). Мерж — после прогона на железе.
+
+### Финал ночи 2026-08-18 — аудио Phase C, все домены закрыты
+
+9. Аудио — forge/aud49 `19c54c81f`+`2a1e333b1`: 4.9-native mt_soc_v3
+   (mt6735/) собрался с НУЛЯ правок кода под -Werror (ASoC API-дельт не
+   возникло); DT = стоку 1:1 (32 аудио-узла), extamp-пин исправлен
+   (GPIO68=0x4400, не GPIO129 чужого vz6737t). КЛЮЧЕВОЙ FACT: 9
+   pinctrl-состояний AudDrv_GPIO (дефект A2) отсутствуют И в сток-DTB —
+   сток-faithful, не баг порта; 4.9 AudDrv_Gpio деградирует мягко.
+   ASoC route SPEAKER PGA→Voice Mux в 4.9 не аудирован (Phase D).
+
+ИТОГ офлайн-портов: ВСЕ домены матрицы закрыты — 6 side-веток поверх
+fdeb90897: cam49 (камера+вспышка+AF), sensors49 (hwmsen: mc3410/akm09912/
+stk3x1x), conn49 (wmt/stp/gps/wlan gen2/fm), gpu49 (mali r7p0),
+av49 (модем eccci1 + vdec/venc/jpeg), aud49 (mt_soc). Все полные сборки
+Image.gz-dtb зелёные, все DT сверены со сток-DTB (7 класс-p23 правок).
+CONFIG-списки — в матрице/коммитах. Мерж в m5c-arm64 и прогон — после
+оживления телефона и фикса виза 4.6с.
+
+### Довесок 2026-08-18 — два неядреных должка (офлайн)
+
+10. akmd09912 — device/meizu/m5c коммит `e21324d`: алиас service
+    akmd09912 → /system/bin/akmd09911 (msensord просит сервис по имени
+    чипа; блоб 9912 не поставляется, 9911 — та же AKM099xx-семья).
+    Rollback: если блоб отвергнет chip-id — искать настоящий akmd09912
+    в Flyme.
+11. P4 (battery_profile) ПЕРЕКЛАССИФИЦИРОВАН: battery_profile_t0..t3
+    отсутствуют И в сток-DTB (проверено dtc-дампом) → фолбэк на cust
+    header и capacity=50 — сток-faithful поведение, не баг порта/ядра.
+    Не чинить против сток-истины; убрано из «Ещё не сделано» в матрице.
+
+## 4.9 arm64: P29–P32 — вис 4.6с = tick-broadcast mt_gpt на 32кГц (РЕШЕНО офлайн, ждёт прогона) (2026-08-18/20)
+
+### P29 (коммит d13987dc9): hotplug/MTCMOS/ATF ПОЛНОСТЬЮ эконерированы
+Таймстамп-маркеры (sched_clock нс) на все скобки cpu_down/up/mtcmos +
+RTC FAC_RESET автовозврат. Капча `captures/20260818-49-p29/` (валидная,
+A==B). FACT: все скобки 85-93 закрыты, последний hotplug 2.15с; CPU1-3
+легально запаркованы (0.40/1.13/2.05с); **CPU0 последний тик 4.704с,
+USB-heartbeat (50мс hrtimer, слот 77) остановился** → CPU0 уснул в NO_HZ
+idle и не проснулся. Это НЕ hotplug — это таймерное wake-событие/доставка
+IRQ (тот же класс, что P18-P22).
+
+### P30/p30poll/p30v2poll: idle=poll доказал idle-wake; дедмэн v2/v3
+- `idle=poll` в cmdline обходит вис: телефон дошёл до init, USB-гаджет
+  поднялся (dmesg хоста: `18d1:d001 m5c serial 710HVBR923RYK`).
+- Дедмэн: v2 = kthread кикает WDT каждую секунду (здоровый бут живёт),
+  метка RTC FAC_RESET на 3с, снятие на 15с; v3 (p30v2poll) = дедлайн 20с
+  (диагностический, убивает и здоровый бут). FACT: RTC-метка печатается,
+  но LK по WDT-ресету в TWRP НЕ роутит — ручной тёплый Vol+ остаётся
+  надёжным путём; из TWRP `reboot recovery` работает.
+- p30v2poll прогон: капча НЕ снята (холодный ресет сгнил DRAM).
+
+### P31 (коммит 4a6f5e61c): legacy android_usb гаджет — adb-путь
+ROOT CAUSE отсутствия adb: 3.18 имеет `CONFIG_USB_G_ANDROID=y`, рамдиск
+LOS пишет в `/sys/class/android_usb/android0/*` (init.mt6735.usb.rc);
+в 4.9-конфиге был только CONFIGFS → adb невозможен по построению.
+Включён USB_G_ANDROID; configfs-функции (F_MTP/F_PTP/F_ACC/F_AUDIO_SRC/
+F_MIDI/F_FS) выключены — legacy android.c инклюдит f_mtp/f_accessory/
+f_rndis/f_hid/f_midi в свой TU, дубли-объекты давали multiple definition.
+Kconfig.default: убраны select'ы configfs-функций (иначе olddefconfig их
+возвращает). USB_G_ANDROID: +select USB_U_ETHER (gether_* из u_ether.o),
+-select USB_F_AUDIO_SRC (нужен ALSA, CONFIG_SND off). android.c:
+create_function_device → static android_lookup_function_device (configfs.c
+экспортирует одноимённую с ДРУГОЙ семантикой), static
+trigger_android_usb_state_monitor_work (у meta.c свой глобал).
+Образ `boot_49_p31poll.img` md5 d78e63da81c2129d738c4db9a87e007c
+(idle=poll). Прошивка отложена: телефон ушёл в цикл preloader↔gadget
+(p30v2poll дедлайн), mtkclient на gunwest не поймал preloader за 150с.
+
+### P32 (коммит 0e496ca4a): mt_gpt broadcast на 32кГц — PROPER-FIX
+ROOT CAUSE виза 4.6с (офлайн-анализ, сток-истина по 3.18):
+- Сток-DTB arch_timer node БЕЗ "always-on" → arch_timer_c3stop=true →
+  nohz-CPU в idle передаёт тики broadcast-девайсу = mt-gpt (apxgpt,
+  IRQ 184, SPI 0x98).
+- 4.9 mt_gpt.c пришёл из более нового BSP (mt6580-эра): его
+  `mt_gpt_clkevt_next_event()` программирует compare в 13МГц-циклах,
+  а потом ПЕРЕКЛЮЧАЕТ GPT на 32.768кГц RTC-источник. Клокивент
+  зарегистрирован с freq=13МГц → каждый broadcast-дедлайн растянут
+  ~397× (13e6/32768): 50мс hrtimer стреляет через ~20с → CPU0 "мёртв"
+  с первого настоящего idle. Это и есть вис 4.704с.
+- 3.18 сток (mach/mt6735/mt_gpt.c) set_next_event = stop/cmp/start БЕЗ
+  переключения клока, на том же железе, и работает. SODI на m5c выключен
+  (idle_switch[IDLE_TYPE_SO]=0) → 32кГц-ради-SODI не нужен.
+Фикс: убрано переключение на GPT_CLK_SRC_RTC, остаёмся на GPT_CLK_SRC_SYS
+(как 3.18 сток). Маркеры: слот 100 = счётчик GPT IRQ (gpt_handler),
+слот 101 = cycles из set_next_event.
+Образ `boot_49_p32.img` md5 81447ee71a5194ca6efc89db952f41a4, cmdline
+СТОКОВЫЙ (без idle=poll). Ожидание: бут проходит 4.6с, слот 100 растёт,
+сердцебиения 77/96+cpu живут >5с, android0 + adb (из p31).
+Rollback: если слот 101 стрелял, а 100 = 0 → железный путь GPT (клок-
+гейтинг / GIC SPI 184) — вернуть idle=poll и читать регистры GPT.
+
+### Транспорт/стенд
+Телефон 710HVBR923RYK: devbox ↔ gunwest (юзер переносит). mtkclient
+есть на gunwest (/home/gun/mtkclient, .venv, mtk.py) — preloader-окно
+ловить не смог. Чужие устройства на стендах НЕ трогать: MX6
+95AHACQC5KQVM, nx569j cb16fcca, iPhone7Plus F2LVD2HGHFY7, M5s
+612MZCQH447WD (0e8d:201d в lsusb подписан "M5s" — это usb.ids-маппинг,
+наш preloader).
+
+### NEXT (при телефоне на devbox)
+1. Прошить p32 (сток-cmdline) → ждать adb ~60с. Если adb — Android на
+   4.9 впервые жив БЕЗ idle=poll: вис закрыт proper-fix'ом.
+2. Если вис — капча fA/fB + rc49 из TWRP (тёплый Vol+), декод слотов
+   100/101 решает: GPT-железо vs дальше по цепочке.
+3. Запасной: p31poll (idle=poll) — adb-бриингап при живом вопросе таймера.
+4. После adb: мерж 6 side-веток (cam/sensors/conn/gpu/av/aud) + железные
+   прогоны; cfg80211 WARN_ONCE (reg.c:516) — отложен, нефатально.
