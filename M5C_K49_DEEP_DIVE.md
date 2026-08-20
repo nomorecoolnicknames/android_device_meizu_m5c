@@ -572,3 +572,130 @@ eMMC из panic-контекста НЕ делать (block layer мёртв); �
 «пуленепробиваемо»: запись на eMMC всегда выполняется ЗДОРОВОЙ фазой
 следующего бута, а не умирающей.
 
+
+### 11.9. p37 — исполнение (2026-08-20, лайв-сессия)
+
+- Ядро: `m5c-arm64` @ `75d761e44` (p37: P1–P5 из §11.7 + ERR_PTR-гигиена
+  ffs/acm/audio_source, зеркало отдельной нитью, слоты 106–114,
+  `forge_preserve_prev`, memblock_reserve окон, `emergency_restart()` вместо
+  `while(1)` в `aee_exception_reboot`). Сборка чистая (0 ошибок/варнингов в
+  затронутых файлах), System.map сохранён как `System.map-p37`.
+- Образ: `boot_49_p37poll.img` (md5 `220a2807c2c0bc363c0fe0a1b946db16`),
+  Image.gz+сток-DTB (`e17a0910…`), cmdline p31 (idle=poll), база boot_k16.
+- FACT (девбокс, TWRP): `expdb -> mmcblk0p10` — MKDEV(179,10) подтверждён на
+  железе; expdb offset 0 = старый AEE-заголовок `adde e0ae`, «FORG» нет →
+  p36b-зеркало не записало ни байта (подтверждено). Бэкапы до прошивки:
+  `expdb_pre_p37.bin` (md5 `e7e9aee2…`), `boot_pre_p37.img` (`c7fca7d6…`),
+  лежат в scratchpad `p37cap/`.
+- Прошивка: dd в mmcblk0p7 через TWRP adb (девбокс), верификация ПОБАЙТНО
+  (`cmp -n 9459712`) = OK. Ловушка: два md5-замера частичного чтения через
+  toybox dd дали РАЗНЫЕ суммы при идентичном содержимом — на TWRP доверять
+  только полному pull+cmp, не `dd bs=… | md5sum`.
+- Ребут в 16:23:12. Новая карта слотов p37: 106=(зеркало ok<<32)|errno;
+  107=die(cmd), 108=PC, 109=LR, 110=panic; 111=functions_store (8 симв.),
+  112=enable, 113=ffs ready, 114=pullup. Чтение страницы A: `dd if=/dev/mem
+  bs=1024 skip=2080768 count=2` (вторая КБ = копия предыдущего бута).
+
+### 11.10. РЕЗУЛЬТАТ p37 (2026-08-20 16:23–16:28): зеркало сработало, найден ИСТИННЫЙ первый блокер
+
+Прогон: p37poll прошит (верифицирован побайтно), ребут 16:23:12, телефон САМ
+вернулся в TWRP ≈16:27 (≈200с). DRAM-страницы после этого ребута = 0xFF
+(этот тип ресета DRAM не сохранил), **но eMMC-зеркало отработало**: expdb
+offset 0 = FORGE49-слоты умершего бута, offset 1КБ = prev-копия (p36b!),
+offset 1МБ = rc49 (DBGC, хвост printk-лога до ~196.7с). Капча-лотерея закрыта.
+
+FACT (слоты LIVE-блока):
+- вехи 1–46 пройдены; slot 95: loops=120, now_s=121 — дедмэн отработал ВСЕ
+  120 циклов, sched_clock жив; slot 105: дедлайн сработал; slot 106:
+  **ok=197, errno=0** — 197 успешных записей зеркала;
+- **102/103 НЕТ** — `usb_composite_probe` даже не начинался;
+- **107–110 НЕТ** — ни oops, ни panic за все ~197с;
+- **111–114 НЕТ** — userspace не написал ни functions, ни enable;
+- slot 19 (текущий initcall) = `ram_console_early_init` — артефакт ранней
+  фазы, не показатель зависшего initcall.
+
+FACT (rc49-лог, хвост 144–196.7с): **userspace ЖИВ** — healthd (pid 172),
+init, bat_routine, pmic_thread; `[MUSB]do_connection_work: !is_ready,
+retrigger after 50 ms` каждые 50мс — musb вечно ждёт гаджет-драйвер;
+**`wdtk-0` кикает WDT каждые ~20с** (CONFIG_MTK_WD_KICKER жив!) — поэтому
+остановка киков дедмэна НЕ даёт WDT-ресета; возврат в TWRP на ~200с —
+это userspace-инициированный reboot recovery (init/vold), а не WDT.
+
+**ROOT CAUSE (FACT, закрыт в p38):** `configfs.c: gadget_cfs_init`
+(module_init → device_initcall, libcomposite) при
+CONFIG_USB_CONFIGFS_UEVENT=y создаёт класс `"android_usb"` РАНЬШЕ
+late_initcall'а android.c → `class_create` в android.c = **-EEXIST** →
+init() выходит до маркера 102 и до создания android0 → рамдиск пишет в
+никуда → ноль USB. Это же объясняет p31–p34 (BUG A/B из §11.1–11.2 реальны,
+но ЛАТЕНТНЫ — до них исполнение не доходило) и «charging d001» на p30:
+configfs.c сам эмулирует `/sys/class/android_usb/android0` (строка 1766),
+поэтому рамдиск смог поднять charging-гаджет без G_ANDROID.
+
+Ревизия статусов: BUG A/B — латентные, починены в p37; BUG C (aee while(1))
+— реален, но в этих прогонах не срабатывал (oops'ов не было); ранняя смерть
+p36b (prev-блок: loops=1, смерть в первые ~2с дедмэна при живом wdtk) —
+не воспроизвелась на p37; вероятные лечения — memblock_reserve окон и вынос
+зеркала из кик-нити (INFERENCE).
+
+**p38** (`configfs.c`): при CONFIG_USB_G_ANDROID libcomposite НЕ создаёт
+класс/девайс android_usb (три `#ifndef`-гарда: gadget_cfs_init,
+gadgets_make, gadgets_drop) — класс принадлежит legacy-гаджету.
+
+### 11.11. РЕЗУЛЬТАТ p38 (16:35–16:38): класс-фикс сработал; следующий фронт — userspace-маунты
+
+FACT (слоты p38): **102 = milestone — probe ВОШЁЛ** (p38-фикс подтверждён);
+дедмэн 114 циклов, зеркало ok=112, oops'ов нет (107–110 пусто). Слот 103
+отсутствовал В ДЕКОДЕ — но выяснилось, что `forge_kmark_ptr(103, err)` при
+err=0 пишет 0 = неотличимо от нештампованного (та же слепота у 73 при
+is_on=0 и 112 при enable=0). p39 добавляет сентинелы (103: 0x600D при
+успехе; 73: 0x10|is_on; 112: 0x100|val).
+
+FACT (rc49 p38, раскрутка ринга по таймстампам): **userspace жив и init
+работает**: `[166:init] fs_mgr __mount ... = -1 … error: No such file or
+directory` для `by-name/cache` (61с), `protect1` (81с), `protect2` (101с),
+по 20с ретраев на раздел — значит /system и /data упали ещё раньше (до окна
+ринга). Пути fstab: `/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/…`
+— **источники не существуют** в 4.9-бутe. Без /data нет persist-пропов →
+`sys.usb.config` не выставляется → USB rc не запускается → слоты 111/112
+пусты и USB молчит ДАЖЕ при исправном гаджете. Плюс `usb_state<DISCONNECTED>`
+каждые ~3с (монитор android0 живёт → android0 создан ✓).
+
+INFERENCE: возврат в TWRP на ~200с — init не смог смонтировать критические
+разделы → reboot в recovery (тот же механизм, что и на p34/p37).
+
+Сток-DTB иерархия верна (`mtk-msdc.0 {simple-bus} → msdc0@11230000` →
+плат-девайс `11230000.msdc0` с родителем `mtk-msdc.0`) — вопрос, что реально
+создаёт ueventd на 4.9. p39: маркеры цепочки probe 115–125 + **ранний
+одноразовый снапшот rc49 в expdb offset 2МБ** (первые секунды: ueventd,
+msdc, by-name) + сентинелы нулевых слотов.
+
+### 11.12. РЕЗУЛЬТАТ p39 (16:44–16:48): ГАДЖЕТ ЭНУМЕРИРУЕТСЯ; msdc-rename ломает fstab; adb гейтится aliases
+
+**Главное: хост увидел `0bb4:0c02 Android`** (16:46:49, t≈+128с) — legacy-гаджет
+живой конец-в-конец. FACT (слоты): вся цепочка probe зелёная —
+115→116→117→118→119→120→121→122→123→124→125, 103=0x600D (probe=0);
+111=`"mtp,adb"` (functions_store от init!), 112=0x101 (enable=1 →
+forge_userspace_alive → дедлайн корректно отключён, дедмэн дожил до 216
+циклов без ресета); 114 есть (pullup выдан); 73=0x11; лог: `high-speed
+config #1: android` (126.9с), `usb_state<CONFIGURED>` стабильно до 216с.
+**113 (ffs ready) НЕТ** → в конфиге только MTP (bNumInterfaces=1, class 255)
+→ adb-интерфейса нет, хост-adb устройство не видит. INFERENCE: `f_ffs/aliases`
+не был записан/не сработал → "adb" в functions_store не распознан как ffs
+(ожидаемая строка `Cannot enable 'adb'` — вне окна ринга). adbd/functionfs
+проверяются после починки /data.
+
+**FACT (ранний rc-снапшот, канал работает!):** `[msdc][msdc0] device renamed
+to bootdevice.` / `[msdc1] … externdevice` (msdc_cust.c:983-990, Q0 BSP) —
+sysfs DEVPATH уезжает в `/devices/platform/bootdevice` → ueventd публикует
+`/dev/block/platform/bootdevice/by-name/*`, а fstab общего рамдиска ждёт
+`mtk-msdc.0/11230000.msdc0` → ВСЕ fs_mgr-маунты ENOENT (п.11.11) → нет
+/data → нет persist-пропов → USB rc деградирован. **Это и есть маунт-фронт.**
+Также в снапшоте: msdc0 DT-probe ок (irq 111), «GPT: iniit», msdc1 CMD
+таймауты (SD-карты нет — норм). android_init_functions: все 4 функции
+success на 0.61с; `android_usb ready`.
+
+**p40** (`msdc_cust.c`): rename убран — путь остаётся стоковым
+`mtk-msdc.0/11230000.msdc0` (как на 3.18). Проверено: на «bootdevice» в
+дереве завязан только dm-crypt strstr-хинт (без rename берёт generic-путь) и
+UFS (не наш). Ожидание от p40: fstab-маунты проходят → /data/persist живы →
+init.usb.rc отрабатывает полностью (aliases+adbd+functionfs) → adb.
