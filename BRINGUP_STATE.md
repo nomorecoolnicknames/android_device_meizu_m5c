@@ -2122,3 +2122,44 @@ c7fca7d6… (scratchpad p37cap/).
 Открыто: возврат в recovery ~215с при живом userspace (боот не completed,
 zygote=0 — вероятно crash-loop critical-сервиса без дисплея/GPU HAL);
 валидация p32 mt_gpt-фикса прогоном БЕЗ idle=poll; затем display-фронт.
+
+## P42–P45 (2026-08-20 вечер): idle=poll снят, SF-петля доказана, дисплей-стек собран, p44-клин, p45-инструментация
+
+- **P42 FACT:** p41-ядро со СТОКОВЫМ cmdline (без idle=poll) — adb за 21с.
+  p32 mt_gpt-фикс подтверждён железом; костыль idle=poll снят навсегда.
+- **A0.1 FACT (logcat):** петля recovery ~215с = SurfaceFlinger: нет
+  fbdev/gralloc-fb/mtkfb, MTK hwcomposer виснет в hwc_open_1 → краш-луп →
+  init reboot recovery. На брингап-сессиях лечится `adb shell stop`.
+- **P43** (`90620e0e4`): WDT DDR-reserve включён (mtk_rgu_dram_reserved(1)
+  в probe — DRAM переживёт HW-WDT-ресет), usb_state-лог только по смене.
+- **P44** (`79faa74be`): дисплей-стек ВКЛЮЧЁН и СОБРАН: MTK_FB, MTK_LCM,
+  CUSTOM_KERNEL_LCM="ili9881c_dsi_vdo_dj_hd720 jd9365...", MTK_CMDQ,
+  MTK_SMI_EXT (легаси smi_legacy для mt6735), SW_SYNC. Панель ili9881c
+  синхронизирована из 3.18 (реверс-блок DSI: PLL 212, 4 lane — фикс
+  resume-мусора); jd9365 оставлен 4.9-версии (фикс ячейки по vmlinux).
+  Сборочные фиксы: compat_mtkfb.h для mt6735 (Q0 потерял), typedef
+  compat_mtk_dispif_info_t (=struct, раскладка 32/64 идентична), DISPDBG
+  include, cmdq v2/mt6735 Makefile -I.
+- **P44 РАН FACT:** клин ДО USB (ни adb, ни recovery за 4 мин), дедмэн
+  ресетит циклами ~3-6 мин (preloader-вспышка 20:29:39). Капчи нет —
+  телефон физически недоступен (юзер уехал), p44 крутится на аппарате.
+- **Код-анализ клина (без капчи):** mt6735 power/mtcmos в 4.9 ≈ байт-в-байт
+  рабочий 3.18-оракул (дельта = наши маркеры) → DIS-спины сами по себе не
+  главный подозреваемый; smi = легаси-вариант (3.18-совместим); cmdq =
+  subsys_initcall (порядок smi(arch)→cmdq(subsys)→mtkfb(module) корректен);
+  parse_tag_videolfb эквивалентен 3.18; disp_helper stage=NORMAL. Videox/
+  dispsys Q0 сильно отличается от 3.18 (3.5к строк дельты в
+  primary_display.c) — угадывать нельзя, нужна точка.
+- **P45** (`08088208e`, ГОТОВ К ПРОШИВКЕ): лестница шагов дисплей-инита в
+  слоте 126: 0x40..0x44 cmdq init/probe; 0x11..0x1F mtkfb_probe (74=fb_base
+  из LK-тега); 0x20..0x2F primary_display_init (76=plcm; 0x26-0x29 вокруг
+  cmdq trigger loop); 0x30 disp_lcm_probe; 0x60|state/0x6F MTCMOS DIS.
+  Decision tree: слот 126 ПУСТ → клин до cmdq subsys_initcall (тогда
+  p45a: infra-only образ CMDQ+SMI без MTK_FB); 0x42..0x44 → клин в
+  cmdq probe (GCE); 0x14 без 0x15 → внутри primary_display_init — смотреть
+  последний под-шаг 0x2x; 0x26/0x27 без 0x28 → GCE trigger loop (клок/IRQ
+  GCE); 0x60 без 0x6F → MTCMOS DIS ack; 107-109 при BUG() → PC/LR по
+  System.map-p45. Плюс rc49-ринг покажет последний printk.
+  Образ: `boot_49_p45.img` md5 `96a4036c…` (сток-cmdline).
+  **По возвращении телефона:** Vol+ TWRP → прошить p45 → один цикл ~3 мин →
+  TWRP → expdb-капча → точка клина.
