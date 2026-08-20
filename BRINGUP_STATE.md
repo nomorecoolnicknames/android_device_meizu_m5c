@@ -2070,3 +2070,55 @@ blkdev_get_by_dev: не записало — либо дедмэн не бежи
 mirror → подозрение на panic-луп по preloader-вспышкам t=40/50с).
 Образы: p31poll d78e63da…, p32 81447ee7…, p33 12705109…, p34poll
 316d4056…, p35poll f3c7221d… (не прошит), p36bpoll 0a962d0c….
+
+## P37–P41 (2026-08-20, лайв-сессия на девбоксе): ADB РАБОТАЕТ НА 4.9
+
+Полный разбор с уликами — `M5C_K49_DEEP_DIVE.md` §11 (11.1–11.13). Итог:
+`710HVBR923RYK device product:lineage_m5c`, `uname -r = 4.9.188-m5c+`,
+`/system`+`/data` смонтированы, `sys.usb.state=adb`, adb shell/dmesg живые.
+
+Три реальных убийцы «вечного логотипа» p31+ (все FACT, все закрыты):
+1. **p38 `7f2e67bdc`** — libcomposite/configfs.c (device_initcall) при
+   CONFIGFS_UEVENT=y создавал класс `android_usb` раньше нашего
+   late_initcall → `class_create` android.c = -EEXIST → android0 не
+   создавался → рамдиск писал в никуда. (Отсюда же «charging d001» p30:
+   configfs.c сам эмулирует android0.)
+2. **p40 `9f0029fcd`** — Q0 msdc rename `bootdevice`/`externdevice` уводил
+   DEVPATH → ueventd публиковал `/dev/block/platform/bootdevice/…` → ВСЕ
+   fstab-маунты ENOENT (fs_mgr по 20с/раздел) → нет /data/persist → USB rc
+   мёртв; init уходил в recovery ~200с (это и были «возвраты в TWRP»).
+3. **p41 `086f17767`** — рамдиск НЕ монтирует functionfs и не пишет
+   f_ffs/aliases: его adbd ходит в `/dev/android_adb` = legacy **f_adb**,
+   выпиленный из Q0. Возвращён байт-в-байт из стока 3.18 (+глю в android.c,
+   гейтинг adbd оставлен #if 0 как в стоке).
+
+Латентные бомбы, обезврежены в **p37 `75d761e44`**: (a) audio_source init
+всегда -ENOENT при отсутствии USB_F_AUDIO_SRC + крашащий unwind таблицы
+(UAF f->dev / double kfree / NULL f->config) — до p35-таблицы это был бы
+oops в kernel_init; (b) `aee_exception_reboot` → `while(1)` при неготовом
+wd_api (wd_api_init живёт в wdk-workqueue ПОСЛЕ usb late_initcall) — oops
+превращался в вечный тихий hang; починено на emergency_restart (PSCI);
+(c) окна 0x5f000000 (rc49+pstore!), 0x7f000000, 0xb0000000 НЕ были в
+memblock_reserve — ram console непрерывно писала в память buddy-аллокатора;
+(d) зеркало сидело в кик-нити WDT.
+
+Канал улик, который всё вскрыл (p37/p39): **eMMC-зеркало в expdb p10** —
+offset 0: маркер-страница 2КБ (live + prev-boot копия), 1МБ: rc49-ринг,
+2МБ: ранний одноразовый снапшот rc49 (первые секунды бута). Переживает
+любой ресет, читается из TWRP. Обязательные уроки: НУЛЕВОЕ значение слота
+неотличимо от нештампованного — только сентинелы (103=0x600D и т.п.);
+`wdtk-0` (MTK_WD_KICKER) кикает WDT независимо от дедмэна — «стоп киков»
+НЕ даёт ресета; ре-энумерации 0bb4 каждые ~20с = рестарты adbd.
+
+Слоты p37+: 106=(mirror ok<<32)|early<<16|errno; 107-109=die cmd/PC/LR;
+110=panic; 111=functions_store (8 симв.); 112=0x100|enable; 113=ffs ready;
+114=pullup; 115-125=трасса probe-цепочки (см. §11.7/11.12 дока).
+
+Образы: p37poll 220a2807…, p38poll c5058088…, p39poll 32f5e181…,
+p40poll 665e328d…, **p41poll e3164972… (рабочий, adb)**. System.map-p37…41
+в корне дерева. Бэкапы до сессии: expdb_pre_p37 e7e9aee2…, boot_pre_p37
+c7fca7d6… (scratchpad p37cap/).
+
+Открыто: возврат в recovery ~215с при живом userspace (боот не completed,
+zygote=0 — вероятно crash-loop critical-сервиса без дисплея/GPU HAL);
+валидация p32 mt_gpt-фикса прогоном БЕЗ idle=poll; затем display-фронт.
