@@ -1,0 +1,351 @@
+# M5C k49 (kernel 4.9) — глубокий анализ зависания на логотипе: полный пакет для внешнего анализа
+
+Дата: 2026-08-20. Ветка ядра: `m5c-arm64` @ `479f6366d`.
+Этот документ — самодостаточный пакет для анализа сильной моделью: контекст,
+обе ветки ядра, вся доказательная цепочка, вся инструментация, все правки,
+ранжированные гипотезы и точный запрос (в конце).
+
+---
+
+## 0. TL;DR — что сломано
+
+Ядро 4.9.337 (MTK BSP k37mv1_bsp_k49, порт с Meizu M6/MT6750 на Meizu m5c/MT6737T)
+**загружается далеко** (по косвенным признакам — живы кнопки kpd), но:
+
+1. **USB не энумерится вообще** (ни adb, ни гаджет, ни даже preloader-подобных
+   окон после старта ядра) — с момента включения `CONFIG_USB_G_ANDROID=y`
+   (legacy-гаджет `/sys/class/android_usb/android0`, нужен рамдиску LOS 14.1);
+2. **Экран навсегда остаётся на LK-логотипе** (дисплей в 4.9 пока не портирован —
+   это отдельный известный фронт, НЕ симптом бага);
+3. **Ни один механизм самосброса/дампа не срабатывает наблюдаемо**: WDT-дедлайны
+   не дают видимого мигания логотипа, eMMC-зеркало маркеров не пишется;
+4. Все DRAM-капчи (маркеры + ram console) после холодного выключения = `0xFF`
+   (DRAM переинициализируется preloader'ом).
+
+До включения legacy-гаджета то же ядро **доходило до userspace и энумерило USB**
+(p30poll: хост видел `18d1:d001` через configfs-гаджет).
+
+**Задача анализа:** объяснить, как включение legacy android-гаджета (код которого
+инициализируется на `late_initcall`, ~6-15с) может давать картину «ноль USB +
+нет ресетов + маркерные механизмы молчат», и предложить конкретный следующий
+код/эксперимент.
+
+---
+
+## 1. Железо и бут-цепочка
+
+- Устройство: **Meizu m5c**, SoC **MT6737T** (4×Cortex-A53 @1.3ГГц, Mali-T720),
+  eMMC 16GB, PMIC MT6328, дисплей jd9365 (DSI), тач GT1151.
+- Бут-цепочка: **preloader (BROM→PL) → LK (логотип, кнопки Vol+/Vol-) → kernel →
+  LOS 14.1 ramdisk (Android 7.1)**.
+- Телефон прошивается через TWRP adb: `dd of=/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/boot`.
+- Возврат в TWRP: только ручной тёплый перехват **Vol+** в окне LK после ресета;
+  долгий power (10-15с) = PMIC hard-off = **холодный** ресет = DRAM стирается.
+- RTC spare-регистр FAC_RESET (механизм `reboot recovery`) ядро выставляет, но
+  **LK по WDT-ресету в TWRP НЕ роутит** (проверено p29) — только ручной Vol+.
+- UART нет. Вся обсervability — через: DRAM-маркеры (тёплые ресеты), ram console,
+  pstore (пустой — известная проблема), expdb (eMMC, новый канал, писался в p36).
+
+## 2. Два ядра
+
+### 2.1. Эталон: 3.18.19 (stock, read-only)
+
+- Путь: `/home/valakas/m5c/android_kernel_meizu_m5c` (master `a33114b6`,
+  зеркало: github `nomorecoolnicknames/android_kernel_meizu_m5c-old`).
+- Источник: официальный исходник Meizu (Flyme) для m5c. **Работает полностью**
+  (Flyme сток); на нём же LOS 14.1 дошла до полного Android с adb
+  (капча `captures/20260817-los-first-boot/`: props, `persist.sys.usb.config=adb`).
+- Ключевые конфиги: `CONFIG_USB_G_ANDROID=y` (legacy-гаджет!), `CONFIG_CPU_IDLE=y`,
+  `CONFIG_MTK_DISABLE_SODI=y`, `CONFIG_CPU_IDLE_GOV_MTK=y` (кастомный MTK-гавернор
+  cpuidle, уважает `idle_switch[]`).
+- Таймеры: `drivers/misc/mediatek/mach/mt6735/mt_gpt.c` (BSP-расположение),
+  `mt_cpuxgpt.c` там же. `mt_gpt_set_next_event` = stop/cmp/start **без**
+  переключения клока (см. §5.2).
+- cpuidle: `drivers/cpuidle/cpuidle-mt6735.c`, 4 состояния (dpidle/SODI/slidle/
+  rgidle), но выбор через `mt_idle_select` + `idle_switch[]` = {dp=1, so=0, sl=1, rg=1}
+  для MACH_MT6735M.
+- USB: legacy android.c инклюдит в свой TU: f_fs.c, f_audio_source.c, f_midi.c,
+  f_mass_storage.c, f_adb.c, f_mtp.c, f_accessory.c, f_rndis.c, rndis.c, f_ecm.c,
+  f_eem.c, u_ether.c — полностью self-contained, configfs-стэндэлоунов нет.
+
+### 2.2. Порт: 4.9.337 (активная работа)
+
+- Путь: `/srv/forge/android/m5c/kernel-m5c-4.9-lc`, ветка `m5c-arm64`.
+- Происхождение: BSP `k37mv1_bsp_k49` (Meizu M6-эпохи, MT6750) + графт на arm64
+  + сток-DTB m5c (байт-идентичный Flyme, md5 `e17a0910…`, конкатенируется к
+  Image.gz; `CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE`-стиль).
+- Сборка: `make ARCH=arm64 CROSS_COMPILE=aarch64-linux-android- Image.gz-dtb`,
+  defconfig `arch/arm64/configs/m5c_defconfig`. Образ: `abootimg -u` на базе
+  `boot_k16.img` (LOS), cmdline `bootopt=64S3,32N2,64N2 androidboot.selinux=permissive
+  buildvariant=userdebug` (+`idle=poll` в poll-вариантах).
+- **В дереве `-Werror`** (mediatek Makefile) — варнинги = ошибки.
+- Что уже допортировано и ЗАКОММИЧЕНО в `m5c-arm64` (хронология):
+  - `f7eaac260` deadman `MTK_WDT_DIAG_HARD` (WDT kick-тред);
+  - P18-P22 серия маркеров + **`68e66c073` SIP ID фикс** (см. §5.1);
+  - `0b19cb314` aee/mrdump выживание без minirdump + DT-compatibles под сток-2017;
+  - `f94e2b320` msdc host id из node name (eMMC грузится) + маркеры 70-86;
+  - `fdeb90897` accdet compatible + jd9365 битая ячейка таблицы;
+  - `d13987dc9` (p29) таймстамп-маркеры hotplug/mtcmos + RTC FAC_RESET;
+  - `4a6f5e61c` (p31) **legacy USB_G_ANDROID** + дедмэн kick-forever;
+  - `0e496ca4a` (p32) **mt_gpt broadcast 32кГц фикс** (см. §5.2);
+  - `da647555e` (p33) дедлайн 180с, отменяется `forge_userspace_alive`;
+  - `4a5f59eea` (p34) дедлайн по счётчику циклов (120) + маркеры 102/103/104/105;
+  - `a53493bc9` (p35) ISOLATION: таблица гаджета урезана до ffs+acm+mtp+ptp;
+  - `44fe08f69`+`479f6366d` (p36/p36b) eMMC-зеркало маркеров в expdb.
+- Офлайн-ветки портов (собраны, НЕ вмержены, ждут живого железа; worktrees в
+  `/srv/forge/android/m5c/k49-worktrees/`): `forge/cam49` (s5k4h8/s5k5e8+DW9714),
+  `forge/sensors49` (mc3410/akm09912/stk3x1x legacy hwmsen), `forge/conn49`
+  (wmt/consys/gps/wlan-gen2/fm), `forge/gpu49` (mali r7p0, тот же DDK что 3.18),
+  `forge/av49` (eccci1 модем + vdec/venc/jpeg), `forge/aud49` (mt_soc_v3).
+
+## 3. LOS 14.1 сторона (что ждёт ядро)
+
+- Дерево: `/srv/forge/android/m5c/los14.1-m5c-patched/` (device/meizu/m5c).
+- `product/prop.mk`: `persist.sys.usb.config=mtp,adb` — **дефолтный конфиг USB**.
+- `rootdir/root/init.mt6735.usb.rc`: пишет ТОЛЬКО в legacy-пути
+  `/sys/class/android_usb/android0/*` (idVendor 0BB4, functions, enable).
+  Никакого configfs-пути для adb нет → **без USB_G_ANDROID adb невозможен
+  по построению**. Есть `on property:sys.usb.charging=yes → write
+  /sys/class/udc/musb-hdrc/device/cmode 2` (musb UDC виден как musb-hdrc).
+- На 3.18 этот рамдиск даёт рабочий adb (доказано первым бутом).
+- На 4.9 с configfs-only (p30poll) рамдиск поднял **charging-only** гаджет
+  `18d1:d001` (видимо, через какой-то configfs-фолбэк), adb не было.
+
+## 4. Система маркеров и капч (как читать улики)
+
+### 4.1. DRAM-маркеры (forge_kmark)
+
+- Код: `arch/arm64/kernel/setup.c:276/295` (`forge_kmark`, `forge_kmark_ptr`).
+- Две страницы DRAM: **0x7f000000** (A) и **0xb0000000** (B), магия "FORGE49\0",
+  слот ms по смещению `8+8*ms`, значение = sched_clock нс (или произвольное u64
+  для `_ptr`). Запись + `__flush_dcache_area` (переживает виз CPU, читается из
+  TWRP через `/dev/mem` — видит DRAM).
+- Снятие из TWRP: `dd if=/dev/mem bs=1024 skip=2080768 count=1` (A),
+  `skip=2883584` (B). Ram console: `skip=1556480 count=64` (0x5f000000, 64КБ).
+- **Переживают только ТЁПЛЫЙ ресет** (WDT/panic). Холодный PMIC-off → всё `0xFF`.
+- Карта слотов (актуальная):
+  - 10-16: ранние milestones init/main.c; 31/32: pre-smp окно; 33-46: workqueue/kthread
+    бисекция (P15-P16); 39/40: скобки вокруг тика; 70/71: DVFS; 72: PTP;
+    73: musb_gadget pullup; 75/76/78: msdc; 77: **USB heartbeat (50мс hrtimer)**;
+    80: usb_gadget_connect; 81/82: mt_usb_enable/disable; 83/84: musb_start/stop;
+    85: cpu_die; 86/87: mtcmos вход/выход; 88/89/90: cpu_boot скобка;
+    91/92/93: cpu_down/cpu_up/выход; 95: **deadman loops** (loops | now_s<<32);
+    96+cpu: **per-CPU пульс** (tick-sched, 128 тиков); 100: **GPT IRQ счётчик**;
+    101: **gpt set_next_event cycles**; 102/103: **android_init вход/err**;
+    104: **deadman стартанул**; 105: **deadman дедлайн сработал**.
+
+### 4.2. Дедмэн (WDT)
+
+- `drivers/watchdog/mediatek/wdt/mt6735/mtk_wdt.c`, под `CONFIG_MTK_WDT_DIAG_HARD=y`.
+- `postcore_initcall(mtk_wdt_init)` → probe ~2-4с; таймаут WDT 30с
+  (`mtk_wdt_set_time_out_value(30)`), кик-тред `forge_deadman_fn` каждую ~1с.
+- RTC FAC_RESET марк на 3с, снятие на 15с; дедлайн `loops>=120 &&
+  !forge_userspace_alive` → перестаёт кикать → WDT ресетит ~через 30с.
+- `forge_userspace_alive` выставляется в `enable_store` android.c (запись
+  userspace в android0/enable) — «здоровый бут» отменяет дедлайн.
+- p36b: тред зеркалит маркеры+rc49 в eMMC expdb (mmcblk0p10, 10МБ) через
+  `blkdev_get_by_dev(MKDEV(179,10))` + `submit_bio_wait` каждую секунду.
+
+## 5. Доказательная цепочка (что уже доказано/опровергнуто)
+
+### 5.1. P18–P22: системный счётчик стоял — SIP ID не бились со сток-ATF (РЕШЕНО)
+
+- P18 FACT: ни одного таймерного тика за загрузку (jiffies заморожены,
+  `arch_timer_handler_phys` = 0 вызовов), вис в первом же таймерном сне
+  (`kthread_bind_mask` → `wait_task_inactive` → `schedule_hrtimeout`).
+- P19 FACT (регистры из живого виза): `CNTPCT_EL0=0` (счётчик СТОИТ),
+  `CNTP_CTL=1` (enable), `CNTP_CVAL=52000` (запрограммирован),
+  `GICD_ISENABLER0`: биты 29/30 = 1 (PPI размаскированы). Т.е. компаратор
+  запрограммирован, IRQ разрешён, но **счётчик не идёт** → IRQ не генерируется.
+- ROOT CAUSE: включение cpuxgpt идёт через `mt_secure_call(MTK_SIP_KERNEL_MCUSYS_WRITE,…)`
+  в ATF; в Q0-BSP SIP-диапазон перенумерован, а ATF на устройстве стоковый (2017).
+  Таблица перенумерации (Q0 → сток):
+  `MCUSYS_WRITE 0x82000287→0x82000201`, `MCUSYS_ACCESS_COUNT 0x82000288→0x82000202`,
+  `L2_SHARING 0x82000286→0x82000203`, `WDT 0x82000200→0x82000204`,
+  `GIC_DUMP 0x82000201→0x82000205`, `DAPC_INIT 0x8200026E→0x82000206`,
+  `EMIMPU_WRITE 0x82000260→0x82000207`, `EMIMPU_READ 0x82000261→0x82000208`,
+  `EMIMPU_SET 0x82000262→0x82000209`, `MSG 0x82000214→0x820002ff`.
+  Фикс `68e66c073` — после него счётчик идёт, тики работают, ядро грузится дальше.
+- P23: eMMC ожила (msdc host id), вис переместился в Android init (~4.6с).
+
+### 5.2. Вис 4.6с = tick-broadcast mt_gpt на 32кГц (фикс написан, НЕ прогнан)
+
+- P29 FACT (маркеры, валидная капча `captures/20260818-49-p29/`): все скобки
+  hotplug/mtcmos (85-93) закрыты, последний hotplug 2.15с; CPU1-3 легально
+  запаркованы (0.40/1.13/2.05с); **CPU0 последний пульс 4.704с, USB-heartbeat
+  (50мс) остановился** → CPU0 уснул в NO_HZ idle и не проснулся.
+- Анализ: сток-DTB arch_timer node БЕЗ `always-on` → `arch_timer_c3stop=true`
+  → nohz-CPU в idle передаёт тики broadcast-девайсу = mt-gpt (apxgpt@10004000,
+  IRQ 184 = SPI 0x98, триггер 0x08).
+- 4.9 `drivers/clocksource/mt_gpt.c` пришёл из mt6580-BSP: его
+  `mt_gpt_clkevt_next_event()` программирует compare в 13МГц-циклах, а потом
+  **переключает GPT на 32.768кГц RTC-источник**. Клокивент зарегистрирован с
+  freq=13МГц (DT clock-frequency=0xc65d40) → каждый broadcast-дедлайн растянут
+  ~397× (13e6/32768): 50мс hrtimer стреляет через ~20с → CPU0 «мёртв» с первого
+  настоящего idle. 3.18-сток такого переключения НЕ делает (stop/cmp/start на
+  SYS), SODI на m5c выключен (`idle_switch[SO]=0`) — 32кГц не нужен.
+- Фикс `0e496ca4a`: убран RTC-свитч. **На железе не проверен** — регрессия
+  гаджета (§6) перекрыла прогон.
+
+### 5.3. Что работало на железе (матрица образов)
+
+| Образ | База | cmdline | Гаджет | Результат |
+|---|---|---|---|---|
+| p29 (`d13987dc9`) | +маркеры | сток | configfs | дошёл до 4.6с, вис (idle-wake), маркеры валидны |
+| p30poll | p29+дедмэн v3 | idle=poll | configfs | **дошёл до init, USB энумерился `18d1:d001`** (charging-only) |
+| p30v2poll | то же +дедлайн 20с | idle=poll | configfs | цикл preloader↔gadget (дедлайн работал!) |
+| p31poll (`4a6f5e61c`) | +USB_G_ANDROID | idle=poll | **legacy** | **ноль USB, статик-лого, кнопки ЖИВЫ** |
+| p32 (`0e496ca4a`) | +mt_gpt фикс | сток | legacy | ноль USB, статик-лого, кнопки мертвы(?) |
+| p33 (`da647555e`) | +дедлайн 180с | сток | legacy | ноль USB, дедлайн НЕ моргнул за 5 мин |
+| p34poll (`4a5f59eea`) | +дедлайн 120 loops | idle=poll | legacy | ноль USB; телефон вернулся в TWRP ~200с (дедлайн, видимо, сработал; капча съедена холодным off) |
+| p35poll (`a53493bc9`) | adb-only таблица | idle=poll | legacy min | НЕ прошит (adb отвалился до заливки) |
+| p36bpoll (`479f6366d`) | +eMMC-зеркало | idle=poll | legacy | ноль USB; preloader-вспышки t=40с и t=50с (два разных device number!), потом тишина; **зеркало НЕ записало** (expdb = старый AEE-дамп + нули) |
+
+### 5.4. Парадоксы, которые надо объяснить
+
+1. **Кнопки живы** (по наблюдению юзера на p34poll: «щя хотя бы на кнопки
+   реагирует») → ядро доходит минимум до input/PMIC-IRQ (device_initcall+),
+   т.е. НЕ висит рано. Но USB не энумерится и на configfs-образах после p31
+   больше не проверяли — может, регресс не в legacy-гаджете, а в чём-то ещё
+   из коммита p31 (Kconfig.default/Kconfig/.config дельта)?
+2. **Дедлайны не дают видимого ресета** (p33: 180с по sched_clock; p34: 120
+   циклов). Если дедмэн-тред жив (а с idle=poll CPU0 не спит) — на 120-й итерации
+   кики прекращаются → WDT 30с → тёплый ресет → LK перерисовывает логотип =
+   видимое мигание. Юзер мигания не видел. Варианты: (а) тред не бежит
+   (вис до postcore_initcall ~2с — но тогда кнопки бы не жили); (б) тред висит
+   на `rtc_forge_mark_recovery(1)` на 3с (PMIC i2c вис? — но в p29 тот же вызов
+   был); (в) WDT вообще не ресетит (но в p30v2poll цикл был!); (г) тёплый ресет
+   НЕ перерисовывает логотип (LK на warm-boot не трогает дисплей → «мигания»
+   не существует как явления → все модели «нет мигания = нет ресета» неверны!).
+3. **eMMC-зеркало не пишется** (p36b): ни filp_open-вариант (нет /dev ноды до
+   init — ожидаемо), ни blkdev_get_by_dev-вариант. Либо дедмэн-тред не бежит,
+   либо падает в mirror (submit_bio_wait виснет/паника → panic_timeout=1 → ресет
+   → возможно, те самые preloader-вспышки t=40/50с = паник-луп!), либо
+   `blkdev_get_by_dev(MKDEV(179,10))` вечно возвращает -ENXIO (партиции ещё не
+   отсканированы / msdc в 4.9 живёт на другом major:minor?).
+4. **preloader-вспышки t=40с и t=50с** в p36b: два разных device number за 10с =
+   два ресета подряд с интервалом ~10с — слишком быстро для 30с-WDT от старта
+   ядра; похоже на **panic-луп** (PANIC_ON_OOPS=y, PANIC_TIMEOUT=1): паника на
+   ~5-8с → 1с → ресет. Чем паника? Кандидат №1 — мой mirror-код в дедмэн-треде
+   (единственная дельта p34→p36b).
+
+## 6. Legacy-гаджет: все правки (p31, `4a6f5e61c`)
+
+Контекст: в Q0-дереве `USB_G_ANDROID` никогда не компилировался (был выкл) —
+код полусгнивший. Рамдиску нужен именно он (`/sys/class/android_usb/android0`).
+
+1. `.config`/`m5c_defconfig`: `CONFIG_USB_G_ANDROID=y`; выкл configfs-функции
+   (F_MTP/F_PTP/F_ACC/F_AUDIO_SRC/F_MIDI/F_FS) — иначе стэндэлоун-объекты
+   (usb_f_mtp.o и т.д.) дают multiple definition с копиями, которые android.c
+   инклюдит в свой TU (`#include "f_mtp.c"` и т.д.).
+2. `drivers/misc/mediatek/Kconfig.default`: убраны `select USB_CONFIGFS_F_*`
+   (они силой возвращали configfs-функции через olddefconfig).
+3. `drivers/usb/gadget/Kconfig`: `USB_G_ANDROID` += `select USB_U_ETHER`
+   (gether_* из u_ether.o для rndis/eem), −= `select USB_F_AUDIO_SRC`
+   (нужен ALSA, CONFIG_SND off в этой ветке; рамдиск audio_source не использует).
+4. `android.c`:
+   - `#include "u_ether.c"` → `u_ether.h`+`u_ether_configfs.h` (u_ether.o теперь
+     стэндэлоун и линкует gether_*);
+   - `create_function_device` → `static android_lookup_function_device` + fwd-decl
+     (configfs.c экспортирует одноимённую функцию с ДРУГОЙ семантикой — создание
+     vs поиск); вызовы из f_mtp.c/f_midi.c перенаправлены;
+   - `trigger_android_usb_state_monitor_work` → static (у meta.c свой глобал);
+   - убраны дубли `cpumask_to_int`/`cpu_mask_show/store`/`mtp_server_show`/
+     `mtp_function_attributes` (каноничные — в f_mtp.c);
+   - `__maybe_unused` на mtp_setup/mtp_bind_config/acc_bind_config;
+   - p33+: `int forge_userspace_alive` (export), ставится в `enable_store`;
+   - p34+: маркеры 102 (перед `usb_composite_probe`) / 103 (после, =err);
+   - p35: `supported_functions[]` урезана до ffs/acm/mtp/ptp (остальные struct'ы
+     `__maybe_unused`).
+5. Активный init: `late_initcall(init)` (ветка `#else` по CONFIG_USBIF_COMPLIANCE,
+   который не задан): class_create → kzalloc android_dev → `android_create_device`
+   → `usb_composite_probe(&android_usb_driver)` → HACK с composite_setup_func.
+
+Известные риск-зоны: f_fs (adb) legacy-путь в 4.9 (functionfs с workqueue),
+gethер-стек без инклюда u_ether.c, musb UDC-аттач на буте (configfs откладывал
+его до userspace-записи, legacy делает сразу в probe).
+
+## 7. Ранжированные гипотезы (текущее состояние)
+
+- **H1. Паника в моём mirror-коде (p36b) / в probe гаджета (p31+)** → panic-луп,
+  логотип «статичен» потому что тёплый ресет его не перерисовывает. FOR:
+  preloader-вспышки 10с apart; PANIC_TIMEOUT=1; кнопки живы (ядро доходит далеко
+  до паники). AGAINST: p31poll (без mirror) юзер мигания тоже не видел; дедлайн
+  p34 вроде сработал один раз (~200с).
+- **H2. Вис в `usb_composite_probe` → musb/PHY/клок-ожидание** на буте (legacy
+  аттачит UDC сразу; configfs откладывал до userspace). FOR: ноль USB — даже
+  charging-гаджет не поднялся, хотя в p30poll поднимался; дедмэн жив (кнопки,
+  кики) но дедлайн... AGAINST: дедлайн p33/p34 должен был ресетить — не видно.
+- **H3. Вис РАНЬШЕ wdt_probe (~2с), дедмэн не существует, WDT не armed** →
+  вечный статик-лого. AGAINST: кнопки живы (input — поздний init). UNLESS
+  «кнопки живы» = артефакт наблюдения (подсветка от LK?).
+- **H4. sched_clock/таймеры сломаны снова** (не SIP — а что-то из p31+ дельты) →
+  msleep(1000) вечен → дедмэн не считает → нет дедлайна, нет зеркала. AGAINST:
+  кнопки живы (IRQ-таймеры работают), p30poll на той же базе грузился.
+- **H5. Регресс вообще не в гаджете**, а в config-дельте p31 (configfs-функции
+  выкл): например, что-то в раннем буте зависело от configfs-объектов. AGAINST:
+  трудно представить механизм.
+
+## 8. Что предлагается сделать (мои следующие шаги до обращения к модели)
+
+1. p37: panic_notifier → тот же expdb-дамп (паника = тёплый ресет, маркеры
+   выживают + дамп на eMMC); mirror стартует с 10-го цикла (block layer точно
+   готов), defensive null-checks; маркер 106 = «зеркало успешно записало».
+2. Отдельно: прогнать p32-фикс mt_gpt БЕЗ гаджета (выкл USB_G_ANDROID,
+   configfs обратно) — проверить, что idle-wake починен и бут доходит до
+   configfs-энумерации без idle=poll. Это закрывает вопрос «таймер vs гаджет»
+   окончательно.
+3. Если гаджет подтвердится убийцей: бисект функций (p35 уже урезан до
+   ffs/acm/mtp/ptp — прошить и проверить), затем маркеры внутри
+   android_init_functions (по одному на function .init).
+
+## 9. Файлы-артефакты
+
+- Ядро 4.9: `/srv/forge/android/m5c/kernel-m5c-4.9-lc` (HEAD `479f6366d`).
+- Сток 3.18 (read-only): `/home/valakas/m5c/android_kernel_meizu_m5c`.
+- Стейт: `device/meizu/m5c/BRINGUP_STATE.md` (секции P15–P32 + ночные порты).
+- Матрица компонентов: `device/meizu/m5c/M5C_COMPONENT_MATRIX.md`.
+- Капчи: `device/meizu/m5c/captures/2026081*/` (p18-p29 валидные; p32+ — съедены
+  холодными ресетами, отсюда eMMC-зеркало).
+- Рамдиск USB: `device/meizu/m5c/rootdir/root/init.mt6735.usb.rc`.
+- Образы и скрипты сборки: scratchpad `mk_boot49.sh`, `bootimg_k16.cfg`/
+  `bootimg_p31.cfg` (idle=poll), `dtb_stock.dtb` (md5 e17a0910…), `boot_k16.img`.
+
+---
+
+## 10. ЗАПРОС ДЛЯ МОДЕЛИ (копировать вместе с этим документом)
+
+Ты — сильнейший kernel/Android-BSP инженер. Вложен документ
+`M5C_K49_DEEP_DIVE.md` — полная история порта kernel 4.9 (MTK BSP) на Meizu m5c
+(MT6737T) с доказательной цепочкой. Прочти его целиком.
+
+Сейчас ядро зависает/недоступно так: после включения legacy-гаджета
+`CONFIG_USB_G_ANDROID` (коммит p31) телефон показывает вечный LK-логотип,
+USB не энумерится ВООБЩЕ (хост не видит ничего после старта ядра), кнопки
+питания/громкости ЖИВЫ (по наблюдению), WDT-дедлайны не дают видимого ресета,
+eMMC-зеркало маркеров не пишется, DRAM-капчи съедаются холодными ресетами.
+До этого коммита то же ядро доходило до userspace и энумерило USB (configfs).
+
+Твоя задача:
+1. Разбери парадоксы из §5.4 — особенно: как late_initcall-код может дать
+   «ноль USB + нет наблюдаемых ресетов + молчат все дампы», и почему могут
+   не срабатывать WDT-дедлайны при живых кнопках. Учти, что тёплый WDT-ресет
+   может НЕ перерисовывать логотип (проверь это предположение по коду LK/
+   дисплейной цепочки, если сможешь).
+2. По коду путей (я дам дерево или конкретные файлы по запросу): найди
+   конкретные места, где legacy android.c / musb / u_ether / f_fs в 4.9 могут
+   виснуть или паниковать на буте именно в этой конфигурации (musb-hdrc UDC,
+   MT6735 PHY, без configfs-функций). Особое внимание: usb_composite_probe →
+   bind → android_init_functions → f_fs_init в 4.9; gether_setup без
+   `#include "u_ether.c"`; probe-time UDC attach против configfs deferred attach.
+3. Объясни, почему `blkdev_get_by_dev(MKDEV(179,10))` + submit_bio_wait из
+   kthread'а могло не записать ни байта (паника? -ENXIO навсегда? блокировка?),
+   и как сделать eMMC-дамп пуленепробиваемым (включая panic_notifier).
+4. Предложи минимальный набор ТОЧНЫХ экспериментов (код + какие маркеры/логи
+   читать), который за 1-2 прошивки локализует причину. Приоритет — варианты,
+   дающие информацию даже при полном отсутствии USB/дисплея/сети.
+5. Если найдёшь вероятный баг — дай конкретный патч (файл, строки, код).
+
+Не предлагай: «выключи всё лишнее» широкими списками, fake-ready заглушки,
+переход на configfs-рамдиск (рамдиск трогать нельзя — он общий со сток-3.18),
+или «купи UART». Дисциплина: FACT/INFERENCE/HYPOTHESIS разделять явно.
