@@ -699,3 +699,38 @@ success на 0.61с; `android_usb ready`.
 дереве завязан только dm-crypt strstr-хинт (без rename берёт generic-путь) и
 UFS (не наш). Ожидание от p40: fstab-маунты проходят → /data/persist живы →
 init.usb.rc отрабатывает полностью (aliases+adbd+functionfs) → adb.
+
+### 11.13. ПОБЕДА (2026-08-20 17:03): adb работает на ядре 4.9
+
+p41 (`086f17767`): бут ~15с до гаджета, интерфейс **255/66/1 (ADB)** на шине,
+после рестарта adb-сервера на девбоксе (хост просто не пересканировал):
+`710HVBR923RYK device product:lineage_m5c` — **полноценный adb shell**.
+FACT с живой системы: `uname -r` = `4.9.188-m5c+`; `sys.usb.state=adb`;
+`ls /dev/block/platform/` = `mtk-msdc.0` (p40 ✓); `/system` и `/data`
+смонтированы; `ro.build.display.id = lineage_m5c-userdebug 7.1.2 NJH47F`;
+`/sys/class/android_usb/android0/f_adb` существует; `dmesg` через adb
+работает. `sys.boot_completed` пуст (zygote=0) — дальнейший userspace/дисплей
+— следующие фронты, не USB.
+
+**Итоговая цепочка убийц «вечного логотипа» p31+ (все закрыты):**
+1. p38: `configfs.c` (libcomposite, device_initcall) забирал класс
+   `android_usb` → `class_create` android.c = -EEXIST → гаджет не создавался.
+2. p40: Q0 msdc rename `bootdevice`/`externdevice` уводил DEVPATH →
+   ueventd публиковал не те by-name пути → все fstab-маунты ENOENT →
+   не было /data/persist → USB rc деградирован, init уходил в recovery ~200с.
+3. p41: рамдиск не знает functionfs/aliases — его adbd ходит в
+   `/dev/android_adb` (legacy **f_adb**), который Q0 выпилил. Возвращён
+   байт-в-байт из стока 3.18.
+Плюс латентные бомбы, найденные и обезвреженные по пути (p37): крашащий
+unwind таблицы функций (UAF/double-free/NULL), вечный спин
+`aee_exception_reboot` при неготовом wd_api, незарезервированные окна
+маркеров/rc/pstore (memblock_reserve), зеркало в кик-нити WDT.
+
+**Методологическая база победы — eMMC-зеркало улик** (p36b-провал → p37-фикс):
+маркер-слоты + rc49-ринг + ранний rc-снапшот в expdb, переживают ЛЮБОЙ ресет,
+читаются из TWRP за секунды. Плюс сентинелы для нулевых значений (p39) и
+prev-boot копия страницы (p37). Капча-лотерея DRAM закрыта навсегда.
+
+Образ: `boot_49_p41poll.img` md5 `e31649721d240087da6f49ea4174e9d9`
+(cmdline пока idle=poll; следующий шаг — прогон БЕЗ idle=poll для валидации
+p32 mt_gpt-фикса, затем display-фронт).
