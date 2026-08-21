@@ -2374,3 +2374,50 @@ PQ-ioctl'ы (magic `'x'`, nr 60/64/65/67/69) — это picture quality, не
 `;`-цепочки исполняет шелл контейнера, а не телефон. Из-за этого один прогон
 дал ложную картину («debugfs не смонтирован, dmesg запрещён»). Все проверки
 на устройстве гнать через скрипт, положенный на телефон.
+
+## p63 — «уход в recovery каждые ~3 минуты» оказался нашим же скриптом
+
+**FACT.** В логе перед пропажей устройства:
+
+```
+avc: denied { execute_no_trans } for path="/system/bin/reboot"
+     scontext=u:r:init:s0
+```
+
+`/system/bin/reboot` запускал шелл под init. Источник — **`/init.forge.sh`
+в рамдиске**, оставшийся с этапа, когда adb ещё не работал:
+
+```
+service forge_log /system/bin/sh /init.forge.sh   (init.forge.rc, on post-fs-data)
+...
+i=0; while [ $i -lt 30 ]; do … sleep 5; i=$(($i+1)); done
+echo "=== forge_log: returning to recovery for log collection ==="
+sync
+reboot recovery
+```
+
+30 итераций × 5 с = **150 секунд**, дальше намеренный `reboot recovery` —
+ровно наблюдавшиеся «3 минуты до TWRP». Дефекта ядра здесь нет; гипотеза
+«crash-loop критического сервиса» **REJECTED**.
+
+**Что сделано.** Строка `reboot recovery` убрана **только в нашем образе**:
+рамдиск распакован из `boot_k16.img`, пропатчен и переупакован в
+`boot_49_p63.img` (`cpio -H newc -R root:root` + gzip; 54 записи, размер
+1616110 → 1615529). Сам `boot_k16.img` (эталон 3.18) **не изменён** — у
+каждого boot.img своя копия рамдиска, общий файл не тронут.
+
+**FACT (побочный, важный).** `/data` на устройстве зашифрован FDE. vold
+подбирает дефолтный пароль (`Password matches`, `Master key saved`,
+`Password is default - restarting filesystem`) и делает
+`trigger_restart_framework`; при этом перезапускается adbd и adb
+отваливается. Поэтому всё, что тестировалось раньше, шло в
+**предрасшифровочной фазе на tmpfs `/data`**. После расшифровки система
+поднимается дальше: `/data` = `dm-0`, живут `zygote64`, `zygote`,
+`system_server`. Крутятся в падении только `agpsd`/`mnld` — известный
+дефект, не критичные сервисы, к перезагрузке отношения не имеют.
+
+**Открыто (главное):** конвейер кадров стоит. `L0_ADDR` не меняется
+десятки секунд, `screencap` не завершается, `bootanimation` заблокирован в
+binder, `surfaceflinger` спит в epoll. p62 (`7ff0ecd75`) ставит счётчики по
+обе стороны: приход кадров в `SET_INPUT_BUFFER` и отпускание фенсов в
+CMDQ-колбэке — они и покажут, какая половина петли сломана.
