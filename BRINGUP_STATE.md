@@ -2194,3 +2194,42 @@ zygote=0 — вероятно crash-loop critical-сервиса без дисп
      (p41-ядро, сток-cmdline), если нужно быстро вернуть телефон в строй.
 - Дерево ядра оставлено в состоянии p45 (полный дисплей-стек, `.config`
   восстановлен из `config-p45-full`).
+
+## P46 (2026-08-21): p44 root cause = SMI probe против стокового DTB 2017
+
+**Улики (взяты из TWRP в 11:55, DRAM пережила ресеты — DDR-reserve p43
+РАБОТАЕТ, это первое подтверждение):**
+- Страница A: слот 107 = `0xd1e0001` (die, cmd=1), **108 = PC
+  `smi_register+0x88`**, 109 = LR `smi_register+0x40` (System.map-p44).
+- rc49-ринг: `mtk-smi-common 14017000.smi_common: common nr_larbs read
+  failed -22` → `probe of 14017000.smi_common failed with error -22` →
+  `Unable to handle kernel NULL pointer dereference at virtual address 0`
+  → `PC is at smi_register+0x88`, `Call trace: mtk_smi_init+0x7c`.
+- expdb-зеркало содержало данные ЧУЖОГО бута (p41/p42: 200с, USB bound) —
+  p44 умирал раньше первой записи зеркала (~5-8с). Урок: сверять слот 95
+  (loops) прежде чем верить содержимому зеркала.
+
+**ROOT CAUSE (FACT):** `drivers/memory/mtk-smi.c` (Q0, mainline-стиль)
+требует DT-свойства, которых в стоковом DTB 2017 нет: `nr_larbs` у
+`smi_common` и `cell-index` у larb-узлов (там только
+`compatible = "mediatek,smi_larb0..2"` и reg-диапазоны). Probe common
+выходил по -EINVAL ДО `devm_kcalloc` массива `larbs`, а
+`smi_legacy.c:smi_register()` (arch_initcall_sync через `mtk_smi_init`)
+индексировал этот NULL → oops на ~2-4с → PANIC_TIMEOUT=1 → ресет-цикл 11с.
+Тот же класс, что p23/p38/p40: Q0-код против сток-DTB.
+
+**Фикс p46 (`303562a05`):**
+1. `nr_larbs` выводится из reg-диапазонов узла `smi_common` (COMMON + по
+   одному окну на larb: 4 диапазона → 3 larb'а, что совпадает с
+   `SMI_LARB_NUM=3` в `smi_config_mt6735m.h`);
+2. индекс larb'а берётся из суффикса compatible, если нет `cell-index`;
+3. проверка границ по `common->index` перед записью в `larbs[]`;
+4. `smi_register()` возвращает -ENXIO вместо разыменования NULL.
+
+**Плюс ONE-SHOT-защита дисплея (p46):** `mtkfb_probe` помечает попытку в
+зарезервированной ячейке DRAM (страница A + 2048, переживает тёплый ресет);
+если метка ещё стоит — прошлый бут умер внутри дисплей-инита, и этот бут
+probe пропускает, доходя до adb. Снимается при успехе и при холодном
+бутe. Смысл: **каждая следующая итерация дисплея прошивается удалённо**, а
+не ждёт руки на Vol+ (сегодня это стоило ~15 часов простоя).
+Образ: `boot_49_p46.img` md5 `b6326773…` (сток-cmdline), прошит 12:04.
