@@ -2504,3 +2504,82 @@ bootanimation в обычном binder-пуле, поток анимации с�
 менеджер путь встаёт в `0x1/0x1/0x1/0x1/0x2` и появляется картинка —
 причина подтверждена, и штатное лечение: подключать путь при инициализации,
 а не только на resume.
+
+## p67 — сужение по коду: пять версий отвергнуто, осталась одна проверяемая
+
+Телефон был отключён, работа шла по исходникам, сверкой с 3.18-оракулом
+(`/srv/forge/android/m5c/k-worktrees/universal`).
+
+### Поправка к записи p64–p66
+
+**ОТОЗВАНО:** «на этом чипе нет UFOE, поэтому цепочка decouple физически
+невозможна». Запись `<0 0>` в стоковом DTB (проверено `dtc` по самому
+`dtb_stock.dtb`, узел `DISPSYS`) и слот `0` в таблице драйверов
+(`ddp_info.c:282`) доказывают лишь, что **ядро не отображает и не
+программирует** UFOE. Ровно то же верно для 3.18, который показывает
+картинку. Вывод снят; остаётся факт рассогласования: железо в decouple,
+драйвер в direct-link.
+
+### Отвергнуто по коду
+
+- **REJECTED — таблица цепочек разъехалась.** `module_list_scenario` в
+  `dispsys/mt6735m/ddp_reg.h` **побайтово идентична** в 3.18 и 4.9 (59 строк,
+  diff пуст).
+- **REJECTED — мы заявляем HWC поддержку decouple.** `DISP_HW_MODE_CAP`
+  выбирается по `CONFIG_MTK_GMO_RAM_OPTIMIZE`, и он `=y` в **обоих** ядрах
+  (4.9 `.config:2965`, 3.18 `.config:2876`) → оба заявляют
+  `DISP_OUTPUT_CAP_DIRECT_LINK`.
+- **REJECTED — принудительный decouple по состоянию дисплея.**
+  `primary_display_switch_mode` подменяет запрошенный режим на DECOUPLE при
+  `DISP_FREEZE`/`DISP_BLANK` (новый код Q0, в 3.18 этих состояний нет вообще
+  — 0 вхождений против 6). Но `DISP_BLANK` ставит только `display_enter_tui`,
+  `DISP_FREEZE` — только `display_freeze_mode`; на обычной загрузке состояние
+  `DISP_ALIVE` (`primary_display.c:5477`).
+- **REJECTED — `init_decouple_buffers()` перестраивает путь.** Функция только
+  выделяет буферы и заполняет структуры конфигурации, кроссбар не трогает.
+- **REJECTED — расхождение `disp_input_config`/`disp_session_config`
+  в trigger-ioctl.** Структура `disp_session_config` (nr 203/209) идентична
+  по полям в обоих деревьях; enum `DISP_MODE` тоже (`DIRECT_LINK=1`,
+  `DECOUPLE=2`).
+
+### Новый FACT: resume на загрузке не делает ничего
+
+`primary_display_resume()` (`primary_display.c:5911`) выходит сразу, если
+`pgc->state != DISP_SLEPT`. На загрузке состояние `DISP_ALIVE`, поэтому все
+четыре `late_resume` (3.4 / 3.9 / 8.0 / 8.4 с в dmesg) — пустые, и
+`dpmgr_path_connect` в них не исполняется. То есть кроссбар на холодной
+загрузке остаётся **тем, что оставил LK**, и это одинаково верно для 3.18.
+
+### Мелкий дефект, найденный попутно
+
+Под тем же `CONFIG_MTK_GMO_RAM_OPTIMIZE` 3.18 задаёт
+`DISP_INTERNAL_BUFFER_COUNT 3`, а 4.9 — **1**; и вызов
+`init_decouple_buffers()` в 3.18 этим макросом отключён, а в 4.9 гард снят.
+Не причина чёрного экрана, но расхождение с рабочим деревом — записать в
+список на выравнивание.
+
+### Исправлено
+
+`_ioctl_get_display_caps_legacy` (наш p47) заполнял не все поля после
+`copy_from_user`: `is_support_frame_cfg_ioctl` и `is_output_rotated`
+возвращались в userspace такими, какими их прислал HAL. Ненулевой
+`is_support_frame_cfg_ioctl` увёл бы HAL на frame-config вместо
+`SET_INPUT_BUFFER`. Структура обнуляется перед заполнением (`86da16321`).
+
+### Что снимет следующая загрузка (образ готов)
+
+`boot_49_p67.img` md5 `996f5d36dc8a25bd99328c82179cb0ea`.
+
+1. `dmesg | grep forge-path` — кто и на какой сценарий звал
+   `ddp_connect_path` (печатается вызывающий через `%pS`), плюс
+   `driver session_mode` против регистров.
+2. `dmesg | grep forge-mode` — какой режим просит HWC (1 = direct link,
+   2 = decouple) и просит ли вообще.
+3. `dmesg | grep forge-irq` — счётчики прерываний RDMA0/DSI0/OVL0/MUTEX.
+   В видеорежиме vsync для SurfaceFlinger — это `DDP_IRQ_RDMA0_DONE`
+   (`primary_display.c:2233`). Конвейер замирает при том, что **никто не
+   заблокирован** (SF спит в epoll, поток анимации в `nanosleep`,
+   GPU-таймлайн 92 против дисплейного 19) — так выглядит именно умерший
+   vsync. Счётчик это и покажет.
+4. `printf forgeconnect > /sys/kernel/debug/dispsys` — подключить путь через
+   менеджер и посмотреть на панель.
