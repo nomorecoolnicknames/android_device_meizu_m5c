@@ -100,6 +100,24 @@ struct forge_hwc {
 	unsigned int last_buff_idx;
 	unsigned int last_pf_idx;
 	int fmt_override;	/* debug.forgehwc.fmt, 0 = RGBA8888 */
+
+	/* overlay stats */
+	unsigned int ovl_frames;	/* frames with >=1 promoted layer */
+	unsigned int gles_frames;	/* frames composed via FBT only */
+	unsigned int promoted_total;	/* cumulative promoted layers */
+	unsigned int last_novl;		/* planes in last frame */
+	int last_fbt_used;
+};
+
+/* one plane handed to the kernel OVL */
+struct fhwc_plane {
+	buffer_handle_t handle;
+	int acquire;		/* fence fd, consumed by submit */
+	int fmt;		/* DISP_FORMAT_* */
+	int32_t blending;	/* HWC_BLENDING_*, 0 for the FBT */
+	uint16_t sx, sy, sw, sh;	/* source crop, pixels */
+	uint16_t tx, ty;	/* dest offset */
+	int release_fd;		/* out: per-plane release fence */
 };
 
 static int prop_int(const char *name, int def)
@@ -223,56 +241,141 @@ static int engine_open_session(struct forge_hwc *hwc)
 	return 0;
 }
 
+/* HAL pixel format -> DISP_FORMAT for the overlay path; 0 = not supported */
+static int map_hal_format(int hal_fmt)
+{
+	switch (hal_fmt) {
+	case 1:		/* HAL_PIXEL_FORMAT_RGBA_8888 */
+		return DISP_FORMAT_RGBA8888;
+	case 2:		/* HAL_PIXEL_FORMAT_RGBX_8888 */
+		return DISP_FORMAT_RGBX8888;
+	case 4:		/* HAL_PIXEL_FORMAT_RGB_565 */
+		return DISP_FORMAT_RGB565;
+	case 5:		/* HAL_PIXEL_FORMAT_BGRA_8888 */
+		return DISP_FORMAT_BGRA8888;
+	default:
+		return 0;
+	}
+}
+
 /*
- * Present one full-screen buffer on overlay layer 0, layers 1..3 explicitly
- * disabled.  Returns 0 and fills *release_fence / *retire_fence (both owned
- * by the caller, -1 on failure paths).
+ * Blending -> OVL alpha controls.  Verified against the kernel encoding
+ * (mt6735m/ddp_ovl.c: sur_aen -> SURFL_EN bit 15, src/dst_alpha -> the
+ * 2-bit blend factor selectors).  PREMULT: out = src + (1-a_s)*dst ->
+ * factors ONE / SRC_INVERT; COVERAGE: SRC / SRC_INVERT.
  */
-static int engine_present(struct forge_hwc *hwc, buffer_handle_t handle,
-			  int acquire_fence, int *release_fence, int *retire_fence)
+static void fill_blending(struct disp_input_config *c, int32_t blending)
+{
+	if (blending == 0x0105 /* HWC_BLENDING_PREMULT */) {
+		c->alpha_enable = 1;
+		c->sur_aen = 1;
+		c->src_alpha = DISP_ALPHA_ONE;
+		c->dst_alpha = DISP_ALPHA_SRC_INVERT;
+	} else if (blending == 0x0405 /* HWC_BLENDING_COVERAGE */) {
+		c->alpha_enable = 1;
+		c->sur_aen = 1;
+		c->src_alpha = DISP_ALPHA_SRC;
+		c->dst_alpha = DISP_ALPHA_SRC_INVERT;
+	} else {	/* HWC_BLENDING_NONE / FBT: opaque */
+		c->alpha_enable = 0;
+		c->sur_aen = 0;
+		c->src_alpha = DISP_ALPHA_ONE;
+		c->dst_alpha = DISP_ALPHA_ONE;
+	}
+	c->alpha = 0xff;
+}
+
+/*
+ * Hand n planes (bottom -> top == OVL layer 0 -> n-1) to the kernel in one
+ * SET_INPUT + TRIGGER.  Consumes every plane's acquire fence; fills each
+ * plane's release_fd and *retire_fence (all owned by the caller).
+ */
+static int engine_submit(struct forge_hwc *hwc, struct fhwc_plane *planes,
+			 int n, int *retire_fence)
 {
 	struct disp_buffer_info buf;
 	struct disp_present_fence pf;
 	struct disp_session_input_config *in;
 	struct disp_session_config trig;
-	int ion_fd = -1;
-	int stride_px = (int)hwc->width;
-	int i, ret;
+	int i, k, ret;
 
-	*release_fence = -1;
 	*retire_fence = -1;
+	if (n > 4)
+		return -EINVAL;
 
 	/* the kernel does not wait src_fence_fd: wait here, then submit */
-	engine_wait_fence(hwc, acquire_fence, 1200);
-	if (acquire_fence >= 0)
-		close(acquire_fence);
-
-	if (hwc->ge_query) {
-		if (hwc->ge_query(handle, GE_GET_ION_FD, &ion_fd) != 0)
-			ion_fd = -1;
-		hwc->ge_query(handle, GE_GET_STRIDE, &stride_px);
-	}
-	if (ion_fd < 0 && handle->numFds > 0)
-		ion_fd = handle->data[0];
-	if (ion_fd < 0) {
-		FLOGE("no ion fd in handle (numFds=%d)", handle->numFds);
-		return -EINVAL;
+	for (k = 0; k < n; k++) {
+		engine_wait_fence(hwc, planes[k].acquire, 1200);
+		if (planes[k].acquire >= 0)
+			close(planes[k].acquire);
+		planes[k].acquire = -1;
+		planes[k].release_fd = -1;
 	}
 
-	memset(&buf, 0, sizeof(buf));
-	buf.session_id = hwc->session;
-	buf.layer_id = 0;
-	buf.layer_en = 1;
-	buf.ion_fd = ion_fd;
-	buf.cache_sync = 0;
-	buf.fence_fd = -1;
-	buf.interface_fence_fd = -1;
-	if (ioctl(hwc->disp_fd, DISP_IOCTL_PREPARE_INPUT_BUFFER, &buf) < 0) {
-		hwc->prepare_fail++;
-		FLOGE("PREPARE_INPUT_BUFFER failed: %s (ion_fd=%d)", strerror(errno), ion_fd);
-		return -errno;
+	in = calloc(1, sizeof(*in));
+	if (!in)
+		return -ENOMEM;
+	in->session_id = hwc->session;
+	in->config_layer_num = 4;
+	for (i = 0; i < 4; i++) {
+		in->config[i].layer_id = (uint8_t)i;
+		in->config[i].layer_enable = 0;
+		in->config[i].src_fence_fd = -1;
+		in->config[i].ext_sel_layer = -1;
 	}
-	hwc->last_buff_idx = buf.index;
+
+	for (k = 0; k < n; k++) {
+		struct disp_input_config *c = &in->config[k];
+		struct fhwc_plane *p = &planes[k];
+		int ion_fd = -1;
+		int stride_px = (int)hwc->width;
+
+		if (hwc->ge_query) {
+			if (hwc->ge_query(p->handle, GE_GET_ION_FD, &ion_fd) != 0)
+				ion_fd = -1;
+			hwc->ge_query(p->handle, GE_GET_STRIDE, &stride_px);
+		}
+		if (ion_fd < 0 && p->handle->numFds > 0)
+			ion_fd = p->handle->data[0];
+		if (ion_fd < 0) {
+			FLOGE("plane %d: no ion fd (numFds=%d)", k, p->handle->numFds);
+			continue;	/* leave the plane disabled */
+		}
+
+		memset(&buf, 0, sizeof(buf));
+		buf.session_id = hwc->session;
+		buf.layer_id = (unsigned int)k;
+		buf.layer_en = 1;
+		buf.ion_fd = ion_fd;
+		buf.cache_sync = 0;
+		buf.fence_fd = -1;
+		buf.interface_fence_fd = -1;
+		if (ioctl(hwc->disp_fd, DISP_IOCTL_PREPARE_INPUT_BUFFER, &buf) < 0) {
+			hwc->prepare_fail++;
+			FLOGE("PREPARE(l%d) failed: %s (ion=%d)", k,
+			      strerror(errno), ion_fd);
+			continue;
+		}
+		hwc->last_buff_idx = buf.index;
+		p->release_fd = buf.fence_fd;
+
+		c->layer_enable = 1;
+		c->buffer_source = DISP_BUFFER_ION;
+		c->security = DISP_NORMAL_BUFFER;
+		c->src_fmt = (enum DISP_FORMAT)p->fmt;
+		c->next_buff_idx = buf.index;
+		c->src_pitch = (uint16_t)stride_px;
+		c->src_offset_x = p->sx;
+		c->src_offset_y = p->sy;
+		c->src_width = p->sw;
+		c->src_height = p->sh;
+		c->tgt_offset_x = p->tx;
+		c->tgt_offset_y = p->ty;
+		c->tgt_width = p->sw;
+		c->tgt_height = p->sh;
+		c->frm_sequence = hwc->frames;
+		fill_blending(c, p->blending);
+	}
 
 	memset(&pf, 0, sizeof(pf));
 	pf.session_id = hwc->session;
@@ -284,48 +387,11 @@ static int engine_present(struct forge_hwc *hwc, buffer_handle_t handle,
 	}
 	hwc->last_pf_idx = pf.present_fence_index;
 
-	in = calloc(1, sizeof(*in));
-	if (!in) {
-		if (pf.present_fence_fd >= 0)
-			close(pf.present_fence_fd);
-		if (buf.fence_fd >= 0)
-			close(buf.fence_fd);
-		return -ENOMEM;
-	}
-	in->session_id = hwc->session;
-	in->config_layer_num = 4;
-	for (i = 0; i < 4; i++) {
-		in->config[i].layer_id = (uint8_t)i;
-		in->config[i].layer_enable = 0;
-		in->config[i].src_fence_fd = -1;
-		in->config[i].ext_sel_layer = -1;
-	}
-	in->config[0].layer_enable = 1;
-	in->config[0].buffer_source = DISP_BUFFER_ION;
-	in->config[0].security = DISP_NORMAL_BUFFER;
-	in->config[0].src_fmt =
-	    hwc->fmt_override ? (enum DISP_FORMAT)hwc->fmt_override : DISP_FORMAT_RGBA8888;
-	in->config[0].src_alpha = DISP_ALPHA_ONE;
-	in->config[0].dst_alpha = DISP_ALPHA_ONE;
-	in->config[0].next_buff_idx = buf.index;
-	in->config[0].src_pitch = (uint16_t)stride_px;
-	in->config[0].src_width = (uint16_t)hwc->width;
-	in->config[0].src_height = (uint16_t)hwc->height;
-	in->config[0].tgt_width = (uint16_t)hwc->width;
-	in->config[0].tgt_height = (uint16_t)hwc->height;
-	in->config[0].alpha_enable = 0;
-	in->config[0].alpha = 0xff;
-	in->config[0].frm_sequence = hwc->frames;
-
 	ret = ioctl(hwc->disp_fd, DISP_IOCTL_SET_INPUT_BUFFER, in);
 	free(in);
 	if (ret < 0) {
 		FLOGE("SET_INPUT_BUFFER failed: %s", strerror(errno));
-		if (pf.present_fence_fd >= 0)
-			close(pf.present_fence_fd);
-		if (buf.fence_fd >= 0)
-			close(buf.fence_fd);
-		return -errno;
+		goto fail;
 	}
 
 	memset(&trig, 0, sizeof(trig));
@@ -338,21 +404,28 @@ static int engine_present(struct forge_hwc *hwc, buffer_handle_t handle,
 	if (ioctl(hwc->disp_fd, DISP_IOCTL_TRIGGER_SESSION, &trig) < 0) {
 		hwc->trigger_fail++;
 		FLOGE("TRIGGER_SESSION failed: %s", strerror(errno));
-		if (pf.present_fence_fd >= 0)
-			close(pf.present_fence_fd);
-		if (buf.fence_fd >= 0)
-			close(buf.fence_fd);
-		return -errno;
+		goto fail;
 	}
 
 	hwc->frames++;
+	hwc->last_novl = (unsigned int)n;
 	if (hwc->frames <= 8 || (hwc->frames % 600) == 0)
-		FLOGI("frame #%u: idx=%u pf_idx=%u stride=%d ion=%d",
-		      hwc->frames, buf.index, pf.present_fence_index, stride_px, ion_fd);
+		FLOGI("frame #%u: planes=%d pf_idx=%u", hwc->frames, n,
+		      pf.present_fence_index);
 
-	*release_fence = buf.fence_fd;
 	*retire_fence = pf.present_fence_fd;
 	return 0;
+
+fail:
+	if (pf.present_fence_fd >= 0)
+		close(pf.present_fence_fd);
+	for (k = 0; k < n; k++) {
+		if (planes[k].release_fd >= 0) {
+			close(planes[k].release_fd);
+			planes[k].release_fd = -1;
+		}
+	}
+	return -errno;
 }
 
 static void *vsync_thread_fn(void *arg)
@@ -401,20 +474,106 @@ static struct forge_hwc *to_hwc(hwc_composer_device_1_t *dev)
 	return (struct forge_hwc *)dev;
 }
 
+/*
+ * Can this layer go to a hardware overlay as-is?  Conservative: the OVL has
+ * no scaler and no rotator, so any doubt means GLES (always correct).
+ * Returns the DISP_FORMAT, or 0 for "compose with GLES".
+ */
+static int layer_fits_overlay(struct forge_hwc *hwc, hwc_layer_1_t *l)
+{
+	int hal_fmt = 0, fmt;
+	int sw, sh, dw, dh;
+
+	if (l->flags & HWC_SKIP_LAYER)
+		return 0;
+	if (!l->handle)
+		return 0;	/* dim layers / sideband / not yet latched */
+	if (l->transform != 0)
+		return 0;	/* no rotator */
+	if (l->blending != HWC_BLENDING_NONE &&
+	    l->blending != HWC_BLENDING_PREMULT &&
+	    l->blending != HWC_BLENDING_COVERAGE)
+		return 0;
+
+	/* integer, unscaled, fully on-screen */
+	sw = l->sourceCropi.right - l->sourceCropi.left;
+	sh = l->sourceCropi.bottom - l->sourceCropi.top;
+	dw = l->displayFrame.right - l->displayFrame.left;
+	dh = l->displayFrame.bottom - l->displayFrame.top;
+	if (sw <= 0 || sh <= 0 || sw != dw || sh != dh)
+		return 0;	/* scaled (or empty) */
+	if (l->sourceCropi.left < 0 || l->sourceCropi.top < 0)
+		return 0;
+	if (l->displayFrame.left < 0 || l->displayFrame.top < 0 ||
+	    l->displayFrame.right > (int)hwc->width ||
+	    l->displayFrame.bottom > (int)hwc->height)
+		return 0;	/* would need clipping */
+
+	if (!hwc->ge_query)
+		return 0;
+	if (hwc->ge_query(l->handle, GE_GET_FORMAT, &hal_fmt) != 0)
+		return 0;
+	fmt = map_hal_format(hal_fmt);
+	return fmt;
+}
+
+/*
+ * Promotion rule: overlays are taken only as a contiguous run from the TOP
+ * of the z-ordered list, so the GLES-composed remainder (bottom of the
+ * stack) is exactly what the single FBT plane at OVL 0 can represent.
+ * If everything fits and there are at most 4 layers, no FBT is used at all.
+ */
 static int fhwc_prepare(hwc_composer_device_1_t *dev, size_t numDisplays,
 			hwc_display_contents_1_t **displays)
 {
-	size_t i;
+	struct forge_hwc *hwc = to_hwc(dev);
+	hwc_display_contents_1_t *d;
+	int i, nlayers, top_run, budget, first_ovl;
+	int overlays_on = prop_int("debug.forgehwc.overlays", 1);
 
-	(void)dev;
 	if (!numDisplays || !displays || !displays[0])
 		return 0;
+	d = displays[0];
 
-	for (i = 0; i < displays[0]->numHwLayers; i++) {
-		hwc_layer_1_t *l = &displays[0]->hwLayers[i];
+	/* indexes of real layers (the FBT is not a candidate) */
+	nlayers = 0;
+	for (i = 0; i < (int)d->numHwLayers; i++)
+		if (d->hwLayers[i].compositionType != HWC_FRAMEBUFFER_TARGET)
+			nlayers++;
 
-		if (l->compositionType == HWC_OVERLAY)
+	/* how many contiguous layers from the top fit an overlay */
+	top_run = 0;
+	if (overlays_on) {
+		for (i = (int)d->numHwLayers - 1; i >= 0; i--) {
+			hwc_layer_1_t *l = &d->hwLayers[i];
+
+			if (l->compositionType == HWC_FRAMEBUFFER_TARGET)
+				continue;
+			if (!layer_fits_overlay(hwc, l))
+				break;
+			top_run++;
+		}
+	}
+
+	if (top_run == nlayers && nlayers > 0 && nlayers <= 4)
+		budget = nlayers;	/* everything on OVL, no FBT */
+	else
+		budget = top_run < 3 ? top_run : 3;	/* OVL 0 = FBT */
+
+	/* first (lowest-z) real layer that gets an overlay */
+	first_ovl = nlayers - budget;
+
+	nlayers = 0;
+	for (i = 0; i < (int)d->numHwLayers; i++) {
+		hwc_layer_1_t *l = &d->hwLayers[i];
+
+		if (l->compositionType == HWC_FRAMEBUFFER_TARGET)
+			continue;
+		if (nlayers >= first_ovl && budget > 0)
+			l->compositionType = HWC_OVERLAY;
+		else
 			l->compositionType = HWC_FRAMEBUFFER;
+		nlayers++;
 	}
 	return 0;
 }
@@ -425,8 +584,10 @@ static int fhwc_set(hwc_composer_device_1_t *dev, size_t numDisplays,
 	struct forge_hwc *hwc = to_hwc(dev);
 	hwc_display_contents_1_t *d;
 	hwc_layer_1_t *fbt = NULL;
+	hwc_layer_1_t *src[4];
+	struct fhwc_plane planes[4];
 	size_t i;
-	int rel = -1, ret_f = -1;
+	int n = 0, gles_used = 0, ret_f = -1;
 
 	if (!numDisplays || !displays || !displays[0])
 		return 0;
@@ -434,23 +595,92 @@ static int fhwc_set(hwc_composer_device_1_t *dev, size_t numDisplays,
 	d->retireFenceFd = -1;
 
 	for (i = 0; i < d->numHwLayers; i++) {
-		if (d->hwLayers[i].compositionType == HWC_FRAMEBUFFER_TARGET) {
-			fbt = &d->hwLayers[i];
-			break;
-		}
-	}
-	if (!fbt || !fbt->handle) {
-		if (fbt && fbt->acquireFenceFd >= 0) {
-			close(fbt->acquireFenceFd);
-			fbt->acquireFenceFd = -1;
-		}
-		return 0;
+		hwc_layer_1_t *l = &d->hwLayers[i];
+
+		if (l->compositionType == HWC_FRAMEBUFFER_TARGET)
+			fbt = l;
+		else if (l->compositionType == HWC_FRAMEBUFFER)
+			gles_used = 1;
 	}
 
-	engine_present(hwc, fbt->handle, fbt->acquireFenceFd, &rel, &ret_f);
-	fbt->acquireFenceFd = -1;	/* consumed (closed) by engine_present */
-	fbt->releaseFenceFd = rel;
+	memset(planes, 0, sizeof(planes));
+
+	/* OVL 0 = the GLES result, when anything was left to GLES */
+	if (gles_used) {
+		if (!fbt || !fbt->handle) {
+			/* nothing usable this frame */
+			if (fbt && fbt->acquireFenceFd >= 0) {
+				close(fbt->acquireFenceFd);
+				fbt->acquireFenceFd = -1;
+			}
+			return 0;
+		}
+		src[n] = fbt;
+		planes[n].handle = fbt->handle;
+		planes[n].acquire = fbt->acquireFenceFd;
+		planes[n].fmt = hwc->fmt_override ?
+		    hwc->fmt_override : DISP_FORMAT_RGBA8888;
+		planes[n].blending = 0;	/* opaque */
+		planes[n].sw = (uint16_t)hwc->width;
+		planes[n].sh = (uint16_t)hwc->height;
+		n++;
+	}
+
+	/* promoted layers, in z order (list order is bottom -> top) */
+	for (i = 0; i < d->numHwLayers && n < 4; i++) {
+		hwc_layer_1_t *l = &d->hwLayers[i];
+		int fmt;
+
+		if (l->compositionType != HWC_OVERLAY)
+			continue;
+		fmt = layer_fits_overlay(hwc, l);
+		if (!fmt) {
+			/* changed between prepare and set: should not happen */
+			FLOGW("overlay layer no longer eligible, dropping frame plane");
+			if (l->acquireFenceFd >= 0) {
+				close(l->acquireFenceFd);
+				l->acquireFenceFd = -1;
+			}
+			continue;
+		}
+		src[n] = l;
+		planes[n].handle = l->handle;
+		planes[n].acquire = l->acquireFenceFd;
+		planes[n].fmt = fmt;
+		planes[n].blending = l->blending;
+		planes[n].sx = (uint16_t)l->sourceCropi.left;
+		planes[n].sy = (uint16_t)l->sourceCropi.top;
+		planes[n].sw = (uint16_t)(l->sourceCropi.right - l->sourceCropi.left);
+		planes[n].sh = (uint16_t)(l->sourceCropi.bottom - l->sourceCropi.top);
+		planes[n].tx = (uint16_t)l->displayFrame.left;
+		planes[n].ty = (uint16_t)l->displayFrame.top;
+		n++;
+	}
+
+	/* FBT unused this frame: its acquire fence is still ours to close */
+	if (!gles_used && fbt && fbt->acquireFenceFd >= 0) {
+		close(fbt->acquireFenceFd);
+		fbt->acquireFenceFd = -1;
+	}
+
+	if (n == 0)
+		return 0;
+
+	engine_submit(hwc, planes, n, &ret_f);
+
+	for (i = 0; i < (size_t)n; i++) {
+		src[i]->acquireFenceFd = -1;	/* consumed by engine_submit */
+		src[i]->releaseFenceFd = planes[i].release_fd;
+	}
 	d->retireFenceFd = ret_f;
+
+	hwc->last_fbt_used = gles_used;
+	if (n > (gles_used ? 1 : 0)) {
+		hwc->ovl_frames++;
+		hwc->promoted_total += (unsigned int)(n - (gles_used ? 1 : 0));
+	} else {
+		hwc->gles_frames++;
+	}
 	return 0;
 }
 
@@ -517,11 +747,14 @@ static void fhwc_dump(hwc_composer_device_1_t *dev, char *buff, int buff_len)
 	snprintf(buff, buff_len,
 		 "forge-hwc: session=0x%x %ux%u period=%uns frames=%u prepare_fail=%u "
 		 "trigger_fail=%u acq_timeout=%u last_idx=%u last_pf=%u "
-		 "vsync_on=%d ge=%s\n",
+		 "vsync_on=%d ge=%s "
+		 "ovl_frames=%u gles_frames=%u promoted=%u last: planes=%u fbt=%d\n",
 		 hwc->session, hwc->width, hwc->height, hwc->vsync_period_ns, hwc->frames,
 		 hwc->prepare_fail, hwc->trigger_fail, hwc->acquire_timeouts,
 		 hwc->last_buff_idx, hwc->last_pf_idx, hwc->vsync_on,
-		 hwc->ge_query ? "yes" : "no");
+		 hwc->ge_query ? "yes" : "no",
+		 hwc->ovl_frames, hwc->gles_frames, hwc->promoted_total,
+		 hwc->last_novl, hwc->last_fbt_used);
 }
 
 static int fhwc_get_display_configs(hwc_composer_device_1_t *dev, int disp,
