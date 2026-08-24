@@ -3359,3 +3359,88 @@ ram console, как только будет доступ в recovery.
 целиком в ветке `subsys49-conn49-broken`, чтобы её можно было чинить, а не
 переделывать. Дальнейшие подсистемы (sensors49 и следующие) собираются на
 чистой базе p76 в `subsys49`.
+
+## p85 — eMMC убил не conn49, а подменённый DTB в образе
+
+Все три гипотезы из p84 опровергнуты. Причина найдена и доказана, разбирать
+код connectivity больше не нужно.
+
+### Приём: улики снимаются без recovery
+
+У сломанного ядра нет `/system`, поэтому `adb shell` падает с
+`exec '/system/bin/sh' failed`. Но adbd читает файлы **своим sync-сервисом**,
+шелл ему не нужен:
+
+```
+adb pull /proc/partitions      adb pull /dev/kmsg        (весь кольцевой буфер)
+adb pull /proc/device-tree     adb pull /sys/bus/platform/devices/<dev>/uevent
+```
+
+Этого хватило на полный разбор. Recovery для диагностики не требовался.
+
+### Цепочка улик
+
+1. **FACT.** `/proc/partitions` — только `ram0`..`ram15`, ни одного `mmcblk`.
+2. **FACT.** Драйвер зарегистрирован: `/sys/bus/platform/drivers/mtk-msdc/uevent`
+   отвечает `Permission denied` (файл 0200), а не `does not exist`.
+3. **FACT.** Устройства из DTB созданы: `/sys/bus/platform/devices/11230000.msdc/uevent`
+   и `11240000.msdc/uevent` читаются.
+4. **FACT.** Привязки нет: `.../11230000.msdc/driver` отсутствует. Probe не
+   вызывался — отсюда и полное молчание msdc в логе.
+5. **FACT.** В живом дереве узел объявлен `compatible = "mediatek,msdc"`, а
+   драйвер матчится по `DT_COMPATIBLE_NAME = "mediatek,mt6735m-mmc"`
+   (`drivers/mmc/host/mediatek/ComboA/mt6735/msdc_cust.h:46`). Не совпадает.
+6. **FACT.** Источник чужого узла — собственный DTS ядра Q0:
+   `arch/arm64/boot/dts/mediatek/mt6735m.dts:38` объявляет ровно
+   `compatible = "mediatek,msdc"`.
+7. **FACT (контрольное сравнение образов).**
+   `boot_49_p74.img` — `mt6735m-mmc` ×2, `mediatek,msdc` ×0 (стоковый DTB);
+   `boot_49_conn49.img` — `mt6735m-mmc` ×0, `mediatek,msdc` ×2 (ядерный DTB).
+
+**Причина (FACT).** Образ conn49 собран с DTB, сгенерированным самим ядром
+(`Image.gz-dtb`), вместо связки `Image.gz` + `dtb_stock.dtb`. Драйвер msdc не
+находит свой узел и не биндится. Ни одна строка кода connectivity к отказу
+отношения не имеет.
+
+### Что опровергнуто по дороге (не переигрывать)
+
+- **ОТВЕРГНУТО — мерж задел общий файл на пути msdc.** Вне connectivity мерж
+  внёс только добавления: 194 строки, 0 удалений; `drivers/mmc`, `mt-plat` и
+  devinfo не тронуты вовсе.
+- **ОТВЕРГНУТО — CONFIG сместил инициализацию msdc.** Развёрнутые `.config`
+  базы и conn49 по `MMC|MSDC|BLK_DEV|SCSI` идентичны побайтово. Всего
+  расходятся 46 строк, все до одной — combo/wifi/gps/fm/wext.
+- **ОТВЕРГНУТО — потеряны наши патчи msdc.** `9f0029fcd` (p40) и `f94e2b320`
+  присутствуют в `subsys49-conn49-broken`.
+- **ОТВЕРГНУТО — `WARNING: regulatory_init`.** Штатное «db.txt is empty» от
+  cfg80211, к eMMC отношения не имеет.
+- **ОТВЕРГНУТО — «устройства msdc0 нет в дереве».** Промежуточный неверный
+  вывод: проверялся путь `11230000.msdc0` из fstab, тогда как узел называется
+  `11230000.msdc`. По правильному имени устройство есть.
+
+### Исправленный образ
+
+Пересобран из того же самого ядра, без перекомпиляции: `Image.gz` вырезан по
+магии DTB `d00dfeed` на смещении 6988972 (из 7062478), к нему приклеен
+`dtb_stock.dtb`.
+
+`boot_49_conn49fix.img`, md5 `88bb547763b1e6af7ab86315a03c9228`,
+`gunzip -t` пройден, внутри `mt6735m-mmc` ×2 и `mediatek,msdc` ×0.
+
+### Обязательный гейт перед прошивкой
+
+```
+gunzip -t <Image.gz>                           # ядро целое
+strings <boot.img> | grep -c mt6735m-mmc       # ровно 2
+strings <boot.img> | grep -c 'mediatek,msdc'   # ровно 0
+```
+
+Тем же гейтом проверить все образы подсистем, собранные тем же способом.
+
+### Чем это НЕ лечится
+
+Прошить исправленный образ пока нечем: `fastboot flash boot` запрещён
+загрузчиком (p84), кнопочный recovery не подтверждён. Ручной bind в обход
+match тоже не пройдёт: в 4.9 `bind_store()` вызывает `driver_match_device()`,
+так что запись в `/sys/bus/platform/drivers/mtk-msdc/bind` будет отклонена по
+той же несовпадающей строке compatible.
