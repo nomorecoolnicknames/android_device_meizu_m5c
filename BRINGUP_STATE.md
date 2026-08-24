@@ -2847,3 +2847,78 @@ SurfaceFlinger перешёл на путь через fbdev (`mtkfb`), кото
 буферизации. Проверять на живом устройстве.
 
 **Осталось видимым:** тонкие косые линии и редкие кривые обновления кадра.
+
+## Реверс вендорского HWC (Ghidra) — карта интерфейса и что НЕ является причиной
+
+Блоб `hwcomposer.mt6737m.so` (arm64, 333 КБ) **сохранил все символы**, поэтому
+Ghidra даёт не догадки, а имена и код. Загружается в GhidraMCP как есть,
+база `0x4000`, 1381 функция.
+
+### Цикл ожидания оверлея — расшифрован целиком
+
+`OverlayEngine::waitUntilAvailable()` @ `0x2cc38`:
+
+```c
+cnt = 0;
+do {
+    cnt++;
+    n = getAvailableInputNum();
+    if (n != 0) return 1;                       /* успех */
+    log("[%s] (%d) Waiting for available OVL (cnt=%d)", ..., cnt);
+    usleep(5000);
+} while (cnt != 1000);
+log(" ! (%d) Timed out waiting for OVL (cnt=%d)");   /* сдаётся через 5 с */
+```
+
+`OverlayEngine::getAvailableInputNum()` @ `0x2cb8c`: зовёт виртуальный метод
+устройства (vtable+0x58), и для основного дисплея вычитает резерв из
+`DisplayManager` (поле +0xc), причём если резерв ≥ значения, возвращает
+значение как есть — то есть **ноль возможен только если ноль пришёл снизу**.
+
+`DispDevice::getAvailableOverlayInput(int)` @ `0x288bc`:
+
+```c
+s.session_id = ...;
+ioctl(fd, 0x40484fd0, &s);      /* = наш GET_SESSION_INFO, nr 208, 72 байта */
+return s.maxLayerNum;            /* второе слово структуры */
+```
+
+**То есть число доступных оверлеев HWC берёт ровно из обработчика p52.**
+
+### ОТВЕРГНУТО измерением (p76, `670f1fbe5`)
+
+Гипотеза: `primary_display_get_info()` умеет выйти с ошибкой до заполнения
+структуры, а обработчик p52 её возврат не проверял — значит HWC мог получать
+ноль. Проверка возврата добавлена (она верна сама по себе), печать показала:
+
+```
+forge-info: #1..#6 session=0x10000 ret=0 maxLayerNum=4 vsync=1 w=720 h=1280
+```
+
+Ошибок обработчика в логе нет вовсе. **Ядро отдаёт 4, а не 0** — версия
+неверна, снята.
+
+**Более того:** на этой загрузке HWC не печатал `Waiting for available OVL`
+ни разу (счётчик 0), а кадры всё равно встали на 13-м. Значит цикл ожидания
+оверлея — не обязательный механизм затыка, он проявляется не на каждой
+загрузке. Искать надо не его.
+
+### Карта интерфейса ядра для СВОЕГО HWC
+
+Из символов блоба видна вся поверхность, которую нужно повторить:
+
+- `DispDevice`: `initOverlay`, `createOverlaySession`, `destroyOverlaySession`,
+  `setOverlaySessionMode`, `getOverlaySessionMode`, `getOverlaySessionInfo`,
+  `getMaxOverlayInputNum`, `getAvailableOverlayInput`, `prepareOverlayInput`,
+  `prepareOverlayOutput`, `prepareOverlayPresentFence`, `enableOverlayInput`,
+  `enableOverlayOutput`, `disableOverlaySession`, `updateOverlayInputs`,
+  `triggerOverlaySession`, `waitVSync`, `setPowerMode`, `setCapsInfo`.
+- `OverlayEngine`: `prepareInput`, `setInputs`, `setInputQueue`, `updateInput`,
+  `disableInput`, `trigger`, `flip`, `preparePresentFence`, `setPowerMode`.
+- Прочие классы: `HWCMediator`, `HWCDispatcher`, `DispatchThread`,
+  `ComposerHandler`, `LayerHandler`, `BliterHandler`, `MMLayerComposer`,
+  `DisplayBufferQueue`, `GrallocDevice`, `IONDevice`, `MMUDevice`,
+  `SyncFence`, `SyncControl`.
+
+Номера ioctl'ов и раскладки структур у нас уже есть — мы сами их реализовали
+(p47/p52/p61/p69), так что свой HWC пишется поверх известного ABI.
