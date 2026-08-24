@@ -560,6 +560,31 @@ static int fhwc_prepare(hwc_composer_device_1_t *dev, size_t numDisplays,
 	else
 		budget = top_run < 3 ? top_run : 3;	/* OVL 0 = FBT */
 
+	/*
+	 * forge: cap the number of planes fetched concurrently.
+	 *
+	 * Each overlay plane has its own fetch FIFO, and with three
+	 * full-screen planes live all three underflow: OVL0_INTSTA came back
+	 * 0xe03 under a fast animation, bits 9/10/11 being the per-layer
+	 * RDMA FIFO underflow of layers 0, 1 and 2. On a single plane the
+	 * same register reads 0x3. The picture breaks up toward the bottom
+	 * of the frame, where the accumulated fetch deficit shows.
+	 *
+	 * Demoting a layer does not save the bytes it read — the GLES
+	 * remainder arrives as a full-screen FBT plane instead — so what is
+	 * being bought here is fewer concurrent fetch streams, not less
+	 * traffic. debug.forgehwc.maxplanes exists to find the point where
+	 * the underflow bits stop appearing without a rebuild.
+	 */
+	{
+		int maxp = prop_int("debug.forgehwc.maxplanes", 4);
+
+		if (maxp < 0)
+			maxp = 0;
+		if (budget > maxp)
+			budget = maxp;
+	}
+
 	/* first (lowest-z) real layer that gets an overlay */
 	first_ovl = nlayers - budget;
 
