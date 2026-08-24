@@ -2716,3 +2716,50 @@ MIPITX, подсветка, маршрутизация и прерывания �
 
 **Образы:** `boot_49_p70.img` md5 `2e14d516c9ceb33b9b80d77df5ac25b0`,
 `boot_49_p71.img` md5 `7744fb83b9a0d762601079b9458c20e9`.
+
+## ЗАГРУЗИЛОСЬ В СИСТЕМУ (2026-08-24) — блокером был вендорский hwcomposer
+
+**FACT.** LOS 14.1 на ядре 4.9 дошла до полностью рабочего UI. Сырой дамп
+`/dev/graphics/fb0` (3686400 байт, 720×1280 RGBA, собран в PNG на хосте, без
+участия GPU-путей) содержит корректный экран блокировки: часы, дата,
+статус-бар с зарядом, уведомление об отладке по USB, нижние ярлыки, меню
+питания. `sys.boot_completed=1`, `dev.bootcomplete=1`,
+`init.svc.bootanim=stopped` (анимация завершилась штатно),
+`ActivityManager: Displayed com.cyanogenmod.trebuchet/…Launcher: +1s973ms`.
+
+**Что было блокером.** `hwcomposer.mt6737m.so` (вендорский, собран под 3.18):
+он принимал кадры от SurfaceFlinger и не подавал их в ядро, бесконечно
+печатая `[OVL] (0) Waiting for available OVL (cnt=…)`. Диагностика: SF
+композитил (`flips` рос), а счётчик `SET_INPUT_BUFFER` в ядре стоял намертво —
+кадры терялись именно в HWC. Понижение `debug.hwc.compose_level` до 0 и
+`debug.hwc.bq_count=4` давало лишь несколько лишних кадров после перезапуска
+SF, но затык возвращался.
+
+**Что сделано (обратимо).** Вендорский HAL отключён переименованием:
+```
+/system/lib64/hw/hwcomposer.mt6737m.so -> .forgebak
+/system/lib/hw/hwcomposer.mt6737m.so   -> .forgebak
+```
+SurfaceFlinger перешёл на путь через fbdev (`mtkfb`), который на нашем ядре
+исправен. Дисплейные ioctl'ы disp_mgr при этом исчезают из гистограммы
+полностью — сессия не открывается вовсе.
+
+**Побочный эффект, который надо знать.** Без HWC дисплей остаётся с
+`powerMode=0` и `layerStack=4294967295`, слои ему не назначены, SF заливает
+фреймбуфер непрозрачным чёрным (`00 00 00 ff`). Лечится пробуждением:
+`input keyevent 224` — после этого `Display Power: state=ON`, слои встают на
+`layerStack=0`, картинка появляется. Для постоянной работы это надо
+делать штатно (питание дисплея при старте без HWC), иначе после загрузки
+экран чёрный при полностью живой системе.
+
+**Открыто:** `screencap` возвращает чёрный кадр — идёт через GPU-снимок
+(mali), а не через фреймбуфер; на изображение на панели не влияет.
+Вендорский HWC остаётся неисправным — его разбор по строке
+`Waiting for available OVL` нужен, если захотим вернуть аппаратные оверлеи
+(а с ними — энергоэффективность и MDP-пути).
+
+**Ручки HWC, найденные в блобе** (`strings` по
+`hwcomposer.mt6737m.so`): `debug.hwc.compose_level`, `debug.hwc.bq_count`,
+`debug.hwc.ovl_overlap_limit`, `debug.hwc.disable_p_fence`,
+`debug.hwc.dump_level`, `debug.hwc.profile_level`, `debug.hwc.SinglePassOnly`,
+`debug.hwc.force_rgb_output`, `debug.sf.sw_vsync_fps`.
