@@ -4287,3 +4287,71 @@ NULL (любая ошибка связи не должна давать Oops).
   источник шума, отдельная задача).
 - Стало видно, что `wmt_detect_ext_chip_pwr_on: combo chip is not supported`
   — норма для SOC-варианта.
+
+## 2026-08-25 (вечер, 2) — СВЯЗЬ ЗАРАБОТАЛА: Wi-Fi сканирует, BT открывается
+
+### Образ
+
+`conn3` = `conn-bisect1` + `2be818bcb` (MD1-reserve) + `10466da84`
+(`kernel_read` + идемпотентный `wmt_plat_deinit`) + `9dcb0d2f5` (BTIF из
+отдельных узлов DTB) + `7e8612a07` (питание фронтальной камеры).
+md5 `9a8bf2dbc4f9f94d168f94b50387bff2`, readback с p7 совпал.
+**Загружается в Android** (`sys.boot_completed=1` на ~70 с).
+
+### FACT — связь поднялась полностью
+
+```
+[3.685931] mtk_wcn_consys_hw_reg_ctrl:CONSYS-HW-REG-CTRL(0x00000001),finish
+[3.687433] wmt_core_hw_check:get hwcode (chip id) (0x335)       <- раньше читался 0x0
+[3.689764] mtk_wcn_soc_ver_check:0x335: ic info: SOC_CONSYS.E1 (0x8a00/0x8a00, patch_ext:_e1)
+[3.728570] mtk_wcn_soc_patch_dwn:[Consys Patch] Built Time = 20161108155248a
+[3.833551] mtk_wcn_soc_patch_dwn:wmt_core: patch dwn:0 frag(62, 660) ok
+[4.048618] mtk_wcn_soc_patch_dwn:wmt_core: patch dwn:0 frag(129, 180) ok
+[47.741986] wmt_func_wifi_on:WMT-FUNC: wmt wlan func on before wlan probe
+[49.598143] wmt_func_wifi_on:WMT-FUNC: wmt call wlan probe ok
+```
+Созданы `/dev/stpwmt` (190), `/dev/stpbt` (192), `/dev/stpgps` (191),
+`/dev/wmtWifi` (153).
+
+**Wi-Fi (FACT):** интерфейс `wlan0`, MAC `d8:6c:02:ab:6f:3e`, `svc wifi
+enable` → «Wi-Fi is enabled», supplicant проходит SCANNING, и
+`dumpsys wifi` показывает реальный список точек (Protei-QA/GUEST/Staff,
+2412–2462 МГц, RSSI −61…−74). То есть радио работает, а не просто
+поднялся интерфейс.
+
+**Bluetooth (FACT):** `[MTK-BT] BT_open: BT_open: finish`, живой
+`hci_thread`. Спаривание не проверялось.
+
+**CPU (FACT):** `online = 0-2` под нагрузкой, `cpu1/online = 1` —
+hotplug работает штатно; более раннее `online=0` было простоем, а не
+регрессом.
+
+### Что именно это починило (сводка причин)
+
+1. `f_op->read == NULL` на ext4 в 4.9 → `WMT_SOC.cfg` не читался
+   (`kernel_read`).
+2. Error-path `wmt_plat_deinit` падал на незарегистрированном wakeup
+   source → бутлуп вместо сообщения об ошибке (флаг состояния).
+3. BTIF DMA брал `of_iomap(node,1/2)` из узла `mediatek,btif`, а стоковый
+   DTB описывает каналы отдельными узлами `btif_tx@11000780` /
+   `btif_rx@11000800` → base = 0 → Oops в `hal_btif_dma_hw_init`
+   (поиск по compatible отдельных узлов + отказ работать с нулевой базой).
+
+### Камера: питание пошло, упёрлось в конфликт по VGP1 (FACT)
+
+После правки питания фронталки регуляторы наконец включаются:
+`vcama=enabled/1`, `vgp1=enabled/1` (до правки все были `disabled/0`
+даже во время пробы). Но:
+```
+[162.280061] vgp1: Restricting voltage, 2800000-1200000uV
+[162.280112] [kd_camera_hw] s5k5e8: Fail to enable digital power (SUB_VCAMD/vgp1)
+```
+и sub-сенсор теперь **отвечает на шине** (нет `I2C_ACKERR`, читается
+`sensor id: 0x0` вместо ошибки передачи) на всех трёх адресах
+(0x78 / 0x20 / 0x5a) — т.е. аналог и IO поданы, а цифровое ядро 1.2 В нет.
+Причина: `drivers/input/touchscreen/mediatek/GT9XXTB_hotknot/gt9xx_driver.c:1248`
+делает `regulator_set_voltage(tpd->reg, 2800000, 2800000)` на `vtouch`,
+а `vtouch-supply` в стоковом DTB — тот же `ldo_vgp1` (phandle 0x55).
+Пересечение диапазонов пусто → запрос камеры на 1.2 В отклоняется.
+Открытый вопрос: питается ли тач от VGP1 физически (в стоке камера
+опускает VGP1 до 1.2 В, что несовместимо с работающим 2.8-В тачем).
