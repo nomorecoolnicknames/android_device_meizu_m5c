@@ -4142,3 +4142,95 @@ __pa_symbol(secondary_entry))` → стоковый ATF. У стока 3.18
    `ttyMT0` и смотреть, печатает ли вторичное ядро хоть что-то.
 
 Аппарат возвращён на `boot_49_all.img` (всё рабочее, без связи).
+
+## 2026-08-25 — связь: РЕАЛЬНАЯ причина найдена (`f_op->read` == NULL в 4.9). Вторичные CPU реабилитированы
+
+### Инструмент: маркеры вторичных CPU + `/proc/forge_marks` (FACT)
+
+Добавлены per-CPU маркеры в `head.S`/`smp.c` (слоты 272.. страниц
+0x7f000000/0xb0000000, слот = база+Aff0, значение `k,'B','R','M'`):
+`secondary_entry` → `CurrentEL` → `el2_setup` → `__cpu_setup` →
+`__secondary_switched` (MMU on) → `secondary_start_kernel` → capabilities →
+`cpu_postboot` → `notify_cpu_starting` → `CPU_BOOT_SUCCESS`. Плюс
+`/proc/forge_marks` — дамп обеих страниц с живого ядра по adb (civac перед
+чтением, т.к. вторичные пишут с выключенным MMU).
+
+Образ `sec1` (полная связь + вся рабочая база), md5 `e41cbe67f6155c9eae83fcec8035558b`,
+прошит в p7, readback совпал байт-в-байт.
+
+### Опровержение прошлого вывода (FACT)
+
+Снимок маркеров после загрузки `sec1`:
+
+| слот | веха | cpu1 | cpu2 | cpu3 |
+|---|---|---|---|---|
+| 272 | `secondary_entry` (ATF отпустил) | ✔ | ✔ | ✔ |
+| 276 | `CurrentEL` | 0x8 | 0x8 | 0x8 |
+| 280 | `el2_setup` | ✔ | ✔ | ✔ |
+| 284 | `__cpu_setup` | ✔ | ✔ | ✔ |
+| 288 | `__secondary_switched` (MMU on) | ✔ | ✔ | ✔ |
+| 292 | `secondary_start_kernel` | ✔ | ✔ | ✔ |
+| 296..304 | caps / `cpu_postboot` / `notify_cpu_starting` | ✔ | ✔ | ✔ |
+| 308 | **`CPU_BOOT_SUCCESS`** | ✔ | ✔ | ✔ |
+
+ram-console того же бута подтверждает независимо:
+`CPU2: Booted secondary processor [410fd034]`, `[wdk] WDT start kicker done
+CPU_NR=4`, процессы идут на `(1)`, `(2)`, `(3)`.
+
+**ОТВЕРГНУТО:** «при `MTK_COMBO=y` вторичные CPU не стартуют». Это был
+артефакт инструментовки: `forge_kmark_ptr(97/99)` в
+`reserve_memory_consys_fn` (до `paging_init`) убивал ядро, а мы читали окно
+предыдущей сессии. После снятия этих маркеров (`ee1834baf`) связь-ядро
+поднимает все 4 ядра. Вместе с этим отпадают все построенные на том выводе
+ветки (SPM/MTCMOS CPU2/3, early UART, сравнение аргументов `psci cpu_on`).
+
+### Настоящая причина бутлупа со связью (FACT, ram-console `sec1`)
+
+```
+[3.282757] [WMT-DEV][E]wmt_dev_read_file(1455):failed to open or read!(0x(ptrval), 1975539712, 0, 0)
+[3.282802] [WMT-DEV][E]wmt_dev_patch_get(1557):load file (/system/etc/firmware/WMT_SOC.cfg) fail, iRet(-1)
+[3.282825] [WMT-CONF][E]wmt_conf_read_file(515):read /system/etc/firmware/WMT_SOC.cfg file fails
+[3.282867] [WMT-LIB][E]wmt_lib_init(180):read wmt config file fail(-1)
+[3.282890] [WMT-DEV][E]WMT_init(2379):wmt_lib_init() fails (-1)
+[3.282912] [WMT-LIB][E]wmt_lib_deinit(307):osal_thread_stop(...) fail(-1)
+[3.282956] Unable to handle kernel NULL pointer dereference at virtual address 00000008
+PC is at wakeup_source_remove+0x3c/0x84   (x3 = dead000000000200 = LIST_POISON2)
+Call trace: wmt_plat_deinit+0x24 → wmt_lib_deinit+0x38 →
+            mtk_wcn_soc_common_drv_init+0x2bc → do_common_drv_init+0x11c →
+            do_connectivity_driver_init+0x14 → wmt_detect_unlocked_ioctl+0x294 → SyS_ioctl
+```
+
+Два независимых дефекта:
+
+1. **`f_op->read` == NULL (первопричина).** `wmt_dev.c:1454`
+   отвергает файл по условию `!fd->f_op->read`, а в 4.9 у ext4 `.read`
+   действительно NULL — чтение идёт через `.read_iter`. FACT: файл
+   `/system/etc/firmware/WMT_SOC.cfg` на устройстве **есть** (80 байт, 644,
+   `/system` = `mmcblk0p23` смонтирован задолго до 3.28 с), и `PTR_ERR(fd)`
+   в сообщении = 1975539712 — это не -errno, а хвост валидного указателя,
+   т.е. `filp_open` отработал успешно. Лечится переходом на `kernel_read()`
+   (`include/linux/fs.h:2752`). Та же болезнь ждёт Wi-Fi при загрузке
+   `WIFI_RAM_CODE_6735`: `wlan/gen2/os/linux/platform.c:396,412,460,476` и
+   `gl_kal.c:928,932`. Вне connectivity тот же паттерн есть в `video/`,
+   `audio_ipi/`, `accelerometer/`, `masp/` — отдельной строкой в очередь.
+2. **Путь очистки падает.** При любой ошибке init `wmt_lib_deinit` →
+   `wmt_plat_deinit` снимает wakeup source, который не регистрировался
+   (LIST_POISON2 ⇒ непарный/повторный `list_del`) → Oops → ребут. Т.е.
+   ЛЮБАЯ ошибка конфигурации связи = бутлуп, а не сообщение об ошибке.
+
+### Прочее из этого же бута (FACT)
+
+- `wmt_detect_ext_chip_pwr_on: combo chip is not supported` — ожидаемо для
+  SOC-варианта (внешнего чипа нет), не ошибка.
+- `set current consys chipid (0x335)`, `do_common_drv_init ... chipid:0x00006735` —
+  детект чипа проходит штатно.
+- SELinux denied для `wmt_loader` (create/unlink `wmtWifi`, write в tmpfs) —
+  permissive, на загрузку не влияет, но в sepolicy добавить.
+
+### Правило про маркеры (уточнение)
+
+Слоты **не обнуляются** между загрузками: страница переживает тёплый ребут,
+и старые значения остаются, пока их не перезапишут. Поэтому набор
+«достигнутых» слотов primary-диапазона (10..126) читать как объединение
+нескольких сессий; надёжны только слоты, введённые в этой сборке впервые
+(здесь — 272+), и свежесть по слоту 95.
