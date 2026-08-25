@@ -4524,3 +4524,29 @@ NVRAM исправен (`service.nvram_init=Ready`, `/nvdata` = mmcblk0p19,
 `md_chn` пуст, `Using default META MD setting[0][0]`,
 `MD ROM mem remap:[7a000000]->[0]`, предупреждение
 `CHRDEV "ccci" major number 233 goes below the dynamic allocation range`.
+
+### `cam7`: фронтальный сокет HAL-ом не опрашивается вовсе (FACT)
+
+`cam7` = `md6` + `5b2d7f1e8` (ветка питания фронталки только при
+`pinSetIdx == 1`, как в стоке; плюс имя выбираемого pinctrl-состояния в
+логе). md5 `f2bd224411c4425f326f7365b0d4b1d5`, Android грузится.
+
+```
+[93.068] [_hwPowerOn] type=3 2800000uV ok        <- VCAMAF: пошла generic-ветка
+[93.073] [kd_camera_hw] pinctrl cam0_pnd1 ret=0  <- пины ГЛАВНОЙ камеры
+[93.074] [kd_camera_hw] pinctrl cam0_rst1 ret=0
+[93.084] s5k5e8yx[get_imgsensor_id] searching sub sensor, expecting id 0x5e80
+[93.085] s5k5e8yx[get_imgsensor_id] i2c write id: 0x20, sensor id: 0x4088   <- ID S5K4H8!
+[93.088] s5k5e8yx[get_imgsensor_id] sub sensor not found on any address in the table
+[93.088] [kd_camera_hw] power OFF pinSetIdx=0 sensor=s5k5e8stmipiraw
+```
+За всю сессию **ни одной строки `power ON pinSetIdx=1`**: HAL гоняет
+драйвер фронталки по MAIN-сокету и ни разу не пробует sub. Прямое
+доказательство — драйвер S5K5E8 на адресе 0x20 читает `0x4088`, то есть
+идентификатор ГЛАВНОГО сенсора: шина и питание исправны, но фронтальный
+драйвер физически смотрит на заднюю камеру.
+
+INFERENCE: раз в стоке ветка фронталки заходит только при `pinSetIdx == 1`,
+стоковый HAL сокет 1 опрашивал. Разница — в том, что ядро сообщает HAL о
+сокетах; первый кандидат `kdGetSocketPostion()`
+(`KDIMGSENSORIOC_X_GET_SOCKET_POS`). Передано в работу.
