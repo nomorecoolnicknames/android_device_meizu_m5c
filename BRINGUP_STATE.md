@@ -4809,3 +4809,40 @@ legacy-раскладки (списки полей взяты из 3.18-дере
 блобы этого ROM), с `BUILD_BUG_ON` на оба размера (144 и 192).
 Структуры config / resolution / winsize / VC между деревьями
 байт-в-байт одинаковы и маршалинга не требуют.
+
+### ПОДТВЕРЖДЕНО НА ЖЕЛЕЗЕ: камера заработала (образ `cam12`, md5 `9899cc351d9a9be34d029f6689d1cbf6`)
+
+```
+dumpsys media.camera: Number of camera devices: 1
+                      Camera 0 information:  Facing: BACK
+logcat: CameraService onTorchStatusChangedLocked / disconnect: Disconnected client for camera 0
+dmesg:  SET_DRIVER raw[0]=0x00010005 (socket=1 drvIdx=5)      <- HAL выбрал S5K4H8_ST на MAIN
+        [kd_camera_hw] power ON pinSetIdx=0 sensor=s5k4h8stmipiraw
+        S5K4H8_camera_sensor[open] i2c write id: 0x20, sensor id: 0x4088   <- ОТКРЫТИЕ, не проба
+```
+`mediaserver` больше не падает: перебор проходит все записи списка
+(drvIdx 0…7) и **обе фазы** — на sub-фазе видны
+`SET_DRIVER raw[0]=0x00020007 (socket=2 …)` и
+`power ON pinSetIdx=1 sensor=s5k4h8…`, чего не было ни разу за всю
+историю. Единственные оставшиеся SIGABRT в логе — от `mtk_agpsd`
+(известная ROM-линия GPS, ICU-55).
+
+Итог по цепочке: маршалинг sensor-info в legacy-раскладку снял
+переполнение буферов HAL → перебор сенсоров доходит до конца → главная
+камера перечисляется и открывается.
+
+### Осталось по фронтальной камере (FACT)
+
+Sub-фаза теперь реально исполняется, питание и пины подаются по стоковой
+схеме, но сенсор не отвечает:
+```
+[kd_camera_hw] power ON pinSetIdx=1 sensor=s5k5e8sunwinmipiraw
+s5k5e8yx[get_imgsensor_id] i2c write id: 0x20, sensor id: 0x0
+s5k5e8yx[get_imgsensor_id] i2c write id: 0x5a, sensor id: 0x0
+s5k5e8yx[get_imgsensor_id] sub sensor not found on any address in the table
+[kd_camera_hw] power OFF pinSetIdx=1 sensor=s5k5e8sunwinmipiraw
+```
+Обрати внимание: в этом прогоне адрес 0x78 в пробах не участвует (идут
+только 0x20 и 0x5a) — таблица адресов варианта отличается. Дальнейшие
+подозреваемые по фронталке: MCLK для второго тактового выхода (CAMTG1) и
+шина/адрес (`camera_sub@3c`, client2 / BUS2).
