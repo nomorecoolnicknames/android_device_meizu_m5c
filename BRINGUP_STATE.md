@@ -3891,3 +3891,104 @@ HAL никогда не доходил до этого пути и основн�
 `CONFIG_CUSTOM_KERNEL_IMGSENSOR` (оставить только `s5k4h8_mipi_raw`) и
 посмотреть, поднимется ли `cameraserver`. Фронтальную мы при этом не теряем —
 она и так не отвечает по I2C ни на одном адресе.
+
+## 2026-08-25 (ночь) — связь: бисект завершён, виновник — не код connectivity
+
+### Бисект по конфигурации (FACT, 5 шагов, одна база `aud49-fix` + слитый код conn49)
+
+| шаг | конфигурация | загрузка |
+|---|---|---|
+| 1 | всё, кроме wlan gen2 | нет |
+| 2 | ядро WMT + BT, без wlan/gps/fm | нет |
+| 3 | код слит, **все** опции связи выключены | **да, 78 с** |
+| 4 | только `MTK_BTIF` | **да, 78 с** |
+| 5 | `MTK_BTIF` + `MTK_COMBO` + `CONSYS_6735` (без BT/wlan/gps/fm) | нет |
+
+Минимальный падающий diff развёрнутых `.config` шаг4→шаг5 — ровно
+`CONFIG_MTK_COMBO=y` + `CONFIG_MTK_COMBO_CHIP_CONSYS_6735` (плюс их
+`# is not set` соседи). Скрытых `select` нет. Всё, что это включает, —
+`connectivity/common/{common_detect,conn_soc}`.
+
+### Найдено и исправлено, но НЕ лечит: ARCH_MT6735* → MACH_MT6735* (FACT)
+
+3.18 выбирал SoC через `CONFIG_ARCH_MT6735M`; 4.9 переименовал в
+`CONFIG_MACH_MT6735M` (`arch/arm64/Kconfig.platforms:287`), а порт connectivity
+не перевели — **8 мест** с мёртвыми ветками (`mtk_wcn_consys_hw.{c,h}`,
+`stp_chrdev_gps.c`, `ahb_pdma.c`). Следствия: `PLATFORM_SOC_CHIP` = 0x6735
+вместо стокового **0x0335**; EMI-MPU регион 6 для consys не ставился.
+Исправлено (`fa86d4d1e`): добавлен `MACH_` рядом с каждым `ARCH_`, ветки теперь
+как в стоке байт-в-байт. Тот же класс, что msdc/fan5405/alsps. **Но образ с
+правкой всё равно не грузится** — это реальный разрыв, но не убийца.
+Вне connectivity такой же мёртвый `ARCH_` остался только в
+`mtk_spm_resource_req.h` (пустые ветки, безвредно).
+
+### Маркеры в DRAM (FACT) — инициализация связи проходит как в стоке
+
+`forge_kmark` в цепочке `wmt_detect_driver_init` → `WMT_init` → `stp_drv_init`
+→ `wmt_lib_init` → потоки. Результат после падения (окна 0x7f000000 и
+0xb0000000 совпадают):
+
+- есть: 34 detect-init, 47/37 до/после создания `BTMd`, 53/79 до/после
+  `wmt_lib_init`, **94 `PSMd` вошёл в тело, 98 `BTMd` вошёл в тело**
+- нет: 97 `ERROR:` в `mtk_wcn_stp_init` (STP поднялся чисто), **99 успешный
+  выход `WMT_init`** → `WMT_init` ушёл в `error:`
+
+Причина `error:` — `wmt_lib_init` первым делом читает
+`/system/etc/firmware/WMT_SOC.cfg` через `filp_open`, а при `module_init`
+rootfs = рамдиск, где файла нет → `-1`. **В стоке 3.18 ровно так же**
+(`wmt_conf_read_file`, `error:`-блок, `osal_thread_*` — идентичны построчно),
+и сток при этом жил. Значит error-путь — не дефект.
+
+**Вывод:** к моменту смерти (~2,26 с) весь initcall-код connectivity уже
+отработал и ведёт себя как сток; живые потоки `PSMd`/`BTMd` спят в
+`wait_event` (с проверкой `kthread_should_stop`), железо consys никто не
+включает (нет userspace, `fb_notifier` не зарегистрирован из-за `error:`,
+thermal-cb проверяет NULL). Убийца — **побочный эффект** включения
+`MTK_COMBO`, а не логика драйвера. Локализовать его надо по таймингу, а не по
+коду.
+
+### Отвергнуто за этот заход (не переигрывать)
+
+- **`CONN_MD` / `CONN_LTE_IDC`** — образ без них падает так же. (`MTK_CONN_MD`
+  возвращается через `default y if MTK_ECCCI_DRIVER` даже при `is not set`.)
+- **UNBLANK → `mtk_wcn_wmt_func_on(LPBK)` → MTCMOS-вис** — механизм реален
+  (`wmt_fb_notifier_callback` → `gPwrOnOffWork` → `conn_sys_enable_op` →
+  `spm_mtcmos_ctrl_connsys` с `while` без таймаута), но `fb_register_client`
+  стоит после `wmt_lib_init` и при `error:` не выполняется (маркер 99 нет).
+- **`kthread_stop` виснет на PSMd** — `_stp_*_wait_for_msg` проверяет
+  `osal_thread_should_stop`, остановка корректна.
+- **Резервирование `consys-reserve-memory`** — `no-map` → `memblock_remove`
+  в `of_reserved_mem.c:71` независимо от наличия callback; `/proc/iomem` на
+  рабочем образе показывает ту же дыру `bf200000–bf2fffff`. `reserve_memory_consys_fn`
+  идентичен стоку.
+- **Лимит размера образа** — конец ядра 0x41166008 (17,7 МБ) против
+  `ramdiskaddr` 0x44000000; рабочий `all` — 16,8 МБ, разница 0,9 МБ.
+- **`sdio_detect_init`, chrdev/class-коллизии, фиксированные major** —
+  major динамические, классы `stpwmt/stpbt/stpgps/wmtWifi/wmtdetect` свободны.
+- **Платформенные probe (`mtk_wmt_probe`, `wmt_detect_probe`)** — первый
+  регистрируется только в `hw_init` (не достигается), второй — узла
+  `mediatek,connectivity-combo` в стоковом DTB нет.
+
+### Процедурный урок (записать красным)
+
+Первый прогон маркеров дал ложный вывод «`wmt_lib_init` выходит до
+`wmt_plat_init`»: фоновая сборка стартовала **до** записи правок, `vmlinux`
+оказался старше исходников, а `objdump | grep -c 'bl.*<forge_kmark>'` показал
+те же 50 вызовов. Позже — `git checkout` в бисект-сравнениях затёр defconfig
+рабочего дерева, и целая пересборка ушла без connectivity (0 WMT-символов).
+**Правило:** перед упаковкой сверять `mtime vmlinux > mtime правок`, число
+`bl <forge_kmark>` и наличие ожидаемых символов в `nm vmlinux`; после любого
+`git checkout`/`stash` — `git status` и `grep` ключевых `CONFIG_` в `.config`.
+
+### Камера: ядро чисто, падает вендорный HAL (FACT)
+
+`cameraserver` крэшится по кругу: `ImgSensorDrv::getCurrentSensorType`
+SIGSEGV на `0x24`, `r0=0`, после `Err-ctrlCode (I/O error)` на поиске **SUB**
+датчика. Ядро отвечает по контракту: `s5k5e8yx` не найден ни на 0x78/0x20/0x5a
+→ `*sensor_id = 0xFFFFFFFF`, `ERROR_SENSOR_CONNECT_FAIL`; основная `S5K4H8`
+находится (`id 0x4088` по 0x20). Compat-`GETINFO` содержит опечатку
+(`pConfig` читает `pInfo`) — **она есть и в стоке**, трогать нельзя.
+Гипотеза «убрать `s5k5e8yx` из `CUSTOM_KERNEL_IMGSENSOR`» **отвергнута**:
+сток собирает тот же список `s5k4h8_mipi_raw s5k5e8yx_mipi_raw`. Разница
+между стоком и нами — в ответе на **следующий** после отказа запрос HAL;
+следующий шаг — `strace`/logcat вокруг `getInfo` с `m_fdSensor=0x8`.
