@@ -4846,3 +4846,55 @@ s5k5e8yx[get_imgsensor_id] sub sensor not found on any address in the table
 только 0x20 и 0x5a) — таблица адресов варианта отличается. Дальнейшие
 подозреваемые по фронталке: MCLK для второго тактового выхода (CAMTG1) и
 шина/адрес (`camera_sub@3c`, client2 / BUS2).
+
+## 2026-08-25 (ночь, 6) — МОДЕМ СТАРТУЕТ: образ грузится, MD отвечает хендшейком, дальше exception
+
+Образ `md13` = `cam12` + семь узлов в `eccci1/port_cfg.c` + атрибут `md` в
+BOOT-классе. md5 `bc138d6e5a62e9369c667f5e88e05fb8`.
+
+### Что сделано
+
+`mtk_boot_common.c` теперь публикует второй атрибут `md` рядом с
+`boot_mode`; его store идёт через новую экспортируемую точку
+`ccci_trigger_md_boot()` в `ccci_util_lib_sys.c`, делающую ровно то же, что
+`boot_status_store` (`trigger_md_boot` + `clear_meta_1st_boot_arg`), чтение
+отдаёт ту же строку статуса. В `init.modem.rc` добавлены chown для нового
+узла и семи `/dev/ccci_*` (в образ ещё не попало: ramdisk берётся из
+`boot_49_p74.img`, поэтому на тесте права выставлялись вручную).
+
+### Результат (FACT)
+
+```
+/sys/class/BOOT/BOOT/boot/md создан (0660)
+ccci_mdinit: ... deamon begin to run!            <- больше НЕ "boot modem fail!"
+/sys/kernel/ccci/boot: md1:1/0 -> md1:3/0 -> md1:5/3
+dmesg:
+ [ccci1/util]Firmware:read_size=1048576, size_per_read=365648
+ [ccci1/util]Firmware check header:load_addr=baa20000, size=1414224
+ [ccci1/util]Request firmware: dsp_1_lwg_n.bin (size=0x159450) to 0xbaa20000
+ [ccci1/cor]md_cd_power_on: mt_set_gpio_out(GPIO_LTE_VSRAM_EXT_POWER_EN_PIN,1)
+ [ccci1/cor]md_cd_power_on: set VLTE on,bit0,1
+ [Power/clkmgr][md_power_on]: id = 0 ... ret=0
+ [ccci1/mcd]set MD boot slave / cldma_reset / cldma_start
+ [ccci1/FSM]event 1 is appended from port_proxy_md_hs1_msg_notify   <- МОДЕМ ОТВЕТИЛ
+ [ccci1/mcd]BootChannel 0  BootingStartID(Mode) 0x200  BootAttributes 0
+```
+То есть образ модема читается, DSP-прошивка запрашивается, питание VLTE
+подаётся, CLDMA стартует и **MD отвечает хендшейком HS1** — этого не было
+никогда.
+
+### Новый рубеж: modem exception через ~65 с
+
+```
+[138.944] MD exception HIF 0    MD exception logical 0->1
+[138.944] cldma_stop_for_ee from process_one_work
+[138.970] MD exception HIF 2/3  logical 1->2
+[141.026] MD exception HIF 5    logical 2->3
+[141.027] event 6/7 appended from mdee_ctlmsg_handler
+```
+`gsm.sim.state` остаётся `NOT_READY`. Следующий шаг — прочитать EE-дамп
+модема (mdee) и понять причину исключения.
+
+Замечание по ROM: `ccci_mdinit` из init падает с 255, потому что узлы
+принадлежат root, а демон работает от radio; правка `init.modem.rc`
+сделана, но требует пересборки ramdisk (или временного chown вручную).
