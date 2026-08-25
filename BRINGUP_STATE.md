@@ -4368,3 +4368,49 @@ hotplug работает штатно; более раннее `online=0` был
   `init: Service 'agpsd' (pid ...) killed by signal 6` каждые ~5 с.
   Фикса координат нет (`Location[0,0 acc=3.4e38]`). SIGABRT в юзерспейсе —
   разбирать со стороны ROM/блоба, ядро свою часть отдаёт.
+
+## 2026-08-25 (ночь) — образ `all4`: камера дошла до конфликта VGP1, дисплейная гипотеза «латч в середине кадра» ОТВЕРГНУТА
+
+`all4` = `conn3` + `2a15f5c1c` (BTIF 3-cell interrupts) + `d0a70cd0b`
+(камера: легаси-номер MCLK-ioctl, VGP1 по имени, громкие логи) +
+`ce6ba3b8f` (дисплей: самовзводящийся CMDQ-гейт + инструментовка).
+md5 `cd378f9a8f1b7546e364225e2fa536b6`, readback совпал, Android грузится.
+
+### Камера (FACT)
+
+```
+[0.656133] Get_Cam_Regulator: vcama=1 vcamd=1 vcamio=1 vcamaf=1 vgp1(sub)=1 (1=ok)
+[84.316] [kd_camera_hw] power ON pinSetIdx=0 sensor=s5k5e8stmipiraw
+[84.318] [_hwPowerOn] type=0 2800000uV ok (now on)
+[84.319] vgp1: Restricting voltage, 2800000-1200000uV
+[84.319] [_hwPowerOn]fail to regulator_set_voltage, powertype:4 powerId:1200000
+[88.353] s5k5e8yx[get_imgsensor_id] i2c write id: 0x78, sensor id: 0x0
+```
+`regulator_get(sensor_device, "vgp1")` резолвится по имени регулятора —
+подмена `of_node` на чужой узел не нужна. Остался ровно один барьер:
+`GT9XXTB_hotknot/gt9xx_driver.c:1248` форсит `regulator_set_voltage(reg,
+2800000, 2800000)` на том же LDO (`vtouch-supply` → `ldo_vgp1`).
+Найденные по пути дефекты, уже исправленные: номер ioctl
+`KDIMGSENSORIOC_X_SET_MCLK_PLL` разошёлся со стоковым (в дереве в
+`ACDK_SENSOR_MCLK_STRUCT` добавлено поле `TG`: 12 байт вместо 8, команда
+0xC00C693C вместо 0xC008693C) — HAL-блоб получал -EPERM на каждый
+`setMclk`; `clkmux_sel()` делает BUG_ON на неверном индексе источника
+CAMTG — добавлена проверка.
+
+### Дисплей: гипотеза «конфиг латчится в середине кадра» ОТВЕРГНУТА (FACT)
+
+A/B на устройстве через `forgegate:0|1 > /sys/kernel/debug/dispsys`:
+```
+gate_arm=0: gate_line=1280 post_line=1280 height=1280
+gate_arm=1: gate_line=1280 post_line=1280 height=1280
+trigger-loop heartbeat=alive (0x0 -> 0x500)      <- цикл ЖИВ
+hwid rdma0_eof=27 stream0=38 rdma0_sof=8
+```
+Разницы между режимами нет; trigger loop жив, значит предпосылка
+«`DISP_RDMA0_EOF` залипает из-за мёртвого цикла» неверна — REJECTED.
+Отдельно под вопросом сама метрика: `gate_line` в точности равен высоте
+панели и не меняется между замерами — вероятно, читается не тот регистр
+(семантика `DISP_REG_RDMA_IN_LINE_CNT` на этом чипе под вопросом), до
+выяснения числу не верить. Также к сведению: `MUTEX=0` в счётчиках
+прерываний — это НЕ улика: в этой сборке `_MTK_USER_` держит
+`gEnableIRQ=0`, что штатно гасит INTEN мьютекса.
