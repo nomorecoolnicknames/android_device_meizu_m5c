@@ -4467,3 +4467,60 @@ INTEN мьютекса выключен (`ddp_path.c:866`).
 Под вопросом сама метрика `gate_line`: значение в точности равно высоте
 панели и не меняется — до проверки семантики
 `DISP_REG_RDMA_IN_LINE_CNT` числу не верить.
+
+## 2026-08-25 (ночь, 3) — `md6`: разрыв изображения НЕ в ядре; модем упирается в отсутствующие узлы `/dev/ccci_*`
+
+`md6` = `cam5` + `a3f4d5b70` (модем: грузить образ MD в ядре, если этого не
+сделал загрузчик) + `4c0d4b21e` (дисплей: проверка честности метрики строки).
+md5 `b5fdc4b8007f6e405653e15cffba2ef8`, readback совпал, Android грузится.
+
+### Дисплей: латч конфига происходит в бланкинге — ядро закрыто (FACT)
+
+```
+forge-cmdq: gate in/out=1280/1280  post in/out=1280/1280  height=1280
+forge-cmdq: live in_p=1021 in_l=1021 out_p=144 out_l=1020
+forge-cmdq: live in_p=1235 in_l=1235 out_p=492 out_l=1233
+forge-cmdq: live in_p=131  in_l=131  out_p=176 out_l=130
+forge-cmdq: live in_p=346  in_l=346  out_p=408 out_l=345
+forge-cmdq: live in_p=565  in_l=565  out_p=272 out_l=564
+```
+Живые значения `DISP_REG_RDMA_IN_LINE_CNT`, снятые CPU в случайных фазах,
+разбросаны и бегают по кадру (максимум в активной фазе — 1235), значит
+регистр честно отслеживает текущую строку. При этом GCE-выборки в момент
+открытия гейта и после записи конфига стабильно дают 1280 = высоте панели,
+то есть **конфиг-батч (включая `L0_ADDR`) исполняется в вертикальном
+бланкинге**. Момент латча правильный при любом значении `forge_gate_arm`.
+
+Отсюда: разрыв рождается не в ядерном тракте латча. Все ядерные версии
+исчерпаны и отвергнуты (underflow, тайминги DSI, pitch, залипший
+`RDMA0_EOF`, момент латча). Остаются кандидаты в юзерспейсе, прежде всего
+работа с fence в нашем HWC: если `acquireFenceFd` слоя не дожидаются,
+OVL прочитает недорисованный буфер — и это даст разрыв на стабильной
+высоте, поскольку фаза отрисовки относительно кадра стабильна. Передано
+в работу по `device/meizu/m5c/hwcomposer/forge_hwc.c`.
+
+### Модем: блокер — семь несозданных узлов (FACT)
+
+Ручной запуск демона на устройстве:
+```
+E ccci_mdinit(1): Gotten ret=0,nvram_init=Ready!
+D ccci_mdinit(1): set md status:mtk.md1.status=init_done
+D ccci_mdinit(1): boot modem1
+E ccci_mdinit(1): open /dev/ccci_sys_rx fail: 2     <- ENOENT
+Segmentation fault
+```
+NVRAM исправен (`service.nvram_init=Ready`, `/nvdata` = mmcblk0p19,
+каталоги `md/`, `md_cmn/` на месте), демон доходит до самой команды
+старта модема.
+
+Сверка ожидаемых и созданных узлов (strings блоба против `ls /dev`):
+ядро НЕ создаёт **`ccci_sys_rx`, `ccci_md_log_rx`, `ccci_md_log_tx`,
+`ccci_pcm_rx`, `ccci_pcm_tx`, `ccci_uem_rx`, `ccci_uem_tx`** — всё
+остальное из списка блоба присутствует. Поэтому `md_cd_start()` за
+загрузку не вызывается ни разу (в логе нет ни одной строки из этого
+пути), и правка загрузки образа MD пока не проверена.
+
+Прочее по модему: `/sys/kernel/ccci/lk_md = LK Load MD:[Disabled]`,
+`md_chn` пуст, `Using default META MD setting[0][0]`,
+`MD ROM mem remap:[7a000000]->[0]`, предупреждение
+`CHRDEV "ccci" major number 233 goes below the dynamic allocation range`.
