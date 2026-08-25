@@ -4355,3 +4355,16 @@ hotplug работает штатно; более раннее `online=0` был
 Пересечение диапазонов пусто → запрос камеры на 1.2 В отклоняется.
 Открытый вопрос: питается ли тач от VGP1 физически (в стоке камера
 опускает VGP1 до 1.2 В, что несовместимо с работающим 2.8-В тачем).
+
+### Bluetooth и GPS на `conn3` (FACT, живая проверка)
+
+- **BT включается полностью:** `svc bluetooth enable` → `dumpsys
+  bluetooth_manager`: `enabled: true`, `state: ON`, адрес
+  `22:22:AF:F6:76:58`; в dmesg `[MTK-BT] BT_open: Now it's in MTK Bluetooth
+  Mode`, `BT_open: STP is ready!`, `BT_open: finish`. Адрес выглядит
+  дефолтным (не из NVRAM) — отдельная задача.
+- **GPS:** узел `/dev/stpgps` создан, `mnld` запущен и висит в epoll,
+  провайдер `gps` включён, но `agpsd` циклически падает:
+  `init: Service 'agpsd' (pid ...) killed by signal 6` каждые ~5 с.
+  Фикса координат нет (`Location[0,0 acc=3.4e38]`). SIGABRT в юзерспейсе —
+  разбирать со стороны ROM/блоба, ядро свою часть отдаёт.
