@@ -3616,3 +3616,93 @@ mtkclient видит порт (строка `Preloader` в логе) на каж
 приём снятия улик по adb без шелла, отказ fastboot писать любой раздел, карта
 разделов и правило by-name, готовые образы с md5 и критериями валидации,
 порядок восстановления и список уже опровергнутых гипотез.
+
+## 2026-08-25 — прогон очереди подсистем на живом железе: 3 из 5 работают
+
+Телефон восстановлен (TWRP 3.7.0_9 на стоковом 3.18, вернул другой агент).
+Все прошивки — `dd` из живой системы по имени раздела
+(`by-name/boot` → `mmcblk0p7`), md5-гейт до и после каждой записи, перечитывание
+записанного. Возврат к якорю — одна команда, отработан четырежды.
+
+Исходное состояние подтверждено: в boot лежал `boot_49_p74.img`, md5 сошёлся
+побайтово, система на 4.9.188-m5c+, загрузка за 78 с.
+
+### Итог по каждой подсистеме
+
+| образ | загрузка | подсистема | вывод |
+|---|---|---|---|
+| conn49fix `88bb5477` | **НЕТ** — уходит в recovery | — | не грузится |
+| sensors49 `464330b1` | да, 72 с | **работает** | зачёт |
+| aud49 `e7ded09f` | ядро да, Android **нет** | не работает | блокер найден |
+| av49 `99e5c034` | да, 78 с | видео **работает**, модем нет | частично |
+| cam49 `2b1101b2` | да, 78 с | **работает** | зачёт |
+
+### sensors49 — ЗАЧЁТ (FACT)
+
+`/dev/hwmsensor`, `/dev/msensor`, `/dev/gsensor` присутствуют. Устройств ввода
+стало **7 против 4** у p74; добавились `hwmdata`, `m_acc_input`, `m_mag_input`.
+Дисплей (fb0), `/system`, `/data`, zygote — живы.
+
+### cam49 — ЗАЧЁТ (FACT)
+
+Узлы: `camera-isp`, `camera-pipemgr`, `camera-sysram`, `kd_camera_hw`,
+`kd_camera_hw_bus2`, `kd_camera_flashlight`. OTP датчика зарегистрирован:
+`/dev/S5K4H8_OFILM_OTP` (major 244), `S5K4H8_ST_OTP` (243),
+`S5K4H8_HOLITECH_OTP` (242). 136 строк imgsensor в dmesg. Система здорова.
+
+### av49 — частично; критерий был сформулирован неверно (FACT)
+
+Загружается штатно, регрессии нет. **Видеокодек работает** — узел называется
+`/dev/Vcodec` (плюс `vdec_freq`, `venc_freq`), а не `/dev/mtk_vdec`, как было
+записано в критерии. Критерий исправить.
+
+Модем не поднимается, и причина в userspace, а не в ядре: ccci инициализируется
+(`reserved mem: initialized node reserve-memory-ccci_md1`, `MD ROM mem remap:
+[7a000000]`), но `init: Service 'ccci_fsd' exited with status 255` и следом
+`ccci_mdinit` тоже 255. Плюс **в `by-name` нет ни одного раздела модема**
+(md1/modem) — прошивке модема попросту неоткуда взяться. Это отдельный фронт,
+ядро своё отработало.
+
+Побочно: резерв MD1 подтверждён на живом железе, как и предсказывал разбор.
+
+### aud49 — БЛОКЕР НАЙДЕН: pinctrl-состояния отсутствуют в стоковом DTB (FACT)
+
+Ядро грузится и поднимает adb, но Android не завершает загрузку (>5 минут;
+surfaceflinger и zygote живы, system_server отсутствует). Звуковой карты нет:
+`/dev/snd/` содержит только `seq`/`sequencer`/`timer`, `/proc/asound/cards` —
+`--- no soundcards ---`.
+
+Причина прямо в dmesg — **девять подряд отказов ENODEV (-19)**:
+
+```
+AudDrv_GPIO_probe pinctrl_lookup_state default fail -19
+AudDrv_GPIO_probe pinctrl_lookup_state audpmicclk-mode0 fail -19
+AudDrv_GPIO_probe pinctrl_lookup_state audpmicclk-mode1 fail -19
+AudDrv_GPIO_probe pinctrl_lookup_state audi2s1-mode0 fail -19
+AudDrv_GPIO_probe pinctrl_lookup_state audi2s1-mode1 fail -19
+AudDrv_GPIO_probe pinctrl_lookup_state extamp2-pullhigh fail -19
+AudDrv_GPIO_probe pinctrl_lookup_state extamp2-pulllow fail -19
+AudDrv_GPIO_probe pinctrl_lookup_state rcvspk-pullhigh fail -19
+AudDrv_GPIO_probe pinctrl_lookup_state rcvspk-pulllow fail -19
+soc-audio soc-audio: ASoC: platform mt-soc-deep-buffer-dl-pcm not registered
+```
+
+Драйвер 4.9 ищет pinctrl-состояния под именами, которых стоковый DTB не даёт →
+GPIO-часть не поднимается → платформа ASoC не регистрируется → карта не
+собирается. **Это ровно тот же класс, что и все прочие блокеры порта:
+расхождение со стоком, а не «плохая база».** Лечится сверкой имён состояний с
+тем, что реально объявлено в стоковом DTB (как чинили fan5405, alsps, lp3101),
+либо снятием фатальности отказа (как в p68 с PWM).
+
+### conn49fix — не грузится (FACT)
+
+Записан и перечитан побайтово (md5 сошёлся), но после перезагрузки устройство
+оказалось в **TWRP на 3.18.19**, а не в системе. Блок команды загрузки в `para`
+при этом **пуст**, то есть в recovery увёл не BCB. В boot после этого лежал
+именно conn49fix — запись верна.
+
+Однопеременный контроль: возврат p74 в тот же раздел тем же способом дал штатную
+загрузку в систему за 78 с. Значит дело в самом образе, а не в процедуре.
+
+`/proc/last_kmsg` пуст (46 байт). Зеркало улик в expdb живо — маркер `FORGE49`
+на месте, слоты пишутся; следующий заход по conn49 начинать с его разбора.
