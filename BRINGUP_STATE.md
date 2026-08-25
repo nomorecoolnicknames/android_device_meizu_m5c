@@ -4550,3 +4550,39 @@ INFERENCE: раз в стоке ветка фронталки заходит т�
 стоковый HAL сокет 1 опрашивал. Разница — в том, что ядро сообщает HAL о
 сокетах; первый кандидат `kdGetSocketPostion()`
 (`KDIMGSENSORIOC_X_GET_SOCKET_POS`). Передано в работу.
+
+### Камера сломана ЦЕЛИКОМ, и это первично (FACT, проверено прошивкой baseline)
+
+Вендорский HAL падает при перечислении сенсоров, циклически каждые ~5 с,
+и `CameraService` не поднимается вовсе:
+```
+D ImgSensorDrv: [getCurrentSensorType][getCurrentSensorType]
+F DEBUG #00 libcam.halsensor.so  ImgSensorDrv::getCurrentSensorType(SENSOR_DEV_ENUM)+71
+F DEBUG #01 libcam.halsensor.so  ImgSensorDrv::impSearchSensor(int (*)())+412
+F DEBUG #02 libcam.halsensor.so  HalSensorList::enumerateSensor_Locked()+168
+F DEBUG #04 camera.mt6737m.so    CamDeviceManagerImp::enumDeviceLocked()+52
+F DEBUG #06 libcameraservice.so  CameraModule::getNumberOfCameras()+58
+```
+**Это не регресс наших правок:** тот же краш воспроизведён на baseline
+`boot_49_all.img` (md5 `3532a5a0441eeb7d595f13056777cc7f`) — сборке до
+легаси-номера MCLK-ioctl, до VGP1, до ветки питания s5k5e8 и до
+pinSetIdx-гейта. Значит и «HAL не пробует sub-сокет» — следствие: HAL
+умирает раньше, чем доходит до фронтального сокета.
+
+Точка падения (дизасм `libcam.halsensor.so`, символ 0x116dc, крэш 0x11724):
+```
+116fe: add.w r2, r5, #0x348      ; выходной буфер #1
+11702: ldr.w ip, [r3, #0x2c]     ; виртуальный метод (обёртка ioctl)
+11706: add.w r3, r5, #0x3c0      ; выходной буфер #2
+1170a: blx   ip
+1170c: cbz   r0, 1171c           ; r0 == 0 => УСПЕХ
+11720: ldr.w r6, [r5, #0x348]    ; берём указатель из буфера #1
+11724: ldr   r1, [r6, #0x24]     ; SIGSEGV: r6 == NULL
+```
+INFERENCE: ядро вернуло успех, не заполнив выходную структуру. В нашем
+`CAMERA_HW_Ioctl` есть ровно такие места — `KDIMGSENSORIOC_X_GET_ISP_CLK`
+(запись результата закомментирована), `X_SET_I2CBUS`,
+`X_RELEASE_I2C_TRIGGER_LOCK`, `X_SET_SHUTTER_GAIN_WAIT_DONE`. Плюс весь
+интерфейс идёт через `compat_ioctl` (блобы 32-битные, ядро 64-битное), где
+перечислены не все команды. Разбор передан; блобы для дизасма сохранены в
+скретчпаде сессии.
