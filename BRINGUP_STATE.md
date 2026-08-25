@@ -4721,3 +4721,61 @@ Compat-конверсия GETINFO корректна (24 → 40 байт). Де�
 Та же проверка нужна для соседних GET-команд (`GETINFO2`,
 `GETRESOLUTION2`, `X_GET_ISP_CLK` — у последней запись результата
 закомментирована, а успех возвращается).
+
+## 2026-08-25 (ночь, 4) — модем: узлы созданы, демон дошёл до старта MD
+
+### Ловушка: правки уходили в несобираемый каталог (FACT)
+
+`drivers/misc/mediatek/Makefile:103-107`:
+```
+ifeq ($(CONFIG_MACH_MT6735M),y)
+obj-$(CONFIG_MTK_ECCCI_DRIVER) +=  eccci1/
+else
+obj-$(CONFIG_MTK_ECCCI_DRIVER) +=  eccci/
+endif
+```
+У нас `CONFIG_MACH_MT6735M=y`, значит собирается **`eccci1/`**, а `eccci/`
+не компилируется вовсе (ни одного `.o`, и `strings vmlinux` не находил
+добавленных туда строк). Всё, что правилось в `eccci/` — включая загрузку
+образа MD (`modem_sys1.c`) — на железо не попадало ни разу. Проверять
+принадлежность файла сборке ПЕРЕД правкой: `ls <dir>/*.o` и
+`strings vmlinux | grep <новая строка>`.
+
+### Узлы `/dev/ccci_*` (FACT, образ `md11`, md5 `566d3b58529f3f1c71e7427ebc8b907a`)
+
+Семь недостающих имён добавлены в `eccci1/port_cfg.c` (структура записи там
+другая: `{tx_ch, rx_ch, txq, rxq, txq_exp, rxq_exp, flags, &ops, minor,
+"name"}`; узел создаётся для любого порта с `char_port_ops`). Каналы обеих
+сторон — `CCCI_DUMMY_CH`: rx-канал определяет демультиплексирование
+(`proxy_setup_channel_mapping`), tx-канал определяет, какой порт становится
+`sys_port`/`ctl_port` (`port_proxy.c:771`), поэтому переиспользование
+настоящих каналов увело бы трафик у рабочих портов. После прошивки:
+```
+ccci_sys_rx  ccci_pcm_rx  ccci_pcm_tx  ccci_uem_rx  ccci_uem_tx
+ccci_md_log_rx  ccci_md_log_tx
+```
+
+### Новый барьер: нет `/sys/class/BOOT/BOOT/boot/md` (FACT)
+
+Ручной запуск демона теперь проходит `open /dev/ccci_sys_rx` и доходит до
+самого старта модема:
+```
+D ccci_mdinit(1): SIM_mode:0x1 slot1_mode:0x0 slot2_mode:0x0
+E ccci_mdinit(0): Open time zone setting fail(R):-1(2)        (не фатально)
+E ccci_mdinit(0): Open md_log_config file failed, errno=2!    (не фатально)
+E ccci_mdinit(0): set md boot data:2
+D ccci_mdinit(1): fail to open /sys/class/BOOT/BOOT/boot/md: 2
+E ccci_mdinit(1): boot modem fail!
+```
+В `/sys/class/BOOT/BOOT/boot/` есть только `boot_mode`:
+`mtk_boot_common.c:176` объявляет единственный атрибут
+(`BOOT_SYSFS_ATTR` = `"boot_mode"`). При этом сам триггер старта в нашем
+дереве существует, но по другому пути — `/sys/kernel/ccci/boot`
+(`ccci_util_lib_sys.c:150`, `boot_status_store` → `trigger_md_boot` →
+`boot_md_func[]`, регистрируемый из `eccci1/ccci_core.c:130`).
+INFERENCE: стоковое ядро публиковало этот триггер как `md` в BOOT-классе, а
+наш порт — только под `/sys/kernel/ccci/`. Лечение: добавить атрибут `md` в
+BOOT-класс, чей store вызывает ту же точку входа. Передано в работу.
+
+Рядом падает второй стоковый демон `md_ctrl` (`Just use muxreport to start
+modem` → SIGABRT в `main+436`) — вероятно, по той же причине.
