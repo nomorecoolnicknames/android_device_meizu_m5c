@@ -4586,3 +4586,19 @@ INFERENCE: ядро вернуло успех, не заполнив выход�
 интерфейс идёт через `compat_ioctl` (блобы 32-битные, ядро 64-битное), где
 перечислены не все команды. Разбор передан; блобы для дизасма сохранены в
 скретчпаде сессии.
+
+### GPS: причина найдена, она в ROM, не в ядре (FACT)
+
+```
+F libc: CANNOT LINK EXECUTABLE "/system/bin/mtk_agpsd": cannot locate symbol
+        "UCNV_FROM_U_CALLBACK_STOP_55" referenced by "/system/bin/mtk_agpsd"
+F libc: Fatal signal 6 (SIGABRT) in tid ... (mtk_agpsd)
+init: Service 'agpsd' (pid ...) killed by signal 6      (цикл каждые ~5 с)
+```
+Стоковый `mtk_agpsd` собран под ICU 55 (Android 6), а в LOS 14.1 версия
+символов другая — динамический линковщик не находит `*_55`. Ядерная часть
+GPS исправна: `/dev/stpgps` (191,0) создаётся, `mnld` запущен и висит в
+epoll, провайдер `gps` включён. Лечится со стороны ROM: shim-библиотека с
+алиасами ICU-символов (в `product/hardware.mk` уже перечислен набор
+`libshim_*`, куда такой модуль и добавляется) либо замена блоба. Требует
+пересборки ROM, поэтому вынесено отдельной задачей.
