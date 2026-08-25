@@ -4234,3 +4234,56 @@ Call trace: wmt_plat_deinit+0x24 → wmt_lib_deinit+0x38 →
 «достигнутых» слотов primary-диапазона (10..126) читать как объединение
 нескольких сессий; надёжны только слоты, введённые в этой сборке впервые
 (здесь — 272+), и свежесть по слоту 95.
+
+## 2026-08-25 (вечер) — связь: `kernel_read` подтверждён на железе, рубеж сдвинулся до BTIF
+
+### Что прошито (FACT)
+
+`conn2` = ветка `conn-bisect1` + коммиты `2be818bcb` (MD1-reserve),
+`10466da84` (связь: `kernel_read`/`kernel_write` + идемпотентный
+`wmt_plat_deinit`). md5 `e66553fa580c88e01e27b52dff229090`, readback с p7
+совпал байт-в-байт.
+
+### Результат: прошлый барьер снят (FACT, ram-console `conn2`)
+
+```
+[3.230992] do_common_drv_init:start to do common driver init, chipid:0x00006735
+[3.274373] do_common_drv_init:finish common driver init          <- раньше сюда не доходило
+[3.276531] [MTK-BT] BT_init: mtk_stp_BT_chrdev driver(major 192) installed
+[3.276840] mtk_stp_GPS_chrdev driver(major 191) installed.
+[3.319613] do_wlan_drv_init:WMT-WIFI char dev init, ret:0
+[3.638670] [6620_launcher] WMT_unlocked_ioctl:chipid = 0x335
+[3.641287] wmt_lib_set_hif: new hifType: 2, fm:2
+[3.641950] opfunc_hif_conf(841): WMT HIF info added
+```
+Конфиг `WMT_SOC.cfg` читается, `wmt_lib_init` больше не падает, символьные
+устройства BT/GPS/WIFI создаются, `6620_launcher` доходит до конфигурации
+HIF. Причина, названная в прошлой записи (`f_op->read` == NULL на ext4 в
+4.9), **подтверждена практикой**, а не только чтением кода.
+
+### Новый рубеж (FACT)
+
+```
+[3.643806] [WMT-CONSYS-HW][E]mtk_wcn_consys_hw_reg_ctrl(463):Read CONSYS chipId(0x00000000)
+[3.699039] Unable to handle kernel NULL pointer dereference at virtual address 0000000c
+PC is at hal_btif_dma_hw_init+0xbc/0x15c   LR is at _btif_init+0x3a0/0x4f4
+Call trace: hal_btif_dma_hw_init <- _btif_init <- btif_open <- mtk_wcn_btif_open
+            <- mtk_wcn_consys_stp_btif_open <- mtk_wcn_stp_open_btif
+            <- wmt_ctrl_stp_open <- wmt_ctrl <- wmt_core_ctrl (kthread mtk_wmtd)
+x0=ffffff80090c93d0 x1=0 x19=ffffff80090c8fc0 x22=ffffff80090c8000 x27=ffffff800ac86018
+```
+Два наблюдения: (1) `CONSYS chipId` читается нулём вместо 0x6735 — регистры
+CONSYS не отвечают (питание/reset/clock либо неверный `of_iomap`);
+(2) `hal_btif_dma_hw_init` разыменовывает NULL+0xc. Указатели вида
+`ffffff80090c8xxx` — статические структуры в `.data`, т.е. таблицы
+BTIF/DMA заданы статически, и одно поле внутри них не заполнено.
+Передано в работу; лечение обязано включать защиту пути инициализации от
+NULL (любая ошибка связи не должна давать Oops).
+
+### Побочно замечено в том же логе (FACT, отдельные линии)
+
+- `tpd_i2c_probe` → `enable_irq` → предупреждение с call trace на 1.18 с
+  (тач работает, но IRQ включается повторно/невключённым — потенциальный
+  источник шума, отдельная задача).
+- Стало видно, что `wmt_detect_ext_chip_pwr_on: combo chip is not supported`
+  — норма для SOC-варианта.
