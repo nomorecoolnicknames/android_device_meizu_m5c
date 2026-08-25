@@ -46,8 +46,24 @@
 #include <unistd.h>
 #include <dlfcn.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>
 #include <sys/system_properties.h>
 #include <linux/fb.h>
+
+/*
+ * dma-buf sync ioctl, declared locally (the NDK sysroot used by
+ * build_standalone.sh has no linux/dma-buf.h).  Used only by the
+ * forge-crc probe to invalidate the CPU view before reading; if the
+ * kernel/heap rejects it we read anyway - display ion heaps here are
+ * uncached for the CPU.
+ */
+struct forge_dma_buf_sync {
+	uint64_t flags;
+};
+#define FORGE_DMA_BUF_SYNC_READ (1 << 0)
+#define FORGE_DMA_BUF_SYNC_START (0 << 2)
+#define FORGE_DMA_BUF_SYNC_END (1 << 2)
+#define FORGE_DMA_BUF_IOCTL_SYNC _IOW('b', 0, struct forge_dma_buf_sync)
 
 #include <hardware/hardware.h>
 #include <hardware/hwcomposer.h>
@@ -97,6 +113,31 @@ struct forge_hwc {
 	unsigned int prepare_fail;
 	unsigned int trigger_fail;
 	unsigned int acquire_timeouts;
+	/*
+	 * forge fence-probe (2026-08-25, tear hunt).  Under a heavy scroll a
+	 * HEALTHY pipeline must regularly reach set() before the GPU has
+	 * finished the buffers (acq_waited > 0 for a visible share of
+	 * planes).  If essentially every acquire fence is already signaled
+	 * (acq_presignaled ~ 100%) on scenes the GPU cannot possibly finish
+	 * that fast, the mali fences are firing early - SurfaceFlinger then
+	 * latches half-rendered buffers and the glass shows a stationary
+	 * horizontal stitch between two moments of motion, identical with
+	 * overlays on and off (matches p80).  Counters are in dump() and a
+	 * summary goes to dmesg every 300 frames.
+	 */
+	unsigned int acq_presignaled;
+	unsigned int acq_waited;
+	unsigned int acq_nofence;	/* SF handed us NO fence (fd = -1):
+					 * with mali lacking native fence
+					 * support every plane lands here and
+					 * nothing orders the GPU against the
+					 * scan-out - a content tear needs no
+					 * other explanation then */
+	unsigned int acq_wait_us_max;
+	unsigned long long acq_wait_us_total;
+	/* forge-crc probe results (see engine_crc_probe) */
+	unsigned int crc_runs;
+	unsigned int crc_dirty_runs;
 	unsigned int last_buff_idx;
 	unsigned int last_pf_idx;
 	int fmt_override;	/* debug.forgehwc.fmt, 0 = RGBA8888 */
@@ -286,6 +327,112 @@ static void fill_blending(struct disp_input_config *c, int32_t blending)
 }
 
 /*
+ * forge-crc probe (2026-08-25): the OBJECTIVE tear detector at the content
+ * level.  Once a plane is submitted, the buffer belongs to the display
+ * until its release fence signals - NOTHING may legitimately write into
+ * it.  So: signature 10 rows of every submitted buffer right after
+ * TRIGGER, wait ~half a frame, signature them again.  Any difference =
+ * the producer (GPU) is still rendering into a buffer we handed to the
+ * scan-out - a content tear needs no other explanation, and no eyes are
+ * needed.  Enabled with debug.forgehwc.crc=1, samples every 16th frame
+ * (the probe stalls set() by crcdelay us on sampled frames - visible
+ * hitching while enabled is expected and harmless).
+ * dmesg: "forge-crc: ... dirty=..." lines; totals in dump().
+ */
+static void engine_crc_probe(struct forge_hwc *hwc, struct fhwc_plane *planes,
+			     int n)
+{
+	static unsigned int seq;
+	void *map[4] = { NULL, NULL, NULL, NULL };
+	size_t maplen[4] = { 0, 0, 0, 0 };
+	int fd_of[4] = { -1, -1, -1, -1 };
+	unsigned int pitch[4], rows_of[4];
+	uint64_t sig0[4][10];
+	int k, r, w, delay_us, any_dirty = 0;
+
+	if (!prop_int("debug.forgehwc.crc", 0))
+		return;
+	if ((seq++ % 16) != 0)
+		return;
+	delay_us = prop_int("debug.forgehwc.crcdelay", 9000);
+
+	for (k = 0; k < n; k++) {
+		int ion_fd = -1, stride_px = (int)hwc->width;
+		off_t sz;
+
+		if (hwc->ge_query) {
+			if (hwc->ge_query(planes[k].handle, GE_GET_ION_FD, &ion_fd) != 0)
+				ion_fd = -1;
+			hwc->ge_query(planes[k].handle, GE_GET_STRIDE, &stride_px);
+		}
+		if (ion_fd < 0 && planes[k].handle->numFds > 0)
+			ion_fd = planes[k].handle->data[0];
+		if (ion_fd < 0)
+			continue;
+		sz = lseek(ion_fd, 0, SEEK_END);
+		lseek(ion_fd, 0, SEEK_SET);
+		if (sz <= 0)
+			continue;
+		if ((size_t)sz > (size_t)stride_px * 4u * planes[k].sh)
+			sz = (off_t)((size_t)stride_px * 4u * planes[k].sh);
+		map[k] = mmap(NULL, (size_t)sz, PROT_READ, MAP_SHARED, ion_fd, 0);
+		if (map[k] == MAP_FAILED) {
+			map[k] = NULL;
+			continue;
+		}
+		maplen[k] = (size_t)sz;
+		fd_of[k] = ion_fd;
+		pitch[k] = (unsigned int)stride_px * 4u;
+		rows_of[k] = maplen[k] / pitch[k];
+	}
+
+	for (w = 0; w < 2; w++) {
+		if (w == 1)
+			usleep(delay_us);
+		for (k = 0; k < n; k++) {
+			struct forge_dma_buf_sync dbs;
+
+			if (!map[k])
+				continue;
+			dbs.flags = FORGE_DMA_BUF_SYNC_START | FORGE_DMA_BUF_SYNC_READ;
+			ioctl(fd_of[k], FORGE_DMA_BUF_IOCTL_SYNC, &dbs);
+			for (r = 0; r < 10; r++) {
+				unsigned int row = (rows_of[k] > 1) ?
+				    (unsigned int)((uint64_t)r * (rows_of[k] - 1) / 9) : 0;
+				const uint64_t *q = (const uint64_t *)
+				    ((const char *)map[k] + (size_t)row * pitch[k]);
+				unsigned int nw = pitch[k] / 8;
+				uint64_t acc = 0;
+				unsigned int i;
+
+				for (i = 0; i < nw; i++)
+					acc ^= q[i];
+				if (w == 0) {
+					sig0[k][r] = acc;
+				} else if (acc != sig0[k][r]) {
+					any_dirty |= 1 << k;
+					kmsg_log("forge-crc: seq=%u plane=%d row=%u CHANGED after submit (delay=%dus)",
+						 seq - 1, k, row, delay_us);
+				}
+			}
+			dbs.flags = FORGE_DMA_BUF_SYNC_END | FORGE_DMA_BUF_SYNC_READ;
+			ioctl(fd_of[k], FORGE_DMA_BUF_IOCTL_SYNC, &dbs);
+		}
+	}
+
+	hwc->crc_runs++;
+	if (any_dirty)
+		hwc->crc_dirty_runs++;
+	if (any_dirty || (hwc->crc_runs % 32) == 0)
+		kmsg_log("forge-crc: runs=%u dirty_runs=%u last_dirty_mask=0x%x",
+			 hwc->crc_runs, hwc->crc_dirty_runs, any_dirty);
+
+	for (k = 0; k < n; k++)
+		if (map[k])
+			munmap(map[k], maplen[k]);
+}
+
+/*
  * Hand n planes (bottom -> top == OVL layer 0 -> n-1) to the kernel in one
  * SET_INPUT + TRIGGER.  Consumes every plane's acquire fence; fills each
  * plane's release_fd and *retire_fence (all owned by the caller).
@@ -305,11 +452,50 @@ static int engine_submit(struct forge_hwc *hwc, struct fhwc_plane *planes,
 
 	/* the kernel does not wait src_fence_fd: wait here, then submit */
 	for (k = 0; k < n; k++) {
-		engine_wait_fence(hwc, planes[k].acquire, 1200);
-		if (planes[k].acquire >= 0)
+		if (planes[k].acquire >= 0) {
+			/* forge fence-probe: distinguish "producer was
+			 * already done" from "we actually had to wait" */
+			struct pollfd fp;
+			int pr;
+
+			fp.fd = planes[k].acquire;
+			fp.events = POLLIN | POLLERR;
+			pr = poll(&fp, 1, 0);
+			if (pr > 0) {
+				hwc->acq_presignaled++;
+			} else {
+				struct timespec a, b;
+				unsigned int us;
+
+				hwc->acq_waited++;
+				clock_gettime(CLOCK_MONOTONIC, &a);
+				engine_wait_fence(hwc, planes[k].acquire, 1200);
+				clock_gettime(CLOCK_MONOTONIC, &b);
+				us = (unsigned int)((b.tv_sec - a.tv_sec) * 1000000LL +
+						    (b.tv_nsec - a.tv_nsec) / 1000);
+				hwc->acq_wait_us_total += us;
+				if (us > hwc->acq_wait_us_max)
+					hwc->acq_wait_us_max = us;
+			}
 			close(planes[k].acquire);
+		} else {
+			hwc->acq_nofence++;
+		}
 		planes[k].acquire = -1;
 		planes[k].release_fd = -1;
+	}
+
+	/* forge: A/B knob for the content-tear hypothesis.  If the acquire
+	 * fences signal EARLY (before the GPU is really done), an extra
+	 * fixed delay here gives the GPU time to catch up and the tear on
+	 * the glass must disappear/move down - while with honest fences it
+	 * only adds latency and changes nothing.  debug.forgehwc.acqdelay
+	 * is in microseconds, default 0 (off). */
+	{
+		int d = prop_int("debug.forgehwc.acqdelay", 0);
+
+		if (d > 0)
+			usleep((useconds_t)d);
 	}
 
 	in = calloc(1, sizeof(*in));
@@ -330,10 +516,30 @@ static int engine_submit(struct forge_hwc *hwc, struct fhwc_plane *planes,
 		int ion_fd = -1;
 		int stride_px = (int)hwc->width;
 
+		int ge_ok = 0;
+
 		if (hwc->ge_query) {
 			if (hwc->ge_query(p->handle, GE_GET_ION_FD, &ion_fd) != 0)
 				ion_fd = -1;
-			hwc->ge_query(p->handle, GE_GET_STRIDE, &stride_px);
+			ge_ok = (hwc->ge_query(p->handle, GE_GET_STRIDE,
+					       &stride_px) == 0);
+		}
+		/*
+		 * forge: say what pitch each plane is actually given.
+		 *
+		 * A staircase along horizontal edges is what a wrong line
+		 * stride looks like, and the fallback here silently uses the
+		 * panel width when the gralloc query fails — which is wrong
+		 * for any buffer the allocator padded. Print it once per
+		 * plane per second so the answer is data, not assumption.
+		 */
+		{
+			static unsigned int fseq;
+
+			if ((fseq++ % 60) == 0)
+				kmsg_log("forge-pitch: plane%d ge=%d stride_px=%d fmt=%d w=%d h=%d",
+					 k, ge_ok, stride_px, p->fmt,
+					 p->sw, p->sh);
 		}
 		if (ion_fd < 0 && p->handle->numFds > 0)
 			ion_fd = p->handle->data[0];
@@ -407,11 +613,19 @@ static int engine_submit(struct forge_hwc *hwc, struct fhwc_plane *planes,
 		goto fail;
 	}
 
+	engine_crc_probe(hwc, planes, n);
+
 	hwc->frames++;
 	hwc->last_novl = (unsigned int)n;
 	if (hwc->frames <= 8 || (hwc->frames % 600) == 0)
 		FLOGI("frame #%u: planes=%d pf_idx=%u", hwc->frames, n,
 		      pf.present_fence_index);
+	if ((hwc->frames % 300) == 0)
+		kmsg_log("forge-fence: presig=%u waited=%u nofence=%u wait_avg_us=%llu wait_max_us=%u",
+			 hwc->acq_presignaled, hwc->acq_waited, hwc->acq_nofence,
+			 hwc->acq_waited ?
+			     hwc->acq_wait_us_total / hwc->acq_waited : 0,
+			 hwc->acq_wait_us_max);
 
 	*retire_fence = pf.present_fence_fd;
 	return 0;
@@ -773,13 +987,18 @@ static void fhwc_dump(hwc_composer_device_1_t *dev, char *buff, int buff_len)
 		 "forge-hwc: session=0x%x %ux%u period=%uns frames=%u prepare_fail=%u "
 		 "trigger_fail=%u acq_timeout=%u last_idx=%u last_pf=%u "
 		 "vsync_on=%d ge=%s "
-		 "ovl_frames=%u gles_frames=%u promoted=%u last: planes=%u fbt=%d\n",
+		 "ovl_frames=%u gles_frames=%u promoted=%u last: planes=%u fbt=%d "
+		 "acq: presig=%u waited=%u nofence=%u wait_avg_us=%llu wait_max_us=%u "
+		 "crc: runs=%u dirty=%u\n",
 		 hwc->session, hwc->width, hwc->height, hwc->vsync_period_ns, hwc->frames,
 		 hwc->prepare_fail, hwc->trigger_fail, hwc->acquire_timeouts,
 		 hwc->last_buff_idx, hwc->last_pf_idx, hwc->vsync_on,
 		 hwc->ge_query ? "yes" : "no",
 		 hwc->ovl_frames, hwc->gles_frames, hwc->promoted_total,
-		 hwc->last_novl, hwc->last_fbt_used);
+		 hwc->last_novl, hwc->last_fbt_used,
+		 hwc->acq_presignaled, hwc->acq_waited, hwc->acq_nofence,
+		 hwc->acq_waited ? hwc->acq_wait_us_total / hwc->acq_waited : 0,
+		 hwc->acq_wait_us_max, hwc->crc_runs, hwc->crc_dirty_runs);
 }
 
 static int fhwc_get_display_configs(hwc_composer_device_1_t *dev, int disp,
