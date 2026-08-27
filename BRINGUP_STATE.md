@@ -5562,3 +5562,117 @@ RILC: RIL_SOCKET_1 UNSOLICITED: UNSOL_SIGNAL_STRENGTH
 4. `ccci_port_ver = 3` — иначе `gsm0710muxd` открывает строку `"(null)"`.
 5. ROM-обвязка: права на узлы, запуск `ccci_mdinit` от root по готовности NVRAM,
    прошивки модема также в `/vendor/firmware`.
+
+## 2026-08-27 — SIM вставлена: регистрация в сети есть; Wi-Fi роняет ядро
+
+### Регистрация в сети — работает
+
+FACT (образ `boot_m5c_49_20260827_modem.img`, md5
+`30ec1334a99f6adb2d461e1a5beba18f`, SIM Beeline в слоте 1, ручной запуск
+`start gsm0710muxd` + `start ril-daemon-mtk`):
+
+```
+gsm.operator.alpha    = beeline
+gsm.operator.numeric  = 25099
+persist.radio.nitz_oper_lname = beeline
+persist.radio.ia      = 8970199131102411766f   (ICCID карты)
+AT< +CPIN: READY
+AT> AT+CRSM=192,28589,0,0,0,,"7FFF"
+AT< +CRSM: 144, 0, "621C8202412183026FADA5039201008A01078B036F060180020004880118"
+AT< +ECSQ: 13,48,1,1,1,-54,-370,7,17      (RSSI около -54 dBm)
+RILMUXD: Frames received/dropped: 544/0
+```
+
+То есть модем читает SIM (CPIN READY, CRSM отдаёт содержимое EF), находит
+оператора и держит сеть с сильным сигналом. Цепочка ядро → ccci → mux → RIL →
+модем закрыта полностью.
+
+### Почему при этом `gsm.sim.state = NOT_READY`
+
+FACT:
+```
+[3740]> GET_SIM_STATUS [SUB0]
+RILC-MTK: GET_SIM_STATUS ... dispatched to RIL_CMD_PROXY_1 ... using channel 3
+RIL: onRequest: GET_SIM_STATUS, datalen = 0
+```
+ответа `[3740]< GET_SIM_STATUS` в буфере radio нет. После `stop`/`start`
+`ril-daemon-mtk`:
+```
+RilRequest: [3690]< GET_SIM_STATUS error: CommandException: RADIO_NOT_AVAILABLE
+RILC: Can't send URC because there is no connection yet.
+      Try to cache request:UNSOL_RESPONSE_SIM_STATUS_CHANGED in RIL RIL_SOCKET_1
+IccCardProxy: setExternalState: !override and newstate unchanged from NOT_READY
+```
+
+INFERENCE (опирается на две FACT выше): вручную запущенный RIL не годится для
+проверки статуса SIM. Телефонный процесс (`com.android.phone`, pid 1509)
+подключается к сокету `rild` один раз при своём старте; RIL, поднятый позже,
+остаётся без слушателя и складывает URC в кэш. Регистрация в сети при этом
+видна, потому что она приходит пропертями через `nitz`, а не через сокет.
+
+Отсюда: корректная проверка SIM возможна только когда mux и RIL стартуют из
+init **до** телефонного процесса. До сих пор оба сервиса были `disabled` и без
+единого триггера — их запускали только руками.
+
+### Автозапуск цепочки модема (правка ROM)
+
+`rootdir/root/init.modem.rc` дополнен по образцу рабочего m681-дерева:
+
+```
+on property:mtk.md1.status=init_done   (и =ready)
+    chown radio radio /dev/ttyC0
+    chmod 0660 /dev/ttyC0
+    start terservice
+    start gsm0710muxd
+
+on property:init.svc.gsm0710muxd=running
+    start ril-daemon-mtk
+```
+
+`mtk.md1.status` на живом устройстве равен `init_done` (FACT: `getprop`),
+поэтому триггер повешен на него, а вариант `ready` оставлен как у m681.
+Заодно device-дерево синхронизировано с прошитым ramdisk — оно отставало на
+правки от 2026-08-27 (ccci_mdinit от root, запуск по `service.nvram_init`).
+
+Отвергнутые попутно версии:
+- REJECTED «RIL ждёт `nvram_daemon`»: демон отрабатывает штатно и сам выходит
+  (`NVRAM daemon sync end !`, `NVRAM daemon exits !`) — это oneshot, не блокер.
+- REJECTED «нужен второй RIL-инстанс для слота 1»: `isSimInserted(): rid: 1,
+  sim_inserted_status: 1, pivotSim = 2, simInserted = 0` — это корректный ответ
+  для слота 2 при карте в слоте 1, а не признак отсутствия инстанса.
+
+### Kernel panic: Wi-Fi роняет аппарат (нашлось попутно)
+
+FACT (pstore `console-ramoops`, два подряд одинаковых крэша; копии в
+`captures/20260827-wlan-panic/`):
+
+```
+Internal error: Accessing user space memory outside uaccess.h routines: 96000005
+CPU: 3 PID: 1493 Comm: wpa_supplicant  Tainted: G W  4.9.188-m5c+ #48
+PC is at wext_support_ioctl+0xf90/0x1460
+LR is at wlanDoIOCTL+0x68/0xbc
+Call trace: el1_da -> wlanDoIOCTL -> wireless_process_ioctl -> wext_handle_ioctl
+            -> dev_ioctl -> sock_ioctl -> do_vfs_ioctl -> SyS_ioctl
+exception reboot
+```
+
+addr2line по `vmlinux` того же дерева: `ffffff80085504bc` →
+`gl_wext.c:3328`, функция `wext_set_country`; инструкция в этой точке —
+`ldrb w1, [x0,#8]`, где `x0` есть `iwr->u.data.pointer`, то есть
+пользовательский адрес.
+
+Код:
+```c
+aucCountry[0] = *((PUINT_8) iwr->u.data.pointer + 8);
+aucCountry[1] = *((PUINT_8) iwr->u.data.pointer + 9);
+```
+Прямое разыменование user-указателя в ядре. Все соседние обработчики того же
+файла (строки 3488, 3508, 3580, 3678, 3731, 3789, 3823) пользуются
+`copy_from_user`; этот — нет. На 4.9 с PAN/UAO такой доступ фатален. Триггер —
+`SIOCSIWPRIV` («COUNTRY XX»), который wpa_supplicant шлёт при инициализации
+Wi-Fi, поэтому аппарат перезагружался циклически, а adb рвался «сам по себе»
+(uptime 185 c → 16 c сразу после очередной команды).
+
+Это тот же класс дефекта, что уже ловился на камере и ccci: драйвер из 3.18
+переносится в 4.9, где ужесточены правила доступа. Фикс и аудит остальных
+точек в `gen2/os/linux/` вынесены в отдельную работу.

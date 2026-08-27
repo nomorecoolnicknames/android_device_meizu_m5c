@@ -1,0 +1,719 @@
+127.909699]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  127.909740]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  127.909756]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  128.910746]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  128.910786]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  128.910802]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  129.911801]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  129.911839]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  129.911854]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  130.343098]  (0)[1245:AlarmManager]alarm_dev: alarm 3 set 171.019000000
+[  130.374180]  (0)[62:dlpt_notify_thr][PBM] [ma_to_mw] 4217(mV) * 5500(mA) = 23193(mW)
+[  130.912834]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  130.912872]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  130.912888]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  131.264522] -(1)[0:swapper/1]Detected VIPT I-cache on CPU1
+[  131.264599] -(1)[0:swapper/1]Fail to set polarity of interrupt 29
+[  131.264618] -(1)[0:swapper/1]Fail to set polarity of interrupt 30
+[  131.264642] -(1)[0:swapper/1]Invalid sched_group_energy for CPU1
+[  131.264658] -(1)[0:swapper/1]CPU1: update cpu_capacity 1024
+[  131.264674] -(1)[0:swapper/1]CPU1: Booted secondary processor [410fd034]
+[  131.267246]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster1
+[  131.267284]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  131.267418]  (0)[145:hps_main][HPS] (0020)(1)action end(100)(169)(0)(0) (4)(4)(4)(4)(1) (78)(48)(0) (0)(0)(0) (1)(169)(49)(0)(169)
+[  131.380284] -(0)[2973:sh][g_android][USB]state_show, state:CONFIGURED
+[  131.382679] [g_android][USB]functions_show: [  131.694944] -(0)[0:swapper/0][Power/swap]DP: No enter --- SODI: No enter --- 
+[  131.913871]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  131.913910]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  131.913925]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  132.087010]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  132.087792]  (0)[145:hps_main]CPU1: shutdown
+[  132.087824]  (0)[145:hps_main]CPU1 may not have shut down cleanly
+[  132.087862]  (0)[145:hps_main]CPU1 may not have shut down cleanly: 1
+[  132.113040]  (0)[145:hps_main][HPS] (0200)(2)action end(1)(0)(0)(0) (4)(4)(4)(4)(1) (1)(8)(0) (624)(8)(0) (0)(0)(8)(0)(0)
+[  132.914947]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  132.914985]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  132.915001]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  133.915985]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  133.916024]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  133.916039]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  134.917020]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  134.917058]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  134.917074]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  135.306363]  (0)[184:bat_routine_thr][fan5405_read_interface] val=0x2
+[  135.306405]  (0)[184:bat_routine_thr][kernel]AvgVbat 4221,bat_vol 4216, AvgI 370, I 117, VChr 4920, AvgT 31, T 31, ZCV 39, CHR_Type 1, SOC 100:100:100, bcct 0:0, Ichg 750, IBat 57
+[  135.306423]  (0)[184:bat_routine_thr][charging_get_battery_status] battery exist for bring up.
+[  135.306438]  (0)[184:bat_routine_thr][charging_get_battery_status] battery exist for bring up.
+[  135.306453]  (0)[184:bat_routine_thr][charging_get_battery_status] battery exist for bring up.
+[  135.306474] [BATTERY] Top Off mode charge, timer=130 on 150 !!
+[  135.513142]  (0)[184:bat_routine_thr][BATTERY] set_bat_sw_cv_charging_current_limit (10200)
+[  135.710936]  (0)[184:bat_routine_thr][BATTERY] Sw CV set charging current, csdac_full_flag=1, current=7000 !
+[  135.710966]  (0)[184:bat_routine_thr][BATTERY] set_bat_sw_cv_charging_current_limit (7000)
+[  135.910943]  (0)[184:bat_routine_thr][BATTERY] Sw CV set charging current, csdac_full_flag=1, current=0 !
+[  135.910977]  (0)[184:bat_routine_thr][BATTERY] Sw CV set charging current Error!
+[  135.910994]  (0)[184:bat_routine_thr]fan5405  charging_hw_init  line=163
+[  135.912543]  (0)[184:bat_routine_thr][BATTERY] Default CC mode charging : 50000
+[  135.914359]  (0)[184:bat_routine_thr][BATTERY] pchr_turn_on_charging(), enable =1 
+[  135.917141] [fan5405] [  135.917683]  (0)[184:bat_routine_thr][0x0]=0xd0 
+[  135.918047]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  135.918064]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  135.918079]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  135.918244] [0x1]=0xb8 [  135.918784]  (0)[184:bat_routine_thr][0x2]=0x8e 
+[0x3]=0x94 [  135.919900]  (0)[184:bat_routine_thr][0x4]=0x89 
+[0x5]=0x23 [  135.921000]  (0)[184:bat_routine_thr][0x6]=0x58 
+[  135.921024]  (0)[184:bat_routine_thr]
+[  135.921040]  (0)[184:bat_routine_thr]not battery_meter_set_fg_int
+[  136.922028]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  136.922068]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  136.922084]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  136.928888] -(1)[0:swapper/1]Detected VIPT I-cache on CPU1
+[  136.928967] -(1)[0:swapper/1]Fail to set polarity of interrupt 29
+[  136.928985] -(1)[0:swapper/1]Fail to set polarity of interrupt 30
+[  136.929009] -(1)[0:swapper/1]Invalid sched_group_energy for CPU1
+[  136.929025] -(1)[0:swapper/1]CPU1: update cpu_capacity 1024
+[  136.929040] -(1)[0:swapper/1]CPU1: Booted secondary processor [410fd034]
+[  136.935226]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster1
+[  136.935261]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  136.935389]  (0)[145:hps_main][HPS] (0020)(1)action end(100)(116)(0)(0) (4)(4)(4)(4)(1) (0)(47)(1) (0)(0)(0) (1)(116)(48)(0)(116)
+[  137.082052] -(0)[3020:sh][g_android][USB]state_show, state:CONFIGURED
+[  137.084753] [g_android][USB]functions_show: [  137.751009]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  137.751810]  (0)[145:hps_main]CPU1: shutdown
+[  137.751842]  (0)[145:hps_main]CPU1 may not have shut down cleanly
+[  137.751881]  (0)[145:hps_main]CPU1 may not have shut down cleanly: 1
+[  137.768961]  (0)[145:hps_main][HPS] (0200)(2)action end(0)(0)(0)(0) (4)(4)(4)(4)(1) (0)(8)(0) (670)(8)(0) (0)(0)(8)(0)(0)
+[  137.923441]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  137.923477]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  137.923493]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  138.924486]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  138.924525]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  138.924540]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  139.925522]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  139.925560]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  139.925576]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  140.380590]  (0)[62:dlpt_notify_thr][PBM] [ma_to_mw] 4216(mV) * 5500(mA) = 23188(mW)
+[  140.926563]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  140.926602]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  140.926618]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  141.694990] -(0)[0:swapper/0][Power/swap]DP: No enter --- SODI: No enter --- 
+[  141.927622]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  141.927651]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  141.927667]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  142.559010]  (0)[203:wdtk-1][thread:203][RT:142558996031] 2026-08-27 12:05:12.216025 UTC;android time 2026-08-27 15:05:12.216025
+[  142.684508] -(1)[0:swapper/1]Detected VIPT I-cache on CPU1
+[  142.684586] -(1)[0:swapper/1]Fail to set polarity of interrupt 29
+[  142.684605] -(1)[0:swapper/1]Fail to set polarity of interrupt 30
+[  142.684629] -(1)[0:swapper/1]Invalid sched_group_energy for CPU1
+[  142.684644] -(1)[0:swapper/1]CPU1: update cpu_capacity 1024
+[  142.684659] -(1)[0:swapper/1]CPU1: Booted secondary processor [410fd034]
+[  142.691187]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster1
+[  142.691226]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  142.691357]  (0)[145:hps_main][HPS] (0020)(1)action end(100)(148)(0)(0) (4)(4)(4)(4)(1) (44)(48)(0) (0)(0)(0) (1)(148)(49)(0)(148)
+[  142.816533] -(1)[3067:sh][g_android][USB]state_show, state:CONFIGURED
+[  142.819021] [g_android][USB]functions_show: [  142.928677]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  142.928730]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  142.928745]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  143.507016]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  143.507799]  (0)[145:hps_main]CPU1: shutdown
+[  143.507832]  (0)[145:hps_main]CPU1 may not have shut down cleanly
+[  143.507869]  (0)[145:hps_main]CPU1 may not have shut down cleanly: 1
+[  143.525029]  (0)[145:hps_main][HPS] (0200)(2)action end(0)(0)(0)(0) (4)(4)(4)(4)(1) (0)(8)(0) (647)(8)(0) (0)(0)(8)(0)(0)
+[  143.929754]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  143.929790]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  143.929806]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  144.350969]  (0)[202:wdtk-0][thread:202][RT:144350948958] 2026-08-27 12:05:14.7978 UTC;android time 2026-08-27 15:05:14.7978
+[  144.930790]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  144.930822]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  144.930838]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  145.306334]  (0)[184:bat_routine_thr][fan5405_read_interface] val=0x2
+[  145.306375]  (0)[184:bat_routine_thr][kernel]AvgVbat 4220,bat_vol 4216, AvgI 357, I 117, VChr 4920, AvgT 31, T 31, ZCV 39, CHR_Type 1, SOC 100:100:100, bcct 0:0, Ichg 750, IBat 57
+[  145.306394]  (0)[184:bat_routine_thr][charging_get_battery_status] battery exist for bring up.
+[  145.306410]  (0)[184:bat_routine_thr][charging_get_battery_status] battery exist for bring up.
+[  145.306424]  (0)[184:bat_routine_thr][charging_get_battery_status] battery exist for bring up.
+[  145.306444] [BATTERY] Top Off mode charge, timer=140 on 160 !!
+[  145.511080]  (0)[184:bat_routine_thr][BATTERY] set_bat_sw_cv_charging_current_limit (11700)
+[  145.710937]  (0)[184:bat_routine_thr][BATTERY] Sw CV set charging current, csdac_full_flag=1, current=7000 !
+[  145.710965]  (0)[184:bat_routine_thr][BATTERY] set_bat_sw_cv_charging_current_limit (7000)
+[  145.910940]  (0)[184:bat_routine_thr][BATTERY] Sw CV set charging current, csdac_full_flag=1, current=0 !
+[  145.910971]  (0)[184:bat_routine_thr][BATTERY] Sw CV set charging current Error!
+[  145.910988]  (0)[184:bat_routine_thr]fan5405  charging_hw_init  line=163
+[  145.912514]  (0)[184:bat_routine_thr][BATTERY] Default CC mode charging : 50000
+[  145.914322]  (0)[184:bat_routine_thr][BATTERY] pchr_turn_on_charging(), enable =1 
+[  145.917051] [fan5405] [  145.917590]  (0)[184:bat_routine_thr][0x0]=0xd0 
+[0x1]=0xb8 [  145.918673]  (0)[184:bat_routine_thr][0x2]=0x8e 
+[0x3]=0x94 [  145.919771]  (0)[184:bat_routine_thr][0x4]=0x89 
+[0x5]=0x23 [  145.920855]  (0)[184:bat_routine_thr][0x6]=0x58 
+[  145.920879]  (0)[184:bat_routine_thr]
+[  145.920895]  (0)[184:bat_routine_thr]not battery_meter_set_fg_int
+[  145.931839]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  145.931866]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  145.931881]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  146.720334] -(0)[284:healthd]alarmtimer_enqueue, 206717363078
+[  146.932861]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  146.932898]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  146.932914]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  147.933903]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  147.933941]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  147.933956]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  148.440563] -(1)[0:swapper/1]Detected VIPT I-cache on CPU1
+[  148.440643] -(1)[0:swapper/1]Fail to set polarity of interrupt 29
+[  148.440662] -(1)[0:swapper/1]Fail to set polarity of interrupt 30
+[  148.440686] -(1)[0:swapper/1]Invalid sched_group_energy for CPU1
+[  148.440701] -(1)[0:swapper/1]CPU1: update cpu_capacity 1024
+[  148.440717] -(1)[0:swapper/1]CPU1: Booted secondary processor [410fd034]
+[  148.443269]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster1
+[  148.443299]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  148.443431]  (0)[145:hps_main][HPS] (0020)(1)action end(100)(165)(0)(0) (4)(4)(4)(4)(1) (83)(48)(0) (0)(0)(0) (1)(165)(49)(0)(165)
+[  148.557680] -(1)[3114:sh][g_android][USB]state_show, state:CONFIGURED
+[  148.560306] [g_android][USB]functions_show: [  148.934994]  (1)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  148.935043]  (1)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  148.935058]  (1)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  149.259011]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  149.259800]  (0)[145:hps_main]CPU1: shutdown
+[  149.259833]  (0)[145:hps_main]CPU1 may not have shut down cleanly
+[  149.259872]  (0)[145:hps_main]CPU1 may not have shut down cleanly: 1
+[  149.277012]  (0)[145:hps_main][HPS] (0200)(2)action end(11)(5)(0)(0) (4)(4)(4)(4)(1) (11)(8)(0) (635)(8)(0) (0)(5)(8)(0)(5)
+[  149.936058]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  149.936094]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  149.936110]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  150.384981]  (0)[62:dlpt_notify_thr][PBM] [ma_to_mw] 4217(mV) * 5500(mA) = 23193(mW)
+[  150.937103]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  150.937138]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  150.937154]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  151.606971] -(0)[0:swapper/0][Power/swap]CNT(dpidle,rgidle): [0] = (0,48779), [1] = (0,36089), [2] = (0,26455), [3] = (0,20180), 
+[  151.607009] -(0)[0:swapper/0][Power/swap]dpidle_block_cnt: [by_cpu] = 0, [by_clk] = 0, [by_tmr] = 0, [by_oth] = 0, [by_vtg] = 0, [by_frm] = 3191, 
+[  151.607031] -(0)[0:swapper/0][Power/swap]dpidle_block_mask: 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 
+[  151.710960] -(0)[0:swapper/0][Power/swap]DP: No enter --- SODI: No enter --- 
+[  151.938135]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  151.938163]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  151.938178]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  152.542946]  (0)[168:hang_detect][Hang_Detect] hang_detect thread counts down 2147483647:2147483647, status 0.
+[  152.939176]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  152.939209]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  152.939225]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  153.940208]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  153.940246]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  153.940262]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  154.192501] -(1)[0:swapper/1]Detected VIPT I-cache on CPU1
+[  154.192579] -(1)[0:swapper/1]Fail to set polarity of interrupt 29
+[  154.192597] -(1)[0:swapper/1]Fail to set polarity of interrupt 30
+[  154.192621] -(1)[0:swapper/1]Invalid sched_group_energy for CPU1
+[  154.192636] -(1)[0:swapper/1]CPU1: update cpu_capacity 1024
+[  154.192652] -(1)[0:swapper/1]CPU1: Booted secondary processor [410fd034]
+[  154.199164]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster1
+[  154.199201]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  154.199331]  (0)[145:hps_main][HPS] (0020)(1)action end(100)(171)(0)(0) (4)(4)(4)(4)(1) (85)(48)(0) (0)(0)(0) (1)(171)(49)(0)(171)
+[  154.303534] -(0)[3161:sh][g_android][USB]state_show, state:CONFIGURED
+[  154.305897] [g_android][USB]functions_show: [  154.941242]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  154.941290]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  154.941306]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  155.015012]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  155.015788]  (0)[145:hps_main]CPU1: shutdown
+[  155.015817]  (0)[145:hps_main]CPU1 may not have shut down cleanly
+[  155.015855]  (0)[145:hps_main]CPU1 may not have shut down cleanly: 1
+[  155.033060]  (0)[145:hps_main][HPS] (0200)(2)action end(0)(0)(0)(0) (4)(4)(4)(4)(1) (0)(8)(0) (616)(8)(0) (0)(0)(8)(0)(0)
+[  155.306365]  (0)[184:bat_routine_thr][fan5405_read_interface] val=0x2
+[  155.306407]  (0)[184:bat_routine_thr][kernel]AvgVbat 4219,bat_vol 4217, AvgI 344, I 117, VChr 4929, AvgT 31, T 31, ZCV 39, CHR_Type 1, SOC 100:100:100, bcct 0:0, Ichg 750, IBat 58
+[  155.306426]  (0)[184:bat_routine_thr][charging_get_battery_status] battery exist for bring up.
+[  155.306441]  (0)[184:bat_routine_thr][charging_get_battery_status] battery exist for bring up.
+[  155.306456]  (0)[184:bat_routine_thr][charging_get_battery_status] battery exist for bring up.
+[  155.306476] [BATTERY] Top Off mode charge, timer=150 on 170 !!
+[  155.511090]  (0)[184:bat_routine_thr][BATTERY] set_bat_sw_cv_charging_current_limit (10200)
+[  155.710939]  (0)[184:bat_routine_thr][BATTERY] Sw CV set charging current, csdac_full_flag=1, current=7000 !
+[  155.710970]  (0)[184:bat_routine_thr][BATTERY] set_bat_sw_cv_charging_current_limit (7000)
+[  155.910940]  (0)[184:bat_routine_thr][BATTERY] Sw CV set charging current, csdac_full_flag=1, current=0 !
+[  155.910972]  (0)[184:bat_routine_thr][BATTERY] Sw CV set charging current Error!
+[  155.910989]  (0)[184:bat_routine_thr]fan5405  charging_hw_init  line=163
+[  155.912515]  (0)[184:bat_routine_thr][BATTERY] Default CC mode charging : 50000
+[  155.914324]  (0)[184:bat_routine_thr][BATTERY] pchr_turn_on_charging(), enable =1 
+[  155.917056] [fan5405] [  155.917596]  (0)[184:bat_routine_thr][0x0]=0xd0 
+[0x1]=0xb8 [  155.918676]  (0)[184:bat_routine_thr][0x2]=0x8e 
+[0x3]=0x94 [  155.919775]  (0)[184:bat_routine_thr][0x4]=0x89 
+[0x5]=0x23 [  155.920860]  (0)[184:bat_routine_thr][0x6]=0x58 
+[  155.920884]  (0)[184:bat_routine_thr]
+[  155.920900]  (0)[184:bat_routine_thr]not battery_meter_set_fg_int
+[  155.942305]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  155.942333]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  155.942349]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  156.943378]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  156.943419]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  156.943434]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  157.944425]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  157.944465]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  157.944480]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  158.945464]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  158.945503]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  158.945519]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  159.946499]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  159.946540]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  159.946556]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  159.948849] -(1)[0:swapper/1]Detected VIPT I-cache on CPU1
+[  159.948931] -(1)[0:swapper/1]Fail to set polarity of interrupt 29
+[  159.948950] -(1)[0:swapper/1]Fail to set polarity of interrupt 30
+[  159.948973] -(1)[0:swapper/1]Invalid sched_group_energy for CPU1
+[  159.948989] -(1)[0:swapper/1]CPU1: update cpu_capacity 1024
+[  159.949004] -(1)[0:swapper/1]CPU1: Booted secondary processor [410fd034]
+[  159.955168]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster1
+[  159.955205]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  159.955332]  (0)[145:hps_main][HPS] (0020)(1)action end(100)(171)(0)(0) (4)(4)(4)(4)(1) (88)(48)(0) (0)(0)(0) (1)(171)(49)(0)(171)
+[  160.058821] -(1)[3208:sh][g_android][USB]state_show, state:CONFIGURED
+[  160.061494] [g_android][USB]functions_show: [  160.389443]  (0)[62:dlpt_notify_thr][PBM] [ma_to_mw] 4216(mV) * 5500(mA) = 23188(mW)
+[  160.779004]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  160.779789]  (0)[145:hps_main]CPU1: shutdown
+[  160.779823]  (0)[145:hps_main]CPU1 may not have shut down cleanly
+[  160.779860]  (0)[145:hps_main]CPU1 may not have shut down cleanly: 1
+[  160.797058]  (0)[145:hps_main][HPS] (0200)(2)action end(0)(0)(0)(0) (4)(4)(4)(4)(1) (0)(8)(0) (632)(8)(0) (0)(0)(8)(0)(0)
+[  160.949399]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  160.949433]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  160.949449]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  161.797529] -(0)[0:swapper/0][Power/swap]DP: No enter --- SODI: No enter --- 
+[  161.950436]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  161.950469]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  161.950485]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  162.590953]  (0)[203:wdtk-1][thread:203][RT:162590936156] 2026-08-27 12:05:32.247965 UTC;android time 2026-08-27 15:05:32.247965
+[  162.951478]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  162.951509]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  162.951524]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  163.952508]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  163.952546]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  163.952562]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  164.831296]  (0)[205:wdtk-3][thread:205][RT:164831276392] 2026-08-27 12:05:34.488305 UTC;android time 2026-08-27 15:05:34.488305
+[  164.953545]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  164.953571]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  164.953587]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  165.310509]  (0)[184:bat_routine_thr][fan5405_read_interface] val=0x2
+[  165.310549]  (0)[184:bat_routine_thr][kernel]AvgVbat 4219,bat_vol 4217, AvgI 331, I 117, VChr 4948, AvgT 31, T 31, ZCV 39, CHR_Type 1, SOC 100:100:100, bcct 0:0, Ichg 750, IBat 58
+[  165.310568]  (0)[184:bat_routine_thr][charging_get_battery_status] battery exist for bring up.
+[  165.310582]  (0)[184:bat_routine_thr][charging_get_battery_status] battery exist for bring up.
+[  165.310597]  (0)[184:bat_routine_thr][charging_get_battery_status] battery exist for bring up.
+[  165.310617] [BATTERY] Top Off mode charge, timer=160 on 180 !!
+[  165.516162]  (0)[184:bat_routine_thr][BATTERY] set_bat_sw_cv_charging_current_limit (16100)
+[  165.712516] -(1)[0:swapper/1]Detected VIPT I-cache on CPU1
+[  165.712593] -(1)[0:swapper/1]Fail to set polarity of interrupt 29
+[  165.712612] -(1)[0:swapper/1]Fail to set polarity of interrupt 30
+[  165.712635] -(1)[0:swapper/1]Invalid sched_group_energy for CPU1
+[  165.712650] -(1)[0:swapper/1]CPU1: update cpu_capacity 1024
+[  165.712665] -(1)[0:swapper/1]CPU1: Booted secondary processor [410fd034]
+[  165.715036]  (0)[184:bat_routine_thr][BATTERY] Sw CV set charging current, csdac_full_flag=1, current=7000 !
+[  165.715074]  (0)[184:bat_routine_thr][BATTERY] set_bat_sw_cv_charging_current_limit (7000)
+[  165.719178]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster1
+[  165.719215]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  165.719340]  (0)[145:hps_main][HPS] (0020)(1)action end(100)(178)(0)(0) (4)(4)(4)(4)(1) (136)(48)(0) (0)(0)(0) (1)(178)(49)(0)(178)
+[  165.826080] -(1)[3261:sh][g_android][USB]state_show, state:CONFIGURED
+[  165.828683] [g_android][USB]functions_show: [  165.915017]  (0)[184:bat_routine_thr][BATTERY] Sw CV set charging current, csdac_full_flag=1, current=0 !
+[  165.915067]  (0)[184:bat_routine_thr][BATTERY] Sw CV set charging current Error!
+[  165.915084]  (0)[184:bat_routine_thr]fan5405  charging_hw_init  line=163
+[  165.916673]  (0)[184:bat_routine_thr][BATTERY] Default CC mode charging : 50000
+[  165.918523]  (0)[184:bat_routine_thr][BATTERY] pchr_turn_on_charging(), enable =1 
+[  165.921816] [fan5405] [  165.922368]  (0)[184:bat_routine_thr][0x0]=0xd0 
+[0x1]=0xb8 [  165.923610]  (0)[184:bat_routine_thr][0x2]=0x8e 
+[0x3]=0x94 [  165.924744]  (0)[184:bat_routine_thr][0x4]=0x89 
+[0x5]=0x23 [  165.925878]  (0)[184:bat_routine_thr][0x6]=0x58 
+[  165.925909]  (0)[184:bat_routine_thr]
+[  165.925926]  (0)[184:bat_routine_thr]not battery_meter_set_fg_int
+[  165.954598]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  165.954636]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  165.954652]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  166.147939]  (1)[275:logd.auditd]type=1400 audit(1787832335.800:1424): avc: denied { getattr } for pid=3301 comm="ps" path="/proc/214" dev="proc" ino=2180 scontext=u:r:toolbox:s0 tcontext=u:r:ueventd:s0 tclass=dir permissive=1
+[  166.148453]  (1)[275:logd.auditd]type=1400 audit(1787832335.800:1425): avc: denied { search } for pid=3301 comm="ps" name="214" dev="proc" ino=2180 scontext=u:r:toolbox:s0 tcontext=u:r:ueventd:s0 tclass=dir permissive=1
+[  166.150485]  (1)[275:logd.auditd]type=1400 audit(1787832335.800:1426): avc: denied { read } for pid=3301 comm="ps" scontext=u:r:toolbox:s0 tcontext=u:r:wpa:s0 tclass=file permissive=1
+[  166.150674]  (1)[275:logd.auditd]type=1400 audit(1787832335.800:1427): avc: denied { read } for pid=3301 comm="ps" scontext=u:r:toolbox:s0 tcontext=u:r:priv_app:s0:c512,c768 tclass=file permissive=1
+[  166.163573]  (0)[275:logd.auditd]type=1400 audit(1787832335.816:1428): avc: denied { getattr } for pid=3301 comm="ps" path="/proc/1493" dev="proc" ino=19521 scontext=u:r:toolbox:s0 tcontext=u:r:wpa:s0 tclass=dir permissive=1
+[  166.163792]  (0)[275:logd.auditd]type=1400 audit(1787832335.816:1429): avc: denied { search } for pid=3301 comm="ps" name="1493" dev="proc" ino=19521 scontext=u:r:toolbox:s0 tcontext=u:r:wpa:s0 tclass=dir permissive=1
+[  166.164030]  (0)[275:logd.auditd]type=1400 audit(1787832335.816:1430): avc: denied { open } for pid=3301 comm="ps" path="/proc/1493/cmdline" dev="proc" ino=17383 scontext=u:r:toolbox:s0 tcontext=u:r:wpa:s0 tclass=file permissive=1
+[  166.164185]  (0)[275:logd.auditd]type=1400 audit(1787832335.816:1431): avc: denied { open } for pid=3301 comm="ps" path="/proc/1496/cmdline" dev="proc" ino=19541 scontext=u:r:toolbox:s0 tcontext=u:r:priv_app:s0:c512,c768 tclass=file permissive=1
+[  166.535009]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  166.535780]  (0)[145:hps_main]CPU1: shutdown
+[  166.535813]  (0)[145:hps_main]CPU1 may not have shut down cleanly
+[  166.535851]  (0)[145:hps_main]CPU1 may not have shut down cleanly: 1
+[  166.552955]  (0)[145:hps_main][HPS] (0200)(2)action end(0)(0)(0)(0) (4)(4)(4)(4)(1) (0)(8)(0) (617)(8)(0) (0)(0)(8)(0)(0)
+[  166.955725]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  166.955764]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  166.955780]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  167.956767]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  167.956805]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  167.956821]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  168.957808]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  168.957848]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  168.957863]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  169.958848]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  169.958886]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  169.958941]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  170.393857]  (0)[62:dlpt_notify_thr][PBM] [ma_to_mw] 4217(mV) * 5500(mA) = 23193(mW)
+[  170.959933]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  170.959971]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  170.959987]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  171.022087]  (0)[1245:AlarmManager]alarm_dev: alarm 3 set 310.340000000
+[  171.468515] -(1)[0:swapper/1]Detected VIPT I-cache on CPU1
+[  171.468595] -(1)[0:swapper/1]Fail to set polarity of interrupt 29
+[  171.468614] -(1)[0:swapper/1]Fail to set polarity of interrupt 30
+[  171.468637] -(1)[0:swapper/1]Invalid sched_group_energy for CPU1
+[  171.468652] -(1)[0:swapper/1]CPU1: update cpu_capacity 1024
+[  171.468668] -(1)[0:swapper/1]CPU1: Booted secondary processor [410fd034]
+[  171.475161]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster1
+[  171.475197]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  171.475326]  (0)[145:hps_main][HPS] (0020)(1)action end(100)(171)(0)(0) (4)(4)(4)(4)(1) (84)(48)(0) (0)(0)(0) (1)(171)(49)(0)(171)
+[  171.581936] -(1)[3308:sh][g_android][USB]state_show, state:CONFIGURED
+[  171.584838] [g_android][USB]functions_show: [  171.799107] -(0)[0:swapper/0][Power/swap]DP: No enter --- SODI: No enter --- 
+[  171.960995]  (1)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  171.961035]  (1)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  171.961051]  (1)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  172.291010]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  172.291794]  (0)[145:hps_main]CPU1: shutdown
+[  172.291826]  (0)[145:hps_main]CPU1 may not have shut down cleanly
+[  172.291864]  (0)[145:hps_main]CPU1 may not have shut down cleanly: 1
+[  172.309051]  (0)[145:hps_main][HPS] (0200)(2)action end(0)(0)(0)(0) (4)(4)(4)(4)(1) (1)(8)(0) (623)(8)(0) (0)(0)(8)(0)(0)
+[  172.962048]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  172.962086]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  172.962102]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  173.963093]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  173.963131]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  173.963146]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  174.964126]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  174.964163]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  174.964179]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  175.308397]  (0)[184:bat_routine_thr][fan5405_read_interface] val=0x2
+[  175.308439]  (0)[184:bat_routine_thr][kernel]AvgVbat 4218,bat_vol 4217, AvgI 319, I 117, VChr 4920, AvgT 31, T 31, ZCV 39, CHR_Type 1, SOC 100:100:100, bcct 0:0, Ichg 750, IBat 62
+[  175.308457]  (0)[184:bat_routine_thr][charging_get_battery_status] battery exist for bring up.
+[  175.308473]  (0)[184:bat_routine_thr][charging_get_battery_status] battery exist for bring up.
+[  175.308488]  (0)[184:bat_routine_thr][charging_get_battery_status] battery exist for bring up.
+[  175.308508] [BATTERY] Top Off mode charge, timer=170 on 190 !!
+[  175.515079]  (0)[184:bat_routine_thr][BATTERY] set_bat_sw_cv_charging_current_limit (10200)
+[  175.714945]  (0)[184:bat_routine_thr][BATTERY] Sw CV set charging current, csdac_full_flag=1, current=7000 !
+[  175.714977]  (0)[184:bat_routine_thr][BATTERY] set_bat_sw_cv_charging_current_limit (7000)
+[  175.914943]  (0)[184:bat_routine_thr][BATTERY] Sw CV set charging current, csdac_full_flag=1, current=0 !
+[  175.914979]  (0)[184:bat_routine_thr][BATTERY] Sw CV set charging current Error!
+[  175.914997]  (0)[184:bat_routine_thr]fan5405  charging_hw_init  line=163
+[  175.916522]  (0)[184:bat_routine_thr][BATTERY] Default CC mode charging : 50000
+[  175.918331]  (0)[184:bat_routine_thr][BATTERY] pchr_turn_on_charging(), enable =1 
+[  175.921063] [fan5405] [  175.921605]  (0)[184:bat_routine_thr][0x0]=0xd0 
+[0x1]=0xb8 [  175.922688]  (0)[184:bat_routine_thr][0x2]=0x8e 
+[0x3]=0x94 [  175.923787]  (0)[184:bat_routine_thr][0x4]=0x89 
+[0x5]=0x23 [  175.924872]  (0)[184:bat_routine_thr][0x6]=0x58 
+[  175.924895]  (0)[184:bat_routine_thr]
+[  175.924912]  (0)[184:bat_routine_thr]not battery_meter_set_fg_int
+[  175.965159]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  175.965185]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  175.965200]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  176.966179]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  176.966219]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  176.966235]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  177.224550] -(1)[0:swapper/1]Detected VIPT I-cache on CPU1
+[  177.224628] -(1)[0:swapper/1]Fail to set polarity of interrupt 29
+[  177.224647] -(1)[0:swapper/1]Fail to set polarity of interrupt 30
+[  177.224670] -(1)[0:swapper/1]Invalid sched_group_energy for CPU1
+[  177.224685] -(1)[0:swapper/1]CPU1: update cpu_capacity 1024
+[  177.224700] -(1)[0:swapper/1]CPU1: Booted secondary processor [410fd034]
+[  177.231166]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster1
+[  177.231203]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  177.231332]  (0)[145:hps_main][HPS] (0020)(1)action end(100)(171)(0)(0) (4)(4)(4)(4)(1) (89)(48)(0) (0)(0)(0) (1)(171)(49)(0)(171)
+[  177.333994] -(0)[3355:sh][g_android][USB]state_show, state:CONFIGURED
+[  177.336575] [g_android][USB]functions_show: [  177.967226]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  177.967274]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  177.967290]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  178.047006]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  178.047770]  (0)[145:hps_main]CPU1: shutdown
+[  178.047797]  (0)[145:hps_main]CPU1 may not have shut down cleanly
+[  178.047836]  (0)[145:hps_main]CPU1 may not have shut down cleanly: 1
+[  178.064974]  (0)[145:hps_main][HPS] (0200)(2)action end(0)(1)(0)(0) (4)(4)(4)(4)(1) (11)(8)(0) (629)(8)(0) (0)(1)(8)(0)(1)
+[  178.968277]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  178.968314]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  178.968330]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  179.969308]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  179.969345]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  179.969360]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  180.398248]  (0)[62:dlpt_notify_thr][PBM] [ma_to_mw] 4217(mV) * 5500(mA) = 23193(mW)
+[  180.970370]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  180.970406]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  180.970422]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  181.630996] -(0)[0:swapper/0][Power/swap]CNT(dpidle,rgidle): [0] = (0,50369), [1] = (0,36713), [2] = (0,26455), [3] = (0,20180), 
+[  181.631033] -(0)[0:swapper/0][Power/swap]dpidle_block_cnt: [by_cpu] = 0, [by_clk] = 0, [by_tmr] = 0, [by_oth] = 0, [by_vtg] = 0, [by_frm] = 3159, 
+[  181.631055] -(0)[0:swapper/0][Power/swap]dpidle_block_mask: 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 
+[  181.823266] -(0)[0:swapper/0][Power/swap]DP: No enter --- SODI: No enter --- 
+[  181.971429]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  181.971452]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  181.971467]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  182.750958]  (0)[203:wdtk-1][thread:203][RT:182750940203] 2026-08-27 12:05:52.407969 UTC;android time 2026-08-27 15:05:52.407969
+[  182.972466]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  182.972507]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  182.972523]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  182.980517] -(1)[0:swapper/1]Detected VIPT I-cache on CPU1
+[  182.980597] -(1)[0:swapper/1]Fail to set polarity of interrupt 29
+[  182.980615] -(1)[0:swapper/1]Fail to set polarity of interrupt 30
+[  182.980639] -(1)[0:swapper/1]Invalid sched_group_energy for CPU1
+[  182.980655] -(1)[0:swapper/1]CPU1: update cpu_capacity 1024
+[  182.980670] -(1)[0:swapper/1]CPU1: Booted secondary processor [410fd034]
+[  182.987164]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster1
+[  182.987199]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  182.987328]  (0)[145:hps_main][HPS] (0020)(1)action end(100)(171)(0)(0) (4)(4)(4)(4)(1) (86)(48)(0) (0)(0)(0) (1)(171)(49)(0)(171)
+[  183.093765] -(1)[3402:sh][g_android][USB]state_show, state:CONFIGURED
+[  183.096301] [g_android][USB]functions_show: [  183.263032]  (0)[168:hang_detect][Hang_Detect] hang_detect thread counts down 2147483647:2147483647, status 0.
+[  183.803010]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  183.803816]  (0)[145:hps_main]CPU1: shutdown
+[  183.803849]  (0)[145:hps_main]CPU1 may not have shut down cleanly
+[  183.803888]  (0)[145:hps_main]CPU1 may not have shut down cleanly: 1
+[  183.821054]  (0)[145:hps_main][HPS] (0200)(2)action end(0)(0)(0)(0) (4)(4)(4)(4)(1) (0)(8)(0) (614)(8)(0) (0)(0)(8)(0)(0)
+[  183.973602]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  183.973637]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  183.973652]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  184.974641]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  184.974679]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  184.974695]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  185.306355]  (0)[184:bat_routine_thr][fan5405_read_interface] val=0x2
+[  185.306397]  (0)[184:bat_routine_thr][kernel]AvgVbat 4218,bat_vol 4217, AvgI 305, I 102, VChr 4948, AvgT 31, T 31, ZCV 39, CHR_Type 1, SOC 100:100:100, bcct 0:0, Ichg 750, IBat 66
+[  185.306417]  (0)[184:bat_routine_thr][charging_get_battery_status] battery exist for bring up.
+[  185.306432]  (0)[184:bat_routine_thr][charging_get_battery_status] battery exist for bring up.
+[  185.306446]  (0)[184:bat_routine_thr][charging_get_battery_status] battery exist for bring up.
+[  185.306467] [BATTERY] Top Off mode charge, timer=180 on 200 !!
+[  185.311010]  (0)[202:wdtk-0][thread:202][RT:185310994748] 2026-08-27 12:05:54.968024 UTC;android time 2026-08-27 15:05:54.968024
+[  185.515290]  (0)[184:bat_routine_thr][BATTERY] set_bat_sw_cv_charging_current_limit (17600)
+[  185.574425]  (0)[1:init]init: Starting service 'gsm0710muxd'...
+[  185.604077]  (0)[3450:gsm0710muxd][ccci1/chr]port ttyC0 open with flag 20902 by gsm0710muxd
+[  185.649389]  (0)[1:init]init: Starting service 'ril-daemon-mtk'...
+[  185.715004]  (0)[184:bat_routine_thr][BATTERY] Sw CV set charging current, csdac_full_flag=1, current=7000 !
+[  185.715041]  (0)[184:bat_routine_thr][BATTERY] set_bat_sw_cv_charging_current_limit (7000)
+[  185.914960]  (0)[184:bat_routine_thr][BATTERY] Sw CV set charging current, csdac_full_flag=1, current=0 !
+[  185.914994]  (0)[184:bat_routine_thr][BATTERY] Sw CV set charging current Error!
+[  185.915012]  (0)[184:bat_routine_thr]fan5405  charging_hw_init  line=163
+[  185.916593]  (0)[184:bat_routine_thr][BATTERY] Default CC mode charging : 50000
+[  185.918404]  (0)[184:bat_routine_thr][BATTERY] pchr_turn_on_charging(), enable =1 
+[  185.921704] [fan5405] [  185.922244]  (0)[184:bat_routine_thr][0x0]=0xd0 
+[0x1]=0xb8 [  185.923338]  (0)[184:bat_routine_thr][0x2]=0x8e 
+[0x3]=0x94 [  185.924424]  (0)[184:bat_routine_thr][0x4]=0x89 
+[0x5]=0x23 [  185.925504]  (0)[184:bat_routine_thr][0x6]=0x58 
+[  185.925527]  (0)[184:bat_routine_thr]
+[  185.925544]  (0)[184:bat_routine_thr]not battery_meter_set_fg_int
+[  185.975706]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  185.975735]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  185.975751]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  186.171476]  (0)[3488:mtkrild][ccci1/chr]port ccci_ioctl1 open with flag 20802 by mtkrild
+[  186.171539]  (0)[3488:mtkrild][ccci1/chr]CCCI_IOC_GET_MD_TYPE: 5!----
+[  186.171624]  (0)[3488:mtkrild][ccci1/chr]port ccci_ioctl1 close rx_len=0 empty=1, clear_cnt=0, drop=0
+[  186.171657]  (0)[3488:mtkrild][ccci1/port]critical user check: 0x3
+[  186.924653]  (0)[3488:mtkrild][ccci1/chr]port ccci_ioctl1 open with flag 20802 by mtkrild
+[  186.924714]  (0)[3488:mtkrild][ccci1/chr]CCCI_IOC_GET_MD_TYPE: 5!----
+[  186.924795]  (0)[3488:mtkrild][ccci1/chr]port ccci_ioctl1 close rx_len=0 empty=1, clear_cnt=0, drop=0
+[  186.924828]  (0)[3488:mtkrild][ccci1/port]critical user check: 0x3
+[  186.976759]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  186.976796]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  186.976812]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  187.977801]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  187.977839]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  187.977855]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  188.736511] -(1)[0:swapper/1]Detected VIPT I-cache on CPU1
+[  188.736592] -(1)[0:swapper/1]Fail to set polarity of interrupt 29
+[  188.736611] -(1)[0:swapper/1]Fail to set polarity of interrupt 30
+[  188.736635] -(1)[0:swapper/1]Invalid sched_group_energy for CPU1
+[  188.736651] -(1)[0:swapper/1]CPU1: update cpu_capacity 1024
+[  188.736666] -(1)[0:swapper/1]CPU1: Booted secondary processor [410fd034]
+[  188.743163]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster1
+[  188.743200]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  188.743327]  (0)[145:hps_main][HPS] (0020)(1)action end(100)(171)(0)(0) (4)(4)(4)(4)(1) (89)(48)(0) (0)(0)(0) (1)(171)(49)(0)(171)
+[  188.825367] -(1)[3507:sh][g_android][USB]state_show, state:CONFIGURED
+[  188.827880] [g_android][USB]functions_show: [  188.978851]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  188.978967]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  188.978986]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  189.126053]  (0)[275:logd.auditd]type=1400 audit(1787832358.776:1432): avc: denied { read } for pid=3547 comm="ps" scontext=u:r:toolbox:s0 tcontext=u:r:ueventd:s0 tclass=file permissive=1
+[  189.148209]  (0)[275:logd.auditd]type=1400 audit(1787832358.800:1433): avc: denied { open } for pid=3547 comm="ps" path="/proc/214/cmdline" dev="proc" ino=8751 scontext=u:r:toolbox:s0 tcontext=u:r:ueventd:s0 tclass=file permissive=1
+[  189.151527]  (0)[275:logd.auditd]type=1400 audit(1787832358.800:1434): avc: denied { read } for pid=3547 comm="ps" scontext=u:r:toolbox:s0 tcontext=u:r:installd:s0 tclass=file permissive=1
+[  189.156707]  (0)[275:logd.auditd]type=1400 audit(1787832358.800:1435): avc: denied { read } for pid=3547 comm="ps" scontext=u:r:toolbox:s0 tcontext=u:r:keystore:s0 tclass=file permissive=1
+[  189.156951]  (0)[275:logd.auditd]type=1400 audit(1787832358.800:1436): avc: denied { read } for pid=3547 comm="ps" scontext=u:r:toolbox:s0 tcontext=u:r:mediacodec:s0 tclass=file permissive=1
+[  189.160884]  (0)[275:logd.auditd]type=1400 audit(1787832358.800:1437): avc: denied { read } for pid=3547 comm="ps" scontext=u:r:toolbox:s0 tcontext=u:r:gatekeeperd:s0 tclass=file permissive=1
+[  189.165313]  (1)[3547:ps]audit: audit_lost=1018 audit_rate_limit=20 audit_backlog_limit=64
+[  189.165347]  (1)[3547:ps]audit: rate limit exceeded
+[  189.168931]  (0)[275:logd.auditd]type=1400 audit(1787832358.800:1438): avc: denied { read } for pid=3547 comm="ps" scontext=u:r:toolbox:s0 tcontext=u:r:perfprofd:s0 tclass=file permissive=1
+[  189.169118]  (0)[275:logd.auditd]type=1400 audit(1787832358.800:1439): avc: denied { read } for pid=3547 comm="ps" scontext=u:r:toolbox:s0 tcontext=u:r:system_server:s0 tclass=file permissive=1
+[  189.169244]  (0)[275:logd.auditd]type=1400 audit(1787832358.800:1440): avc: denied { read } for pid=3547 comm="ps" scontext=u:r:toolbox:s0 tcontext=u:r:bluetooth:s0 tclass=file permissive=1
+[  189.177620]  (0)[275:logd.auditd]type=1400 audit(1787832358.800:1441): avc: denied { read } for pid=3547 comm="ps" scontext=u:r:toolbox:s0 tcontext=u:r:untrusted_app:s0:c512,c768 tclass=file permissive=1
+[  189.714579]  (1)[1:init]init: write_file: Unable to open '/proc/sys/net/netfilter/nf_conntrack_tcp_no_window_check': No such file or directory
+[  189.714718]  (1)[1:init]init: write_file: Unable to open '/proc/sys/net/ipv4/tcp_rto_min': No such file or directory
+[  189.722125]  (0)[1:init]init: write_file: Unable to open '/proc/sys/net/netfilter/nf_conntrack_tcp_no_window_check': No such file or directory
+[  189.722241]  (0)[1:init]init: write_file: Unable to open '/proc/sys/net/ipv4/tcp_rto_min': No such file or directory
+[  189.897356]  (1)[1:init]init: write_file: Unable to open '/proc/sys/net/netfilter/nf_conntrack_tcp_no_window_check': No such file or directory
+[  189.897498]  (1)[1:init]init: write_file: Unable to open '/proc/sys/net/ipv4/tcp_rto_min': No such file or directory
+[  189.900554]  (1)[1:init]init: property_set("ro.ril.ecclist", "112,911") failed
+[  189.927799]  (1)[1:init]init: write_file: Unable to open '/proc/sys/net/netfilter/nf_conntrack_tcp_no_window_check': No such file or directory
+[  189.942041]  (0)[36:conn-md-thread][CONN-MD-DFT][W]conn_md_thread:target user id (0x80000003) is not registered or enabled yet, drop ilm msg
+[  189.942081]  (0)[36:conn-md-thread][CONN-MD-DFT][W]conn_md_thread:target user id (0x80000003) is not registered or enabled yet, drop ilm msg
+[  189.942101]  (0)[36:conn-md-thread][CONN-MD-DFT][W]conn_md_thread:target user id (0x80000003) is not registered or enabled yet, drop ilm msg
+[  189.942120]  (0)[36:conn-md-thread][CONN-MD-DFT][W]conn_md_thread:target user id (0x80000003) is not registered or enabled yet, drop ilm msg
+[  189.980941]  (1)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  189.980982]  (1)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  189.980997]  (1)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  190.359008]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  190.359810]  (0)[145:hps_main]CPU1: shutdown
+[  190.359841]  (0)[145:hps_main]CPU1 may not have shut down cleanly
+[  190.359880]  (0)[145:hps_main]CPU1 may not have shut down cleanly: 1
+[  190.377124]  (0)[145:hps_main][HPS] (0200)(2)action end(5)(8)(0)(0) (4)(4)(4)(4)(1) (42)(16)(0) (626)(16)(0) (0)(8)(16)(0)(8)
+[  190.402646]  (0)[62:dlpt_notify_thr][PBM] [ma_to_mw] 4215(mV) * 5500(mA) = 23182(mW)
+[  190.982119]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  190.982242]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  190.982260]  (0)[186:mtk charger_hv_][charging_get_battery_status] battery exist for bring up.
+[  191.088660] -(1)[0:swapper/1]Detected VIPT I-cache on CPU1
+[  191.088735] -(1)[0:swapper/1]Fail to set polarity of interrupt 29
+[  191.088754] -(1)[0:swapper/1]Fail to set polarity of interrupt 30
+[  191.088777] -(1)[0:swapper/1]Invalid sched_group_energy for CPU1
+[  191.088793] -(1)[0:swapper/1]CPU1: update cpu_capacity 1024
+[  191.088809] -(1)[0:swapper/1]CPU1: Booted secondary processor [410fd034]
+[  191.089354]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster1
+[  191.089386]  (1)[13:cpuhp/1]Invalid sched_group_energy for Cluster0
+[  191.090010]  (0)[2028:Binder:1153_F]alarm_dev: set rtc 1787832360 92000000 - rtc 12:06:00 08/27/2026
+[  191.090072]  (0)[2028:Binder:1153_F]mtk_rtc_common: set tc time = 2026/08/27 12:06:00
+[  191.091959]  (1)[1245:AlarmManager]alarm_dev: alarm 3 set 250.995000000
+[  191.116928] -(2)[0:swapper/2]Detected VIPT I-cache on CPU2
+[  191.117013] -(2)[0:swapper/2]Fail to set polarity of interrupt 29
+[  191.117033] -(2)[0:swapper/2]Fail to set polarity of interrupt 30
+[  191.117057] -(2)[0:swapper/2]Invalid sched_group_energy for CPU2
+[  191.117072] -(2)[0:swapper/2]CPU2: update cpu_capacity 1024
+[  191.117088] -(2)[0:swapper/2]CPU2: Booted secondary processor [410fd034]
+[  191.117715]  (2)[18:cpuhp/2]Invalid sched_group_energy for Cluster2
+[  191.117754]  (2)[18:cpuhp/2]Invalid sched_group_energy for Cluster1
+[  191.117770]  (2)[18:cpuhp/2]Invalid sched_group_energy for Cluster0
+[  191.133276] -(3)[0:swapper/3]Detected VIPT I-cache on CPU3
+[  191.133369] -(3)[0:swapper/3]Fail to set polarity of interrupt 29
+[  191.133391] -(3)[0:swapper/3]Fail to set polarity of interrupt 30
+[  191.133417] -(3)[0:swapper/3]Invalid sched_group_energy for CPU3
+[  191.133433] -(3)[0:swapper/3]CPU3: update cpu_capacity 1024
+[  191.133450] -(3)[0:swapper/3]CPU3: Booted secondary processor [410fd034]
+[  191.134177]  (3)[23:cpuhp/3]Invalid sched_group_energy for Cluster3
+[  191.134219]  (3)[23:cpuhp/3]Invalid sched_group_energy for Cluster2
+[  191.134236]  (3)[23:cpuhp/3]Invalid sched_group_energy for Cluster1
+[  191.134254]  (3)[23:cpuhp/3]Invalid sched_group_energy for Cluster0
+[  191.134492]  (0)[145:hps_main][HPS] (0020)(1)action end(100)(554)(0)(0) (4)(4)(4)(4)(1) (34)(6)(0) (0)(0)(0) (1)(554)(7)(0)(554)
+[  191.135713]  (0)[2018:Binder:1153_B]alarm_dev: alarm 2 set 196.132000000
+[  191.135761] -(0)[2018:Binder:1153_B]alarmtimer_enqueue, 196132000000
+[  191.135793]  (0)[2018:Binder:1153_B]alarm_dev: alarm 3 set 310.340000000
+[  191.241493]  (3)[2018:Binder:1153_B]alarm_dev: alarm 2 set 196.131000000
+[  191.241539] -(3)[2018:Binder:1153_B]alarmtimer_enqueue, 196131000000
+[  191.253257]  (0)[189:kworker/0:2]
+[  191.253257] <<SOC DVFS FLIPER>> flip to S(0), 1639
+[  191.270798] -(3)[1493:wpa_supplicant]Internal error: Accessing user space memory outside uaccess.h routines: 96000005 [#1] PREEMPT SMP
+[  191.270834] -(3)[1493:wpa_supplicant]Kernel Offset: disabled
+[  191.270849] Modules linked in:
+[  191.270871] disable aee kernel api[  192.270940] -(3)[1493:wpa_supplicant]Non-crashing CPUs did not react to IPI
+[  192.270969] -(3)[1493:wpa_supplicant]CPU: 3 PID: 1493 Comm: wpa_supplicant Tainted: G        W       4.9.188-m5c+ #48
+[  192.270984] -(3)[1493:wpa_supplicant]Hardware name: MT6737 (DT)
+[  192.270999] -(3)[1493:wpa_supplicant]task: 0000000024620f02 task.stack: 000000005ee54b62
+[  192.271021] -(3)[1493:wpa_supplicant]PC is at wext_support_ioctl+0xf90/0x1460
+[  192.271039] -(3)[1493:wpa_supplicant]LR is at wlanDoIOCTL+0x68/0xbc
+[  192.271053] -(3)[1493:wpa_supplicant]pc : [<ffffff80085504bc>] lr : [<ffffff80085482f4>] pstate: 20400145
+[  192.271067] -(3)[1493:wpa_supplicant]sp : ffffffc04a2d7be0
+[  192.271081] x29: ffffffc04a2d7bf0 x28: ffffffc04dd93000 
+[  192.271111] x27: ffffff8008c02000 x26: 000000000000001d 
+[  192.271138] x25: 0000000000000000 x24: ffffffc04a2d7d70 
+[  192.271166] x23: 0000007fe3fa5ec0 x22: ffffffc075efb000 
+[  192.271195] x21: ffffffc075f286e0 x20: ffffff800904e000 
+[  192.271223] x19: ffffffc04a2d7d70 x18: 00000000000fac0b 
+[  192.271250] x17: 0000007f7b4c8834 x16: ffffff800822e0d8 
+[  192.271278] x15: 0000000000000000 x14: ffffffffffffffff 
+[  192.271306] x13: 0000000000000000 x12: 0000000000000028 
+[  192.271334] x11: 0101010101010101 x10: fefefefefefefeff 
+[  192.271362] x9 : 7f7f7f7f7f7f7f7f x8 : fefeff2f6d606b76 
+[  192.271390] x7 : 0000000000000000 x6 : 000000000000000f 
+[  192.271417] x5 : 000000000000000c x4 : 0000000000000b0c 
+[  192.271445] x3 : ffffff800854828c x2 : 000000000000000b 
+[  192.271473] x1 : 000000000000000a x0 : 0000007fe3fa5eb0 
+[  192.271501] -(3)[1493:wpa_supplicant]
+[  192.271501] SP: 0xffffffc04a2d7b60:
+[  192.271516] 7b60  75efb000 ffffffc0 e3fa5ec0 0000007f 4a2d7d70 ffffffc0 00000000 00000000
+[  192.271604] 7b80  0000001d 00000000 08c02000 ffffff80 4dd93000 ffffffc0 4a2d7bf0 ffffffc0
+[  192.271688] 7ba0  085482f4 ffffff80 4a2d7be0 ffffffc0 085504bc ffffff80 20400145 00000000
+[  192.271772] 7bc0  4a2d7c40 ffffffc0 083ad2c8 ffffff80 ffffffff 0000007f 0909e450 ffffff80
+[  192.271856] 7be0  0000000c 00000000 09066850 ffffff80 4a2d7c60 ffffffc0 085482f4 ffffff80
+[  192.271939] 7c00  4a2d7d70 ffffffc0 08bdc780 ffffff80 0904e000 ffffff80 e3fa5ec0 0000007f
+[  192.272023] 7c20  e3fa5ec0 0000007f 4a2d7d70 ffffffc0 0909e188 ffffff80 000409bc 00000000
+[  192.272106] 7c40  4a2d7c50 ffffffc0 083a4b1c ffffff80 4a2d7c70 ffffffc0 000409bc 00000000
+[  192.272198] -(3)[1493:wpa_supplicant]
+[  192.272198] X19: 0xffffffc04a2d7cf0:
+[  192.272213] 7cf0  00008b0c 00000001 000409bc 00000000 4a2d7da0 ffffffc0 089f361c ffffff80
+[  192.272297] 7d10  00008b0c 00000000 e3fa5ec0 0000007f e3fa5ec0 0000007f 4774a2b0 ffffffc0
+[  192.272380] 7d30  e3fa5ec0 0000007f 00008b0c 00000000 00000123 00000000 0000001d 00000000
+[  192.272463] 7d50  08c02000 ffffff80 4dd93000 ffffffc0 09049400 ffffff80 000000c6 00000000
+[  192.272547] 7d70  6e616c77 00000030 00000000 00000000 e3fa5eb0 0000007f 0000000a 00000000
+[  192.272630] 7d90  ec68e3e1 5665bf5e 000409bc 00000000 4a2d7dd0 ffffffc0 0822d5f8 ffffff80
+[  192.272713] 7db0  3a1b7100 ffffffc0 0904e000 ffffff80 e3fa5ec0 0000007f 4774a2b0 ffffffc0
+[  192.272796] 7dd0  4a2d7e80 ffffffc0 0822e15c ffffff80 00000000 00000000 3a1b7100 ffffffc0
+[  192.272879] -(3)[1493:wpa_supplicant]
+[  192.272879] X21: 0xffffffc075f28660:
+[  192.272895] 8660  00000000 00000000 00000001 00000000 761449c0 ffffffc0 00000000 00000000
+[  192.272978] 8680  00000000 00000000 76be5610 ffffffc0 76be5610 ffffffc0 00000000 00000000
+[  192.273062] 86a0  08c79aa0 ffffff80 08c79c00 ffffff80 0000000b 00000007 00010000 00000000
+[  192.273145] 86c0  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  192.273228] 86e0  75efb000 ffffffc0 00000000 00000000 00000000 00000000 00000000 00000000
+[  192.273311] 8700  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  192.273394] 8720  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  192.273478] 8740  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  192.273561] -(3)[1493:wpa_supplicant]
+[  192.273561] X22: 0xffffffc075efaf80:
+[  192.273576] af80  00000027 00000027 000000ac 00000001 00000147 00000147 000000ac 00000001
+[  192.273661] afa0  0000016d 0000016d 00000000 00000000 00000027 00000027 0000001b 00000001
+[  192.273745] afc0  00000147 00000147 000000ac 00000001 0000014d 0000014d 000000ac 00000001
+[  192.273829] afe0  0000014f 0000014f 000000ac 00000001 0000014d 0000014d 000000ac 00000001
+[  192.273913] b000  6e616c77 00000030 00000000 00000000 00000000 00000000 78fb0138 ffffffc0
+[  192.273996] b020  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  192.274079] b040  00000000 00000000 00000007 00000000 75c22050 ffffffc0 768ff050 ffffffc0
+[  192.274162] b060  75efb060 ffffffc0 75efb060 ffffffc0 75efb070 ffffffc0 75efb070 ffffffc0
+[  192.274247] -(3)[1493:wpa_supplicant]
+[  192.274247] X24: 0xffffffc04a2d7cf0:
+[  192.274262] 7cf0  00008b0c 00000001 000409bc 00000000 4a2d7da0 ffffffc0 089f361c ffffff80
+[  192.274345] 7d10  00008b0c 00000000 e3fa5ec0 0000007f e3fa5ec0 0000007f 4774a2b0 ffffffc0
+[  192.274428] 7d30  e3fa5ec0 0000007f 00008b0c 00000000 00000123 00000000 0000001d 00000000
+[  192.274511] 7d50  08c02000 ffffff80 4dd93000 ffffffc0 09049400 ffffff80 000000c6 00000000
+[  192.274594] 7d70  6e616c77 00000030 00000000 00000000 e3fa5eb0 0000007f 0000000a 00000000
+[  192.274677] 7d90  ec68e3e1 5665bf5e 000409bc 00000000 4a2d7dd0 ffffffc0 0822d5f8 ffffff80
+[  192.274760] 7db0  3a1b7100 ffffffc0 0904e000 ffffff80 e3fa5ec0 0000007f 4774a2b0 ffffffc0
+[  192.274843] 7dd0  4a2d7e80 ffffffc0 0822e15c ffffff80 00000000 00000000 3a1b7100 ffffffc0
+[  192.274927] -(3)[1493:wpa_supplicant]
+[  192.274927] X28: 0xffffffc04dd92f80:
+[  192.274943] 2f80  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  192.275026] 2fa0  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  192.275109] 2fc0  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  192.275192] 2fe0  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  192.275274] 3000  00000010 00000000 ffffffff ffffffff 8a387000 0a580000 00000002 00000000
+[  192.275358] 3020  4a2d7ab0 ffffffc0 00000001 00000000 00000000 00000000 4a2d4000 ffffffc0
+[  192.275441] 3040  00000002 00404100 00000000 00000000 00000000 00000000 00000001 00000003
+[  192.275524] 3060  00000018 00000000 ffff24ec 00000000 662f7000 ffffffc0 00000003 00000001
+[  192.275608] -(3)[1493:wpa_supplicant]
+[  192.275608] X29: 0xffffffc04a2d7b70:
+[  192.275623] 7b70  4a2d7d70 ffffffc0 00000000 00000000 0000001d 00000000 08c02000 ffffff80
+[  192.275707] 7b90  4dd93000 ffffffc0 4a2d7bf0 ffffffc0 085482f4 ffffff80 4a2d7be0 ffffffc0
+[  192.275790] 7bb0  085504bc ffffff80 20400145 00000000 4a2d7c40 ffffffc0 083ad2c8 ffffff80
+[  192.275874] 7bd0  ffffffff 0000007f 0909e450 ffffff80 0000000c 00000000 09066850 ffffff80
+[  192.275958] 7bf0  4a2d7c60 ffffffc0 085482f4 ffffff80 4a2d7d70 ffffffc0 08bdc780 ffffff80
+[  192.276041] 7c10  0904e000 ffffff80 e3fa5ec0 0000007f e3fa5ec0 0000007f 4a2d7d70 ffffffc0
+[  192.276125] 7c30  0909e188 ffffff80 000409bc 00000000 4a2d7c50 ffffffc0 083a4b1c ffffff80
+[  192.276209] 7c50  4a2d7c70 ffffffc0 000409bc 00000000 4a2d7c70 ffffffc0 08bdc714 ffffff80
+[  192.276291] -(3)[1493:wpa_supplicant]
+[  192.276306] -(3)[1493:wpa_supplicant]CPU: 3 PID: 1493 Comm: wpa_supplicant Tainted: G        W       4.9.188-m5c+ #48
+[  192.276320] -(3)[1493:wpa_supplicant]Hardware name: MT6737 (DT)
+[  192.276333] -(3)[1493:wpa_supplicant]Call trace:
+[  192.276353] -(3)[1493:wpa_supplicant][<00000000b76d353d>] dump_backtrace+0x0/0x298
+[  192.276371] -(3)[1493:wpa_supplicant][<00000000d2c91703>] show_stack+0x14/0x1c
+[  192.276389] -(3)[1493:wpa_supplicant][<00000000d2515f22>] dump_stack+0x94/0xb4
+[  192.276407] -(3)[1493:wpa_supplicant][<00000000a141fe18>] ipanic_die+0x5c/0x94
+[  192.276424] -(3)[1493:wpa_supplicant][<00000000670b35d4>] notify_die+0x78/0xb8
+[  192.276441] -(3)[1493:wpa_supplicant][<00000000e20d71e9>] die+0xec/0x278
+[  192.276458] -(3)[1493:wpa_supplicant][<00000000c903ada9>] do_page_fault+0x324/0x3b8
+[  192.276474] -(3)[1493:wpa_supplicant][<00000000c8f0d16e>] do_translation_fault+0x40/0x48
+[  192.276490] -(3)[1493:wpa_supplicant][<00000000e0a5877c>] do_mem_abort+0x50/0xc8
+[  192.276505] -(3)[1493:wpa_supplicant]Exception stack(0xffffffc04a2d79f0 to 0xffffffc04a2d7b20)
+[  192.276522] -(3)[1493:wpa_supplicant]79e0:                                   ffffffc04a2d7d70 ffffffc04dd93000
+[  192.276539] -(3)[1493:wpa_supplicant]7a00: 00000000415b8000 ffffff80085504bc 0000000020400145 ffffff80083aa704
+[  192.276556] -(3)[1493:wpa_supplicant]7a20: 0000000000040000 000000000000003a 0000000000000000 ffffffbf01b8f400
+[  192.276573] -(3)[1493:wpa_supplicant]7a40: ffffffc04a2d7af0 ffffff80083ab44c ffffff800904e000 ffffff800909ec50
+[  192.276590] -(3)[1493:wpa_supplicant]7a60: ffffffc079060a00 ffffffc058657c80 000000000000003a 0000000000000000
+[  192.276606] -(3)[1493:wpa_supplicant]7a80: ffffffc04a2d7b80 ffffff80083c26c4 0000000000000000 ffffffc04a2d7d38
+[  192.276623] -(3)[1493:wpa_supplicant]7aa0: 0000000000000480 00000000000409bc 0000007fe3fa5eb0 000000000000000a
+[  192.276640] -(3)[1493:wpa_supplicant]7ac0: 000000000000000b ffffff800854828c 0000000000000b0c 000000000000000c
+[  192.276657] -(3)[1493:wpa_supplicant]7ae0: 000000000000000f 0000000000000000 fefeff2f6d606b76 7f7f7f7f7f7f7f7f
+[  192.276674] -(3)[1493:wpa_supplicant]7b00: fefefefefefefeff 0101010101010101 0000000000000028 0000000000000000
+[  192.276690] -(3)[1493:wpa_supplicant][<0000000075254a65>] el1_da+0x24/0x40
+[  192.276706] -(3)[1493:wpa_supplicant][<00000000728b87e3>] wlanDoIOCTL+0x68/0xbc
+[  192.276724] -(3)[1493:wpa_supplicant][<000000007bc98cb5>] wireless_process_ioctl+0xdc/0x148
+[  192.276741] -(3)[1493:wpa_supplicant][<000000008dfd5555>] wext_handle_ioctl+0x150/0x180
+[  192.276758] -(3)[1493:wpa_supplicant][<0000000095d721a7>] dev_ioctl+0x140/0x604
+[  192.276775] -(3)[1493:wpa_supplicant][<00000000d51f2523>] sock_ioctl+0x140/0x408
+[  192.276793] -(3)[1493:wpa_supplicant][<00000000417de7c5>] do_vfs_ioctl+0xb8/0xb98
+[  192.276810] -(3)[1493:wpa_supplicant][<00000000f483c631>] SyS_ioctl+0x84/0x98
+[  192.276826] -(3)[1493:wpa_supplicant][<000000002284ce8d>] el0_svc_naked+0x34/0x38
+[  192.276869] -(3)[1493:wpa_supplicant]we can get console_sem
+[  192.276995] -(3)[1493:wpa_supplicant]exception reboot
