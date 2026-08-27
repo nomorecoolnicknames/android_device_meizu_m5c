@@ -5708,3 +5708,73 @@ FACT (forge-shear проба на живом устройстве, скролл 
 пересбор libhwui + build.prop. Гипотезы vsync/период/FBT-буферизация —
 REJECTED (при латче конфига в бланкинге ошибка тайминга SF стежок дать не
 может). Полный разбор: `M5C_TEARING_LANE.md`.
+
+## 2026-08-27 (вечер) — ROM пересобран, телефония работает штатно
+
+### Сборка
+
+FACT: полная сборка `lineage_m5c-userdebug` в `los14.1-m5c-patched` прошла с
+нуля за 40:50, инкрементальная (после правок hwui) — за 15:23. Результат:
+`out/target/product/m5c/lineage-14.1-20260827-UNOFFICIAL-m5c.zip`
+(520 486 664 байт, 16:39). До этого `out/` в дереве не было вовсе.
+
+Сборка требует JDK 8 (`/usr/lib/jvm/temurin-8-jdk-amd64`), окружение по
+умолчанию даёт 17 и Soong падает.
+
+### Телефония: подтверждено на штатном ecc_list.xml
+
+Фикс `MtkEccList`/`MT6735` (коммит `78f33dc`) проверен не подрезанным
+файлом, а по-настоящему: на устройство подменены собранные
+`telephony-common.jar` (md5 `f0c75b126daf2301c3591b758597eeaa`) и **полный**
+`/system/etc/ecc_list.xml` (8819 байт, md5 `0bc1d61c8b8ed4106c5cbd50d9c3526b`
+— тот же, что в дереве).
+
+FACT после перезагрузки и пересборки boot-классов dex2oat:
+
+```
+gsm.sim.state        = READY,ABSENT
+gsm.operator.alpha   = beeline
+gsm.network.type     = LTE
+ril.ecclist          = 110,119,120,122,112,911,000,08,118,999,110,999,999,110,119,117,191,199,1646,1137,110,118
+mServiceState        = voice home data home beeline beeline 25099  LTE LTE
+исключений "val.length > 91" в буфере radio: 0
+```
+
+То есть property обрезается по границе номера и укладывается в лимит, ответы
+`GET_SIM_STATUS` доходят до фреймворка, аппарат стоит в LTE домашней сети.
+
+### Bluetooth-адрес: хелпер работает, источник дефолта другой
+
+FACT: `btaddr_mtk` собран и установлен, `/data/misc/bluetooth/bdaddr`
+содержит заводской `D8:6C:02:AB:6F:3F` (права `bluetooth:net_bt_stack`,
+контекст `bluetooth_data_file`), `ro.bt.bdaddr_path` указывает туда,
+`/data/misc/bluedroid/bt_config.conf` тоже содержит `d8:6c:02:ab:6f:3f`, а в
+логе прошлой загрузки `mtk_fw_cfg: [BDAddr d8-6c-02-ab-6f-3f]` — чип
+программируется правильно.
+
+FACT: при этом `dumpsys bluetooth_manager` показывает
+`address: 22:22:AF:F6:76:58`. Найдена и снята одна причина —
+`persist.service.bdroid.bdaddr` застряла с дефолтным значением
+(`/data/property/persist.service.bdroid.bdaddr`, 17 байт, от 16:41); файл
+удалён, проперть пуста. Адрес хоста после этого не изменился, значит есть
+второй источник — разбор передан в работу.
+
+### Разрывы изображения
+
+Причина установлена инструментально и записана в `M5C_TEARING_LANE.md`
+(коммиты `f5fcd97`, `d5c9a93`): hwui работает в `SwapBehavior::Preserved`,
+потому что блоб Mali-T720 не даёт `EGL_EXT_buffer_age`; он принимает
+`EGL_BUFFER_PRESERVED` без ошибок, но реально отдаёт буфер возрастом 2-3
+кадра, тогда как hwui при Preserved считает возраст равным 1. Свежий damage
+ложится на устаревшую основу — в одном буфере два момента движения.
+
+Улика — shear-проба в HWC: из 1152 кадров скролла 39 содержат ДВА разных
+ненулевых построчных сдвига одновременно (`88-128=0 712-712=-91
+1024-1024=-71`), то есть разрыв запечён продюсером до `queueBuffer`.
+
+Попутный FACT: штатная ручка AOSP `debug.hwui.enable_partial_updates` — 33
+символа при лимите bionic в 31, `setprop` отвечает «name too long», то есть
+установить её на этом Android невозможно в принципе. Свойство переименовано
+в `debug.hwui.partial_updates`, в `system.prop` выставлено `false`.
+Пересобранные `libhwui.so` (32 и 64) и `build.prop` стоят на устройстве,
+A/B-проверка ручкой в работе.
