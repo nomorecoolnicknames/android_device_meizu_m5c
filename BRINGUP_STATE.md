@@ -5263,3 +5263,43 @@ HYPOTHESIS (проверяется только заменой модуля/шл
 исправном m5c с этим же образом.
 
 Линия фронталки закрывается как «сделано всё, что можно софтом».
+
+## 2026-08-27 — модем: почему early exception. Не хватает ioctl файловой службы
+
+Ручной запуск (`chown` + `ccci_mdinit`) доводит модем до
+`md1:5/3`, после чего:
+```
+[ccci1/FSM]early exception detected
+[ccci1/FSM]command 1 is completed -1 by ccci_fsm_main
+[ccci1/FSM]exception 4, from ccci_fsm_main
+[ccci1/ken]control message 0x4,0x45584350   ("EXCP")
+[ccci1/ken]control message 0x6,0x45524543   ("EREC")
+```
+То есть падает не наша сторона, а сама прошивка модема, ещё в фазе
+загрузки.
+
+### Цепочка найдена
+
+`ccci_fsd` — файловый сервер, через который MD читает свою калибровку.
+Он **не работает**:
+```
+E ccci_fsd(1): Main: [error]fail get CCCI_FS buffer index: 25
+F libc   : Fatal signal 11 (SIGSEGV), code 1, fault addr 0xffffbffb in tid (ccci_fsd)
+```
+`25` = `ENOTTY`: ядро отказало в ioctl, демон не проверил ошибку и упал.
+Без него модем не получает NVRAM и падает сам — это и есть early
+exception.
+
+Данные модема на месте: `/nvdata/md/NVRAM/` содержит `CALIBRAT`,
+`IMPORTNT`, `NVD_CORE`, `NVD_DATA`, `NVD_IMEI`, `SWCHANGE`. То есть чинить
+надо не данные, а доступ к ним.
+
+Отвергнуто попутно: размер памяти MD согласован — ядро берёт
+`0x3810000` из динамического `reserve-memory-ccci_md1` в DT (проверено
+через `/proc/device-tree/.../size`), а `CONFIG_MD1_SIZE=0x5000000`
+в этом пути не участвует.
+
+Отказ приходит из `default`-ветки `port_proxy_user_ioctl()`
+(`eccci1/port_proxy.c`), которая до сих пор молча возвращала `-ENOTTY`.
+Ветка теперь называет команду (`cmd`, `nr`, `size`, `dir`) и канал —
+следующий прогон скажет, какой именно ioctl нужно реализовать.
