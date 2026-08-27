@@ -9,9 +9,9 @@ on post-fs-data
     mkdir /data/mdlog 0775 shell system
 
     chown radio radio /sys/kernel/ccci/boot
-    # legacy modem-boot trigger the stock ccci_mdinit writes to
+    # forge: the legacy modem-boot trigger the stock ccci_mdinit writes to,
+    # plus the per-channel nodes it opens before that
     chown radio radio /sys/class/BOOT/BOOT/boot/md
-    chown radio radio /dev/ccci_fs
     chown radio radio /dev/ccci_sys_rx
     chown radio radio /dev/ccci_pcm_rx
     chown radio radio /dev/ccci_pcm_tx
@@ -19,6 +19,7 @@ on post-fs-data
     chown radio radio /dev/ccci_uem_tx
     chown radio radio /dev/ccci_md_log_rx
     chown radio radio /dev/ccci_md_log_tx
+    chown radio radio /dev/ccci_fs
     chown radio radio /dev/ccci_ioctl0
     chown radio radio /dev/ccci_ioctl1
     chown radio radio /dev/ccci_ipc_1220_0
@@ -112,10 +113,21 @@ service ccci_fsd /system/bin/ccci_fsd 0
     oneshot
 
 service ccci_mdinit /system/bin/ccci_mdinit 0
-    user system
+    # forge: runs as root, not system. From system this binary ends up with a
+    # NULL path for the modem-boot node and exits 255 ("open (null) fail: 2");
+    # the identical invocation as root reaches the node and brings MD up.
+    user root
     group radio system
     class core
+    disabled
     oneshot
+
+# forge: this daemon waits for NVRAM and gives up if it is not ready - started
+# with the rest of class core it lands at ~33s, before nvram_daemon has
+# published service.nvram_init, and exits 255. Start it when NVRAM says it is
+# ready, which is also when a manual run succeeds.
+on property:service.nvram_init=Ready
+    start ccci_mdinit
 
 service ccci_rpcd /system/bin/ccci_rpcd 0
     user radio
@@ -147,3 +159,31 @@ service start_modem /system/bin/md_ctrl 1
     disabled
     oneshot
 
+
+# forge: bring the RIL stack up automatically. Until now gsm0710muxd and
+# ril-daemon-mtk were disabled with no trigger, so they only ran when started
+# by hand - and a hand-started RIL never gets the framework to reconnect
+# ("Can't send URC because there is no connection yet"), which left the SIM
+# stuck at NOT_READY even with the modem registered on the network.
+# ccci_mdinit publishes mtk.md1.status=init_done once MD1 is up; that is the
+# earliest point where the mux has real channels to talk to. The m681 tree
+# uses the same shape with mtk.md1.status=ready, so accept both.
+on property:mtk.md1.status=init_done
+    write /proc/bootprof "forge: md1 init_done - starting mux"
+    chown radio radio /dev/ttyC0
+    chmod 0660 /dev/ttyC0
+    start terservice
+    start gsm0710muxd
+
+on property:mtk.md1.status=ready
+    write /proc/bootprof "forge: md1 ready - starting mux"
+    chown radio radio /dev/ttyC0
+    chmod 0660 /dev/ttyC0
+    start terservice
+    start gsm0710muxd
+
+# The mux creates its pty channels a moment after it execs; mtkrild retries its
+# channel opens, so keying RIL off the mux service state is enough ordering.
+on property:init.svc.gsm0710muxd=running
+    write /proc/bootprof "forge: mux running - starting ril-daemon-mtk"
+    start ril-daemon-mtk
