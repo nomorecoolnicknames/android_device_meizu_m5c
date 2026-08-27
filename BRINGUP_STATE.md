@@ -5934,3 +5934,21 @@ Bluetooth с заводским адресом, GPS-демоны Gen-N.
 FORTIFY и уводил в WDT) и `hwcomposer.mt6737m` (чёрный экран). Проверять
 после каждой сборки: `md5sum out/target/product/m5c/system/lib*/hw/<модуль>`
 против `out/.../obj*/SHARED_LIBRARIES/<модуль>_intermediates/LINKED/`.
+
+### Итог: чистая прошивка исправленного ROM
+
+FACT: `lineage-14.1-20260827-UNOFFICIAL-m5c.zip` (md5
+`e6e632a9a2924501e50f07e6f0b97464`) — сборка без блобного hwcomposer —
+прошит через sideload, `script succeeded`, `RC=0`. Загрузка с первого раза,
+**без единой ручной подмены**:
+
+```
+sys.boot_completed = 1
+gsm.sim.state = READY,ABSENT   gsm.operator.alpha = beeline   gsm.network.type = LTE
+bluetooth state: ON            address: D8:6C:02:AB:6F:3F
+wlan.driver.status = ok
+init.svc.mnld = running        init.svc.agpsd = running
+записей md_ctrl в буфере crash: 0
+hwcomposer в системе: addfcdd865f5d237f86a953627143711 (наш forge_hwc,
+  20 forge-маркеров, ноль GameDetector)
+```
