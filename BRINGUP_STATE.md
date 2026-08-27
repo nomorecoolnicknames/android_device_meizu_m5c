@@ -5869,3 +5869,68 @@ md5 `bfe36a7137ce996ea83dcc310a20a5b0`.
 Проверка на живом устройстве после всех подмен: `gsm.sim.state = READY`,
 `beeline`, LTE; BT `state: ON`, `address: D8:6C:02:AB:6F:3F`;
 `wlan.driver.status = ok`; крашей `md_ctrl` нет.
+
+## 2026-08-27 (ночь) — ROM прошит; чёрный экран и его причина
+
+### Прошивка
+
+FACT: `lineage-14.1-20260827-UNOFFICIAL-m5c.zip` (md5
+`59bf11d3ccf626dd95cb6ee02ce21be9`) прошит через `adb sideload` из TWRP.
+`/data` зашифрован (`/dev/block/dm-0`), поэтому recovery не смог бы прочитать
+zip с накопителя — sideload обходит это. Установка прошла:
+`script succeeded: result was [1.000000]`, `Updater process ended with RC=0`.
+
+### Первая загрузка — чёрный экран
+
+FACT: после прошивки аппарат висел на чёрном экране. `sys.boot_completed`
+пуст на 511-й секунде, dex2oat уже завершился, `system_server` жив и стоит в
+`futex_wait`, последняя запись в логе — `SystemServiceManager: Starting phase
+100` (ожидание дефолтного дисплея).
+
+FACT (причина, из лога): SurfaceFlinger падал в вендорном композиторе:
+```
+E hwcomposer: ! getPrivateHandleInfo(buffer_handle_t, PrivateHandle*) err(fffffff9)
+#05 GameDetector::LayersStrategy::isAllGpuLayers()
+#06 GameDetector::LayersStrategy::runOnce()
+#08 HWCMediator::prepare(...)
+```
+`GameDetector` и `HWCMediator` — классы стокового MTK-композитора, то есть в
+образе оказался **блоб**, а не наш `forge_hwc`.
+
+FACT (механизм): `product/display.mk` объявляет
+`PRODUCT_PACKAGES += hwcomposer.mt6737m` — это наш `forge_hwc`, собираемый из
+`hwcomposer/`. Одновременно `m5c-vendor-blobs.mk` копировал блоб по тем же
+двум путям через `PRODUCT_COPY_FILES`. **PRODUCT_COPY_FILES тихо побеждает
+собранный модуль с тем же именем**, и в system уезжал блоб. Раньше это не
+всплывало: `forge_hwc` ставили на аппарат руками, поверх уже установленного
+блоба.
+
+FACT (подтверждение): подмена обеих библиотек на собранные из дерева
+(`05f231d6e505aa9fe8cc3786ea4862cf` для lib, `8726f54f26f1f4a97fa315332758b1d2`
+для lib64) и перезагрузка — аппарат дошёл до лаунчера с первого раза.
+
+Строки установки блоба убраны из обоих `m5c-vendor-blobs.mk` (в
+`vendor/meizu/m5c` и в `android_vendor_meizu_m5c`).
+
+### Состояние на прошитом ROM (FACT, живое устройство)
+
+```
+mCurrentFocus = Window{com.cyanogenmod.trebuchet/com.android.launcher3.Launcher}
+gsm.sim.state = READY,ABSENT     gsm.operator.alpha = beeline    gsm.network.type = LTE
+bluetooth state: ON              address: D8:6C:02:AB:6F:3F
+wlan.driver.status = ok
+init.svc.mnld = running          init.svc.agpsd = running
+```
+
+То есть после полной прошивки, без ручных подмен (кроме hwcomposer, который
+теперь исправлен в дереве), держатся все результаты дня: связь, Wi-Fi,
+Bluetooth с заводским адресом, GPS-демоны Gen-N.
+
+### Правило на будущее
+
+Если device-дерево собирает модуль с тем же именем, что есть в
+`proprietary-files`, — блоб обязан быть удалён из списка, иначе он молча
+затрёт собранный. За сегодня это выстрелило дважды: `md_ctrl` (падал по
+FORTIFY и уводил в WDT) и `hwcomposer.mt6737m` (чёрный экран). Проверять
+после каждой сборки: `md5sum out/target/product/m5c/system/lib*/hw/<модуль>`
+против `out/.../obj*/SHARED_LIBRARIES/<модуль>_intermediates/LINKED/`.
