@@ -5796,3 +5796,76 @@ maxplanes=1 против underflow. Правило чтения shear-карт: 
 между прогонами телефон сам ребутнулся — крашлуп md_ctrl (FORTIFY в
 android_fork_execvp_ext) → init → WDT 0x40000000 на 562 c (pstore); это
 к телефонной полосе. Полный разбор: M5C_TEARING_LANE.md.
+
+## 2026-08-27 (поздний вечер) — крашлуп md_ctrl и снятый вердикт по разрывам
+
+### Аппарат перезагружался ещё по одной причине
+
+FACT (pstore + `logcat -b crash`): `/system/bin/md_ctrl` падает с FORTIFY —
+```
+__libc_fatal -> __fortify_chk_fail -> __write_chk -> android_fork_execvp_ext
+  (liblogwrap) -> /system/bin/md_ctrl (main+436)
+```
+init перезапускает сервис, крашлуп доводит дело до сторожевого таймера:
+`WDT_STATUS 0x40000000` на 562-й секунде. Поймано между двумя дисплейными
+прогонами — телефон ушёл в ребут сам.
+
+INFERENCE (опирается на стек выше и на заголовок платформы): блоб собран под
+старую сигнатуру `android_fork_execvp_ext`. В этой ветке она —
+`(int argc, char* argv[], int *status, bool ignore_int_quit, int log_target,
+bool abbreviated, char *file_path, const struct AndroidForkExecvpOption* opts,
+size_t opts_len)`; при вызове со старой раскладкой в `log_target`/`abbreviated`
+попадает мусор, и `__write_chk` получает count больше SSIZE_MAX.
+
+FACT: `bin/md_ctrl` числится в `proprietary-files-mtk.txt` и копируется из
+vendor-дерева, при этом в самом device-дереве лежат исходники того же хелпера
+от MediaTek (`md_ctrl/md_ctrl.cpp`, `Android.mk`). Блоб убран из обоих
+списков, модуль добавлен в `PRODUCT_PACKAGES` (`product/modem.mk`).
+
+FACT после подмены на устройстве (md5 `583c4dd21d254c98e1249293368dc278`):
+`start stop_modem` и `start start_modem` отрабатывают и уходят в `stopped`,
+записей `md_ctrl` в буфере crash — ноль, uptime растёт.
+
+### Разрывы изображения: собственный вердикт снят
+
+Вердикт «hwui запекает разрыв поверх несохранённого `EGL_BUFFER_PRESERVED`»
+**REJECTED** контрольным A/B на пересобранном `libhwui`:
+
+| прогон | partial updates | HARD / кадров |
+|---|---|---|
+| до фикса | ON (Preserved) | 39 / 1152 |
+| A | OFF (Discard) | 37 / 1182 |
+| B | ON (Preserved) | 39 / 1066 |
+
+FACT: счётчик инвариантен к ручке, хотя ручка доказанно работает (у свежего
+процесса `Swap behavior 0`). При Discard двухмоментный кадр от hwui невозможен
+в принципе, значит HARD-кадры не были разрывами. FACT: геометрия ложных
+срабатываний одна во всех трёх прогонах — одиночные пробные строки парами с
+шагом ровно 312 px и разницей сдвигов ровно 20, то есть повторяющиеся элементы
+списка Настроек, совпавшие с прошлым кадром на «чужом» сдвиге.
+
+Правило чтения shear-карт на будущее: зона легитимна только из двух и более
+соседних пробных строк; одиночные строки — алиасинг.
+
+Что остаётся FACT: буферы на подаче одномоментны, ядро латчит в бланкинге,
+фенсы честные. Причина разрыва — ОТКРЫТА.
+
+### Ловушка сборки, которая едва не откатила всю работу
+
+FACT: `mka bacon` собирает `boot.img` из `rootdir/kernel`, а там лежал
+prebuilt от 15 июня (md5 `f7c126eff951b41d0d6bce8f52717780`). Прошивка такого
+ROM затёрла бы ядро 4.9 со всеми фиксами. Теперь в `rootdir/kernel` лежит наш
+`Image.gz+dtb_stock.dtb` (md5 `a374f6ce70fbf90b7537e444c4092983`), и boot.img
+внутри zip совпадает с проверенным ручным образом. Параметры образов сверены:
+kerneladdr 0x40080000, ramdiskaddr 0x44000000, tagsaddr 0x4e000000,
+pagesize 0x800, name mt6737, cmdline `bootopt=64S3,32N2,64N2`.
+
+### Итоговый ROM
+
+`out/target/product/m5c/lineage-14.1-20260827-UNOFFICIAL-m5c.zip`,
+md5 `931c094395bcabcae86f204cf08ba148`, 520 446 455 байт; boot.img внутри —
+md5 `bfe36a7137ce996ea83dcc310a20a5b0`.
+
+Проверка на живом устройстве после всех подмен: `gsm.sim.state = READY`,
+`beeline`, LTE; BT `state: ON`, `address: D8:6C:02:AB:6F:3F`;
+`wlan.driver.status = ok`; крашей `md_ctrl` нет.
