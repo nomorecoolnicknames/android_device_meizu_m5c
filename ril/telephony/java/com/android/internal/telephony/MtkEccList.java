@@ -332,6 +332,33 @@ public class MtkEccList extends PhoneNumberUtils {
         return 0;
     }
 
+    // System property values are limited to PROP_VALUE_MAX-1 = 91 chars.
+    // The merged list (SIM/network ECCs + the whole customized list from
+    // ecc_list.xml, which parseEccList() loads without any CountryISO
+    // filtering) easily exceeds that, and SystemProperties.set() then throws
+    // IllegalArgumentException ("val.length > 91"). When that happened inside
+    // MT6735.processSolicited() pre-processing of GET_SIM_STATUS, the throw
+    // swallowed every SIM status response and both slots stayed NOT_READY
+    // forever. Truncate on a number boundary and never let set() escape.
+    // Note: the Java dial path (isEmergencyNumberExt) still consults the full
+    // in-memory mCustomizedEccList, so nothing is lost for MMI dialing.
+    private static final int PROP_VALUE_MAX_LEN = 91;
+
+    private static void setEccListProperty(String prop, ArrayList<String> numbers) {
+        String value = TextUtils.join(",", numbers);
+        if (value.length() > PROP_VALUE_MAX_LEN) {
+            int cut = value.lastIndexOf(',', PROP_VALUE_MAX_LEN);
+            value = value.substring(0, cut > 0 ? cut : PROP_VALUE_MAX_LEN);
+            Rlog.w(LOG_TAG, "[setEccListProperty] " + prop
+                    + " over property limit, truncated to: " + value);
+        }
+        try {
+            SystemProperties.set(prop, value);
+        } catch (RuntimeException e) {
+            Rlog.e(LOG_TAG, "[setEccListProperty] failed to set " + prop, e);
+        }
+    }
+
     public static void updateEmergencyNumbersProperty() {
         ArrayList<String> sim1List = new ArrayList<String>();
         ArrayList<String> sim2List = new ArrayList<String>();
@@ -362,7 +389,7 @@ public class MtkEccList extends PhoneNumberUtils {
             sim1List.removeAll(fixedListNoSim);
             sim1List.addAll(fixedListNoSim);
         }
-        SystemProperties.set("ril.ecclist",TextUtils.join(",", sim1List));
+        setEccListProperty("ril.ecclist", sim1List);
 
         // Read from SIM2
         numbers = SystemProperties.get("ril.ecclist1");
@@ -377,7 +404,7 @@ public class MtkEccList extends PhoneNumberUtils {
             sim2List.removeAll(fixedListNoSim);
             sim2List.addAll(fixedListNoSim);
         }
-        SystemProperties.set("ril.ecclist1",TextUtils.join(",", sim2List));
+        setEccListProperty("ril.ecclist1", sim2List);
 
     }
 

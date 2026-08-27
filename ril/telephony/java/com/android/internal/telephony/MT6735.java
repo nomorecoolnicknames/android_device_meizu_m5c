@@ -353,7 +353,16 @@ public class MT6735 extends RIL implements CommandsInterface {
     }
 
     private void refreshEmergencyList() {
-        if (mEccList != null) mEccList.updateEmergencyNumbersProperty();
+        // Called from processSolicited() pre-processing: a throw from here is
+        // forwarded as the request's result and the real response is dropped.
+        // For GET_SIM_STATUS that used to leave the SIM NOT_READY forever
+        // (seen live as "val.length > 91" from MtkEccList), so ECC list
+        // housekeeping must never be allowed to escape.
+        try {
+            if (mEccList != null) mEccList.updateEmergencyNumbersProperty();
+        } catch (Throwable t) {
+            riljLog("refreshEmergencyList failed: " + t);
+        }
     }
 
     @Override

@@ -5676,3 +5676,17 @@ Wi-Fi, поэтому аппарат перезагружался цикличе
 Это тот же класс дефекта, что уже ловился на камере и ccci: драйвер из 3.18
 переносится в 4.9, где ужесточены правила доступа. Фикс и аудит остальных
 точек в `gen2/os/linux/` вынесены в отдельную работу.
+
+## 2026-08-27 — SIM READY: причина NOT_READY найдена и подтверждена живьём
+
+Модем карту читал и был зарегистрирован, но фреймворк держал оба слота в
+NOT_READY. Причина — не rild и не AT-обмен: каждый ответ `GET_SIM_STATUS`
+доходил до Java и гибнул в `MT6735.processSolicited()` →
+`MtkEccList.updateEmergencyNumbersProperty()` →
+`SystemProperties.set("ril.ecclist", …)` → `IllegalArgumentException:
+val.length > 91` (слитый ECC-список из ~100 записей ecc_list.xml не влезает в
+лимит property). Фикс: обрезка списка + try/catch в `ril/telephony/…`
+(MtkEccList.java, MT6735.java). Живой эксперимент с урезанным
+`/system/etc/ecc_list.xml` дал `gsm.sim.state = READY,ABSENT` и регистрацию в
+LTE beeline. Нужен пересбор telephony-common (system-образ); boot.img не
+затронут. Полный разбор: `M5C_SIM_READY_LANE.md`.
