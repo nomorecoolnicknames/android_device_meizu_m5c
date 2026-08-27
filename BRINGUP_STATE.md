@@ -5521,3 +5521,44 @@ switch (ver) { case 1: case 2: case 3: case 5: name = "/dev/ttyC0"; break;
 правке — последовательность `pttycmd*/pttynoti` закрывала блок раньше
 времени, а `(k-worktrees/*)` открывала вложенный. В комментариях ядра не
 писать пути с `*/` и `/*`.
+
+## 2026-08-27 — СОТОВАЯ ЧАСТЬ ПОДНЯЛАСЬ: RIL обменивается AT-командами с модемом
+
+Образ `mux3` (`ccci_port_ver = 3`), md5 `30ec1334a99f6adb2d461e1a5beba18f`,
+сохранён как `artifacts/boot_m5c_49_20260827_modem.img`.
+
+FACT (после загрузки и `start gsm0710muxd`):
+```
+/sys/kernel/ccci/version = 3
+/sys/kernel/ccci/boot    = md1:4/0
+/dev/radio/: atci1 atci2 pttycmd1..4 pttynoti ptty2cmd1..4 ptty2noti
+RILMUXD: Writing 39 byte frame received on channel 2 to /dev/pts/1
+RILMUXD: Frames received/dropped: 315/0
+```
+То есть mux открыл `/dev/ttyC0`, создал все виртуальные порты и реально
+гоняет кадры с модемом без потерь.
+
+FACT (после `start ril-daemon-mtk`):
+```
+init.svc.ril-daemon-mtk = running
+AT< +ECSQ: 53,42,1,-272,-13,1,1,2,32767
+RIL: convert3GRssiValue baseband=503, isFdd3G=1, RSCP=-272, EcN0=-13
+RILC: callForRilVersion new vendor RIL, version: 10
+RILC: RIL_SOCKET_1 UNSOLICITED: UNSOL_SIGNAL_STRENGTH
+```
+Модем отвечает на AT, RIL разбирает URC и отдаёт наверх уровень сигнала —
+вся цепочка ядро → mux → RIL работает.
+
+`gsm.sim.state` остаётся `NOT_READY`, оператор пуст: **SIM-карта в
+аппарат не вставлена**. Это единственное, что осталось для проверки
+регистрации в сети.
+
+### Сводка того, что понадобилось для модема
+
+1. Семь узлов `/dev/ccci_*` в `eccci1/port_cfg.c` (стоковый демон их открывает).
+2. Атрибут `md` в BOOT-классе (`mtk_boot_common.c`) + экспортируемый
+   `ccci_trigger_md_boot()` — стоковый `ccci_mdinit` пишет туда команду старта.
+3. Замена `ccci_fsd` на сборку из m681 (m5c-версия — legacy `dual_ccci` ABI).
+4. `ccci_port_ver = 3` — иначе `gsm0710muxd` открывает строку `"(null)"`.
+5. ROM-обвязка: права на узлы, запуск `ccci_mdinit` от root по готовности NVRAM,
+   прошивки модема также в `/vendor/firmware`.
