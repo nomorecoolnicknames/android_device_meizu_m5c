@@ -5952,3 +5952,33 @@ init.svc.mnld = running        init.svc.agpsd = running
 hwcomposer в системе: addfcdd865f5d237f86a953627143711 (наш forge_hwc,
   20 forge-маркеров, ноль GameDetector)
 ```
+
+### Телефония на уровне фреймворка — закрыта
+
+FACT (`dumpsys isub`, `dumpsys telephony.registry` на прошитом ROM):
+```
+{id=1, iccId=8970199131102411766 simSlotIndex=0 displayName=Beeline
+ carrierName=Beeline mcc 250 mnc 99 userNwMode=20}
+mCallState=0
+mServiceState=0 0 voice home data home beeline beeline 25099 LTE LTE
+```
+То есть `SubscriptionManager` завёл подписку с прочитанным ICCID, оператор
+опознан, голосовая регистрация в домашней сети есть, телефон в idle.
+
+Не проверено живьём: исходящий звонок, SMS, мобильные данные — все три
+расходуют средства абонента, поэтому ждут решения владельца SIM. Безвредная
+проверка сигнального тракта конец-в-конец, не стоящая денег, — USSD-запрос
+баланса; выполнить, когда устройство освободится от замеров.
+
+FACT (GPS-стек на прошитом ROM, проверка требования полосы GPS):
+```
+/system/lib/hw/gps.mt6737m.so   af00cbbf…   (НЕ блобный f35bfca6 → source-HAL Gen-N)
+/system/lib64/hw/gps.mt6737m.so a88e55e2…   (НЕ блобный 4f45ae89)
+/system/xbin/mnld               84b49bcf…   (m681 Gen-N)
+/system/lib/libmnl.so           67cfe376…   (из дерева, MT6735)
+/system/lib/libcurl.so          edf930d0…   (m681)
+init.svc.mnld = running   init.svc.agpsd = running
+записей process data error / unknown type=252 / ack_timeout / CANNOT LINK: 0
+```
+Абстрактные сокеты `mtk_hal2mnl`/`mtk_mnl2hal` в покое не подняты — это норма,
+они появляются на активной GPS-сессии.
