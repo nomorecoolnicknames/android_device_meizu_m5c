@@ -15,7 +15,7 @@ bin/geomagneticd
 bin/gsm0710muxd
 bin/gsm0710muxdmd2
 bin/guiext-server
-bin/md_ctrl
+# bin/md_ctrl  - forge: built from device tree sources instead, the blob dies on FORTIFY under N
 bin/mdlogger
 bin/memsicd
 bin/memsicd3416x
