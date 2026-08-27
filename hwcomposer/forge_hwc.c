@@ -138,6 +138,11 @@ struct forge_hwc {
 	/* forge-crc probe results (see engine_crc_probe) */
 	unsigned int crc_runs;
 	unsigned int crc_dirty_runs;
+	/* forge-shear probe results (see engine_shear_probe) */
+	unsigned int shear_frames;
+	unsigned int shear_motion;
+	unsigned int shear_zoned;
+	unsigned int shear_hard;
 	unsigned int last_buff_idx;
 	unsigned int last_pf_idx;
 	int fmt_override;	/* debug.forgehwc.fmt, 0 = RGBA8888 */
@@ -433,6 +438,174 @@ static void engine_crc_probe(struct forge_hwc *hwc, struct fhwc_plane *planes,
 }
 
 /*
+ * forge-shear probe (2026-08-27): objective tear detector for content that
+ * is ALREADY torn inside the submitted buffer.  The fence counters and the
+ * CRC probe proved nobody writes into a buffer after submit (presig is the
+ * healthy N pattern - SF latches one vsync after queueBuffer - and 246 CRC
+ * runs came back clean), so a tear on the glass must be baked in by the
+ * producer (hwui partial update / EGL buffer age are the suspects).
+ *
+ * Method: signature every row of plane 0 (the app buffer when no FBT is
+ * used), then match each probed row of this frame against the previous
+ * submitted frame at vertical offsets -SHEAR_D..+SHEAR_D.  During a scroll
+ * a healthy frame moves as ONE block: fixed header rows at d=0, the
+ * scrolled body below it at one d != 0, boundary at the header edge.  A
+ * torn frame shows a boundary at the TEAR row instead (the stale part
+ * matches d=0, the fresh part d=s, or two different non-zero d).  The
+ * verdict is therefore in the zone-map ROWS: a boundary that sits at the
+ * toolbar edge every frame is legit, one that wanders around ~60% height
+ * is the tear.  Rows whose signature matches more than one offset
+ * (uniform backgrounds) are discarded as ambiguous.
+ *
+ * Enabled with debug.forgehwc.shear=N (probe every Nth submit, 1 = every
+ * frame; d is only exact between consecutively probed frames, so use 1).
+ * Cost: one ~3.5MB uncached read per probed frame, no sleeps.
+ * dmesg: "forge-shear:" zone maps + totals; counters in dump().
+ */
+#define SHEAR_MAX_ROWS 2048
+#define SHEAR_D 160
+#define SHEAR_MAX_RUNS 5
+static void engine_shear_probe(struct forge_hwc *hwc, struct fhwc_plane *planes,
+			       int n)
+{
+	static uint64_t sig_prev[SHEAR_MAX_ROWS], sig_cur[SHEAR_MAX_ROWS];
+	static unsigned int prev_rows, prev_pitch, prev_valid, seq, zone_seq;
+	struct forge_dma_buf_sync dbs;
+	int every = prop_int("debug.forgehwc.shear", 0);
+	int ion_fd = -1, stride_px = (int)hwc->width;
+	unsigned int pitch, rows, nw, r, i;
+	void *map;
+	off_t sz;
+
+	if (every <= 0 || n < 1) {
+		prev_valid = 0;
+		return;
+	}
+	if ((seq++ % (unsigned)every) != 0)
+		return;
+
+	if (hwc->ge_query) {
+		if (hwc->ge_query(planes[0].handle, GE_GET_ION_FD, &ion_fd) != 0)
+			ion_fd = -1;
+		hwc->ge_query(planes[0].handle, GE_GET_STRIDE, &stride_px);
+	}
+	if (ion_fd < 0 && planes[0].handle->numFds > 0)
+		ion_fd = planes[0].handle->data[0];
+	if (ion_fd < 0)
+		return;
+	sz = lseek(ion_fd, 0, SEEK_END);
+	if (sz <= 0)
+		return;
+	pitch = (unsigned int)stride_px * 4u;
+	rows = (unsigned int)sz / pitch;
+	if (planes[0].sh && rows > planes[0].sh)
+		rows = planes[0].sh;
+	if (rows > SHEAR_MAX_ROWS)
+		rows = SHEAR_MAX_ROWS;
+	if (rows < 64)
+		return;
+
+	map = mmap(NULL, (size_t)rows * pitch, PROT_READ, MAP_SHARED, ion_fd, 0);
+	if (map == MAP_FAILED)
+		return;
+	dbs.flags = FORGE_DMA_BUF_SYNC_START | FORGE_DMA_BUF_SYNC_READ;
+	ioctl(ion_fd, FORGE_DMA_BUF_IOCTL_SYNC, &dbs);
+	nw = pitch / 8;
+	for (r = 0; r < rows; r++) {
+		const uint64_t *q = (const uint64_t *)
+		    ((const char *)map + (size_t)r * pitch);
+		uint64_t acc = 0;
+
+		for (i = 0; i < nw; i++)
+			acc ^= q[i];
+		sig_cur[r] = acc;
+	}
+	dbs.flags = FORGE_DMA_BUF_SYNC_END | FORGE_DMA_BUF_SYNC_READ;
+	ioctl(ion_fd, FORGE_DMA_BUF_IOCTL_SYNC, &dbs);
+	munmap(map, (size_t)rows * pitch);
+
+	if (prev_valid && prev_rows == rows && prev_pitch == pitch) {
+		int run_s[SHEAR_MAX_RUNS], run_e[SHEAR_MAX_RUNS], run_d[SHEAR_MAX_RUNS];
+		int nrun = 0, overflow = 0, motion = 0;
+		int dset[SHEAR_MAX_RUNS], ndist = 0, ndist_nz = 0;
+
+		for (r = 16; r + 16 < rows; r += 8) {
+			int d, found = 0, dm = 0;
+
+			for (d = -SHEAR_D; d <= SHEAR_D; d++) {
+				int rr = (int)r + d;
+
+				if (rr < 0 || rr >= (int)rows)
+					continue;
+				if (sig_cur[r] == sig_prev[rr]) {
+					if (found++)
+						break;	/* ambiguous row */
+					dm = d;
+				}
+			}
+			if (found != 1)
+				continue;
+			if (nrun && run_d[nrun - 1] == dm) {
+				run_e[nrun - 1] = (int)r;
+			} else if (nrun < SHEAR_MAX_RUNS) {
+				run_s[nrun] = (int)r;
+				run_e[nrun] = (int)r;
+				run_d[nrun] = dm;
+				nrun++;
+			} else {
+				overflow = 1;
+			}
+		}
+
+		for (i = 0; i < (unsigned int)nrun; i++) {
+			int d = run_d[i], j, seen = 0;
+
+			if (d)
+				motion = 1;
+			for (j = 0; j < ndist; j++)
+				if (dset[j] == d)
+					seen = 1;
+			if (!seen && ndist < SHEAR_MAX_RUNS) {
+				dset[ndist++] = d;
+				if (d)
+					ndist_nz++;
+			}
+		}
+
+		hwc->shear_frames++;
+		if (motion)
+			hwc->shear_motion++;
+		if (ndist >= 2) {
+			hwc->shear_zoned++;
+			if (ndist_nz >= 2)
+				hwc->shear_hard++;
+			/* every 4th zone map, every hard frame */
+			if (ndist_nz >= 2 || (zone_seq++ % 4) == 0) {
+				char zbuf[160];
+				int off = 0;
+
+				for (i = 0; i < (unsigned int)nrun && off < 120; i++)
+					off += snprintf(zbuf + off, sizeof(zbuf) - off,
+							" %d-%d=%d", run_s[i],
+							run_e[i], run_d[i]);
+				kmsg_log("forge-shear: seq=%u%s map%s%s",
+					 seq - 1, ndist_nz >= 2 ? " HARD" : "",
+					 zbuf, overflow ? " +" : "");
+			}
+		}
+		if ((hwc->shear_frames % 64) == 0)
+			kmsg_log("forge-shear: frames=%u motion=%u zoned=%u hard=%u",
+				 hwc->shear_frames, hwc->shear_motion,
+				 hwc->shear_zoned, hwc->shear_hard);
+	}
+
+	memcpy(sig_prev, sig_cur, (size_t)rows * sizeof(uint64_t));
+	prev_rows = rows;
+	prev_pitch = pitch;
+	prev_valid = 1;
+}
+
+/*
  * Hand n planes (bottom -> top == OVL layer 0 -> n-1) to the kernel in one
  * SET_INPUT + TRIGGER.  Consumes every plane's acquire fence; fills each
  * plane's release_fd and *retire_fence (all owned by the caller).
@@ -480,6 +653,13 @@ static int engine_submit(struct forge_hwc *hwc, struct fhwc_plane *planes,
 			close(planes[k].acquire);
 		} else {
 			hwc->acq_nofence++;
+			/* rare (13 per session in the 2026-08-27 capture):
+			 * say WHICH plane arrives fenceless - the geometry
+			 * tells status bar / app / transition surface apart */
+			kmsg_log("forge-nofence: #%u plane=%d/%d fmt=%d src=%ux%u dst+%u+%u",
+				 hwc->acq_nofence, k, n, planes[k].fmt,
+				 planes[k].sw, planes[k].sh,
+				 planes[k].tx, planes[k].ty);
 		}
 		planes[k].acquire = -1;
 		planes[k].release_fd = -1;
@@ -614,6 +794,7 @@ static int engine_submit(struct forge_hwc *hwc, struct fhwc_plane *planes,
 	}
 
 	engine_crc_probe(hwc, planes, n);
+	engine_shear_probe(hwc, planes, n);
 
 	hwc->frames++;
 	hwc->last_novl = (unsigned int)n;
@@ -989,7 +1170,7 @@ static void fhwc_dump(hwc_composer_device_1_t *dev, char *buff, int buff_len)
 		 "vsync_on=%d ge=%s "
 		 "ovl_frames=%u gles_frames=%u promoted=%u last: planes=%u fbt=%d "
 		 "acq: presig=%u waited=%u nofence=%u wait_avg_us=%llu wait_max_us=%u "
-		 "crc: runs=%u dirty=%u\n",
+		 "crc: runs=%u dirty=%u shear: frames=%u motion=%u zoned=%u hard=%u\n",
 		 hwc->session, hwc->width, hwc->height, hwc->vsync_period_ns, hwc->frames,
 		 hwc->prepare_fail, hwc->trigger_fail, hwc->acquire_timeouts,
 		 hwc->last_buff_idx, hwc->last_pf_idx, hwc->vsync_on,
@@ -998,7 +1179,9 @@ static void fhwc_dump(hwc_composer_device_1_t *dev, char *buff, int buff_len)
 		 hwc->last_novl, hwc->last_fbt_used,
 		 hwc->acq_presignaled, hwc->acq_waited, hwc->acq_nofence,
 		 hwc->acq_waited ? hwc->acq_wait_us_total / hwc->acq_waited : 0,
-		 hwc->acq_wait_us_max, hwc->crc_runs, hwc->crc_dirty_runs);
+		 hwc->acq_wait_us_max, hwc->crc_runs, hwc->crc_dirty_runs,
+		 hwc->shear_frames, hwc->shear_motion, hwc->shear_zoned,
+		 hwc->shear_hard);
 }
 
 static int fhwc_get_display_configs(hwc_composer_device_1_t *dev, int disp,
