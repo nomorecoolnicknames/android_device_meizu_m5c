@@ -93,8 +93,17 @@ ro.audio.silent=0
 ro.mtk_audio_ape_support=1
 ro.mtk_audio_tuning_tool_ver=V1
 
-# Disable dirty region for Mali
-debug.hwui.render_dirty_regions=false
+# hwui: full redraw every frame.  The Mali-T720 blob accepts
+# EGL_BUFFER_PRESERVED but does not actually preserve the back buffer, so
+# hwui partial updates paint fresh damage onto a 2-3 frame old base and the
+# glass shows a horizontal stitch between two moments of motion (forge-shear
+# probe: 39 HARD frames per 1152 during a Settings fling, two different
+# non-zero row shifts inside one submitted buffer).  The property name is the
+# forge rename of AOSP debug.hwui.enable_partial_updates, which at 33 chars
+# exceeds bionic's 31-char limit and can never be set on N.
+# (The old debug.hwui.render_dirty_regions line this replaces was a dead
+# knob: no such property exists in N's hwui.)
+debug.hwui.partial_updates=false
 
 # GPS
 ro.mtk_gps_support=1

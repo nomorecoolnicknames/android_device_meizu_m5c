@@ -5690,3 +5690,21 @@ val.length > 91` (слитый ECC-список из ~100 записей ecc_lis
 `/system/etc/ecc_list.xml` дал `gsm.sim.state = READY,ABSENT` и регистрацию в
 LTE beeline. Нужен пересбор telephony-common (system-образ); boot.img не
 затронут. Полный разбор: `M5C_SIM_READY_LANE.md`.
+
+## 2026-08-27 — разрывы: причина найдена, hwui partial updates поверх лживого EGL_BUFFER_PRESERVED
+
+FACT (forge-shear проба на живом устройстве, скролл Настроек): 39 HARD-кадров
+из 1152 — в одном отправленном буфере две зоны с разными ненулевыми
+вертикальными сдвигами (напр. `512=-101, 824=-81`), т.е. два момента движения
+запечены продюсером до `queueBuffer`. hwui у всех процессов в
+`SwapBehavior::Preserved` (`Swap behavior 1`: блоб Mali-T720 без
+`EGL_EXT_buffer_age`), блоб принимает `EGL_BUFFER_PRESERVED` без ошибок, но
+буфер не сохраняет — частичная перерисовка ложится на основу 2–3-кадровой
+давности. Штатная ручка AOSP `debug.hwui.enable_partial_updates` недостижима:
+33 символа при лимите имён свойств 31. Фикс: переименование свойства в
+`debug.hwui.partial_updates` (frameworks/base/libs/hwui/Properties.h) +
+`debug.hwui.partial_updates=false` в system.prop (мёртвая с Init
+`debug.hwui.render_dirty_regions` убрана — в N такого свойства нет). Нужен
+пересбор libhwui + build.prop. Гипотезы vsync/период/FBT-буферизация —
+REJECTED (при латче конфига в бланкинге ошибка тайминга SF стежок дать не
+может). Полный разбор: `M5C_TEARING_LANE.md`.
