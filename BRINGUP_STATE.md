@@ -5415,3 +5415,37 @@ abootimg -u boot.img -r initrd_new.img
 без mux не появляются `/dev/radio/pttycmd*`, которых ждёт RIL
 (`could not connect to /dev/radio/pttynoti`). Сборка mux из m681 ведёт
 себя так же — следующий кандидат на замену/разбор.
+
+## 2026-08-27 — GPS: линковочный блокер снят заменой демона
+
+Тот же приём, что с модемным `ccci_fsd`: сборка из дерева m681 подошла.
+
+FACT (readelf по обоим бинарникам, ROM несёт `libicuuc.so` с экспортами
+`_56`):
+```
+m5c-версия  UND: ucnv_open_55, ucnv_close_55, ucnv_convertEx_55,
+                 ucnv_setFromUCallBack_55, ucnv_setToUCallBack_55,
+                 UCNV_FROM_U_CALLBACK_STOP_55
+m681-версия UND: те же имена с суффиксом _56   (md5 904f35cbdbdeeb4cc88209adafb36fd9)
+```
+То есть m681-сборка собрана ровно под ту ICU, что лежит в этом ROM, и
+shim-библиотека не потребовалась.
+
+Результат на железе:
+```
+было:  init: Service 'agpsd' killed by signal 6   (цикл каждые ~5 с)
+       CANNOT LINK EXECUTABLE: cannot locate symbol UCNV_FROM_U_CALLBACK_STOP_55
+стало: init.svc.agpsd = running
+       [MAIN] mtk_agpsd is running ver=4.151.0
+       MtkAgpsNative: Enter mtk_agps_up_init
+       [AGPS][MNL] agps_settings_sync gps=[1] glonass=[1] beidou=[1] galileo=[1]
+```
+Блоб заменён в vendor-дереве (старый сохранён как
+`mtk_agpsd.flyme-icu55`) и на устройстве.
+
+Новый рубеж: `mnld` в цикле пишет
+`main: process data error: 2 (No such file or directory)`, обмен с agpsd
+идёт с `[MNL2AGPS] agps2mnl unknown type=252`, фикса нет
+(`Location[0,0 acc=3.4e38]`). Проверяется, не нужна ли пара `mnld` из
+того же m681-дерева (расхождение версий протокола) и какого файла ему не
+хватает.
