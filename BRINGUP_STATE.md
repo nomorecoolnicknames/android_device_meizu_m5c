@@ -5384,3 +5384,34 @@ E ccci_fsd(1): DSP image /vendor/firmware/dsp_1_lwg_n.bin not exist,
 Осталось: состояние `md1:4/0` — модем загружен, но до READY не дошёл;
 `gsm.sim.state` всё ещё `NOT_READY`. Следующий шаг — поднять оставшуюся
 цепочку (`md_ctrl`, `muxreport`, `rild`).
+
+### Автозапуск модемной цепочки (ramdisk)
+
+Правки `init.modem.rc` живут в ramdisk, который берётся из `boot.img`,
+поэтому для проверки ramdisk распаковывается и пересобирается вручную:
+```
+abootimg -x boot.img            # -> initrd.img
+gzip -dc initrd.img | cpio -idm # правки в init.modem.rc
+find . | cpio -o -H newc | gzip -9 > initrd_new.img
+abootimg -u boot.img -r initrd_new.img
+```
+Что вшито:
+1. `chown radio` на `/sys/class/BOOT/BOOT/boot/md` и семь новых
+   `/dev/ccci_*` — **работает**: `ccci_fsd` теперь стартует сам и живёт
+   (`init.svc.ccci_fsd = running`, в dmesg
+   `port ccci_fs open with flag 20002 by ccci_fsd`).
+2. `ccci_mdinit` переведён на `user root`: от `system` он получает NULL
+   вместо пути к узлу загрузки и выходит с 255
+   (`open (null) fail: 2`), от root тот же вызов поднимает модем.
+3. Запуск `ccci_mdinit` перевешен с `class core` на триггер
+   `on property:service.nvram_init=Ready`: в `class core` он стартует на
+   ~33 с, до того как `nvram_daemon` опубликует готовность, и падает —
+   ручной запуск позже той же командой всегда успешен.
+
+Состояние модема при ручном запуске цепочки: `md1:4/0`, `early exception`
+не появляется, RIL инициализируется (`SIM_COUNT: 2`, vsim-сокет).
+Остаётся `gsm.sim.state = NOT_READY`: `gsm0710muxd` не открывает
+`/dev/ttyC0` (в его же справке видно `[(null)]` — путь не разобран), а
+без mux не появляются `/dev/radio/pttycmd*`, которых ждёт RIL
+(`could not connect to /dev/radio/pttynoti`). Сборка mux из m681 ведёт
+себя так же — следующий кандидат на замену/разбор.
