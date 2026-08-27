@@ -5337,3 +5337,50 @@ exception.
    FS-канала. Работа конечная и вся на нашей стороне.
 2. Найти `ccci_fsd`, собранный под eccci ABI (в блобах устройств с
    этим драйвером). Дешевле, если такой блоб найдётся.
+
+## 2026-08-27 — МОДЕМ БОЛЬШЕ НЕ ПАДАЕТ: нашёлся демон под наш ABI
+
+Дешёвый путь из двух намеченных сработал: в дереве **m681** лежит другая
+сборка того же демона —
+`vendor/meizu/m681/proprietary/vendor/bin/ccci_fsd`
+(md5 `72e475d275077ae4fb7aac582fc14c52`, 99 272 б). Она представляется как
+```
+E ccci_fsd(0): md_fsd Ver:v2.1, CCCI Ver:6
+```
+— то есть знает ту же версию ccci, что сообщает наше ядро
+(`/sys/kernel/ccci/version` = 6), и **не** уходит в legacy-ioctl `'K'`.
+Версия из m5c-дерева (md5 `24fc1f7de0d20fc714b5b8eb1e0e02c6`) шлёт
+`_IO('K',1)`, получает `ENOTTY` и падает с SIGSEGV.
+
+Демон принимает индекс модема аргументом (`ccci_fsd 0`), как и в
+`init.modem.rc` от m681; без аргумента печатает
+«Parameter number not correct».
+
+### Результат на железе (FACT)
+
+```
+до:    md1:5/3, early exception detected, MD exception logical 0->3
+после: md1:4/0, "early exception" в dmesg: 0 совпадений
+```
+Модем загружается и остаётся живым. Демон реально обслуживает запросы MD —
+видно, как он ходит за файлами:
+```
+E ccci_fsd(1): DSP image /vendor/firmware/dsp_1_lwg_n.bin not exist,
+               try CIP path /custom/etc/firmware
+```
+Прошивки в этом ROM лежат в `/system/etc/firmware/`, поэтому на устройстве
+сделаны симлинки в `/system/vendor/firmware/` (=`/vendor/firmware`), после
+чего этот запрос закрывается.
+
+### Что нужно закрепить в ROM (пока сделано вручную на устройстве)
+
+1. Заменить `proprietary/bin/ccci_fsd` на сборку из m681 (v2.1) —
+   она совместима с ядерным ccci этого дерева.
+2. Класть прошивки модема ещё и в `/vendor/firmware/` (или симлинки).
+3. `init.modem.rc`: запускать `ccci_fsd 0` (с индексом) и раздать `chown
+   radio` на `/dev/ccci_fs`, `/sys/class/BOOT/BOOT/boot/md` и семь новых
+   `/dev/ccci_*`.
+
+Осталось: состояние `md1:4/0` — модем загружен, но до READY не дошёл;
+`gsm.sim.state` всё ещё `NOT_READY`. Следующий шаг — поднять оставшуюся
+цепочку (`md_ctrl`, `muxreport`, `rild`).
