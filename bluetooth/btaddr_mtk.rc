@@ -8,3 +8,13 @@ service btaddr_mtk /system/bin/btaddr_mtk
     group system bluetooth net_bt_stack
     disabled
     oneshot
+
+# Reconcile the Settings.Secure address cache once the settings
+# provider is up (stale 22:22 autogen from builds without btaddr_mtk)
+on property:sys.boot_completed=1
+    start btaddr_settings
+
+service btaddr_settings /system/bin/sh /system/etc/btaddr_settings.sh
+    user root
+    disabled
+    oneshot

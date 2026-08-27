@@ -3,7 +3,8 @@
 # (APCFG/APRDEB/BT_Addr) to /data/misc/bluetooth/bdaddr; the stack
 # reads that file via ro.bt.bdaddr_path (btif_fetch_local_bdaddr).
 PRODUCT_PACKAGES += \
-    btaddr_mtk
+    btaddr_mtk \
+    btaddr_settings.sh
 
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.bt.bdaddr_path=/data/misc/bluetooth/bdaddr
