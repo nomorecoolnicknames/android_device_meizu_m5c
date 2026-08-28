@@ -292,3 +292,65 @@ BRINGUP_STATE + коммитом.
 
 Первый шаг: этап 1 (vendor на custom ещё на 14.1) — маленький, обратимый,
 де-рискует разметку до любых игр с Pie и не мешает текущим полосам 14.1.
+
+---
+
+## 8. Исполнение: этап 0, ядро (2026-08-28)
+
+### Конфиг Pie собран и проверен
+
+FACT: диф §3 применён к `m5c_defconfig` и прогнан через `olddefconfig` —
+восемь из девяти опций встали сразу:
+```
+CONFIG_PM_AUTOSLEEP=y          CONFIG_BPF_JIT=y
+CONFIG_USB_CONFIGFS_F_FS=y     CONFIG_USB_CONFIGFS_F_MTP=y
+CONFIG_USB_CONFIGFS_F_PTP=y    CONFIG_USB_CONFIGFS_F_ACC=y
+CONFIG_USB_CONFIGFS_F_AUDIO_SRC=y  CONFIG_USB_CONFIGFS_F_MIDI=y
+```
+
+FACT (уточнение к §3, найдено при исполнении): девятая,
+`CONFIG_ANDROID_LOW_MEMORY_KILLER`, сама по себе **не включается** —
+в этом дереве она объявлена как
+`depends on (!MTK_ENABLE_AGO || MTK_OTA_DEVICE)`
+(`drivers/staging/android/Kconfig:57`), а `CONFIG_MTK_ENABLE_AGO=y`.
+Терять AGO нельзя: он `select`-ит ровно то, что нужно на 2 ГиБ RAM —
+`SWAP`, `ZRAM`, `ZRAM_LZ4_COMPRESS`, `MEMCG`, `MEMCG_SWAP`, `HZ_300`,
+`UID_CPUTIME`, `SDCARD_FS`, `PROCESS_RECLAIM`. Решение: добавить
+`CONFIG_MTK_OTA_DEVICE=y` — оно снимает запрет на LMK, сохраняя всю
+AGO-обвязку. После этого LMK встаёт.
+
+Результат сохранён как **`arch/arm64/configs/m5c_p_defconfig`** (291 строка)
+в отдельном worktree `/srv/forge/android/m5c/k49-worktrees/pie49`, ветка
+`pie-config`, отведённой от `conn-bisect1`. Рабочая ветка 14.1 не тронута:
+её дерево занято собранным ядром прошивки, а сборка с `O=` требует чистого
+исходника (`is not clean, please run 'make mrproper'`) — поэтому именно
+worktree, а не out-of-tree сборка.
+
+Подтверждено на этом же конфиге (FACT, `.config`): уже включены
+`CONFIG_ANDROID_BINDER_DEVICES="binder,hwbinder,vndbinder"`,
+`CONFIG_BPF_SYSCALL=y`, `CONFIG_CGROUP_BPF=y`, `CONFIG_SYNC_FILE=y`,
+`CONFIG_SW_SYNC=y`, `CONFIG_ASHMEM=y`, `CONFIG_SDCARD_FS=y`,
+`CONFIG_ZRAM=y` — то есть Treble-критичное в ядре есть.
+
+### Первая находка сборки: MTK-патчи гаджета против configfs
+
+FACT: сборка с новым конфигом падает —
+```
+drivers/usb/gadget/function/f_midi.c:1374: implicit declaration of
+  'android_lookup_function_device'
+drivers/usb/gadget/function/f_mtp.c:2364:  то же
+```
+`android_lookup_function_device()` объявлена `static` **только** в
+`drivers/usb/gadget/android.c` (строки 36 и 1989), а он собирается лишь при
+`CONFIG_USB_G_ANDROID`. У нас гаджет живёт на configfs (доказанный рабочий
+путь 14.1), поэтому MTK-патченные `f_midi.c`/`f_mtp.c` в этой конфигурации не
+компилируются. Это тот же класс, что и p38-гарды из роадмапа: MTK-код,
+рассчитанный на legacy-g_android, требует гарда для configfs-пути. Правка
+вынесена в отдельную работу.
+
+### Синк дерева Pie
+
+FACT: `repo init -u LineageOS/android -b lineage-16.0 --depth=1` прошёл,
+`repo sync -c --no-tags --no-clone-bundle` идёт в
+`/srv/forge/android/m5c-los16`. Ветка `lineage-16.0` в upstream жива
+(проверено `git ls-remote`).
