@@ -354,3 +354,33 @@ FACT: `repo init -u LineageOS/android -b lineage-16.0 --depth=1` прошёл,
 `repo sync -c --no-tags --no-clone-bundle` идёт в
 `/srv/forge/android/m5c-los16`. Ветка `lineage-16.0` в upstream жива
 (проверено `git ls-remote`).
+
+### Ядро под Android 9 собрано (FACT)
+
+Ветка `pie-config` в worktree `pie49`, коммит `d0f794f8d`.
+`vmlinux` 215 900 416 байт, `System.map` сгенерирован.
+
+Что понадобилось сверх §3, найдено сборкой:
+
+1. `CONFIG_USB_CONFIGFS_MASS_STORAGE=y` — `meta.o` собирается вместе с
+   `CONFIG_USB_CONFIGFS_UEVENT` (`drivers/usb/gadget/Makefile:22`) и зовёт
+   `fsg_common_set_sysfs`, `fsg_common_create_luns`,
+   `fsg_common_set_inquiry_string`, `fsg_sysfs_update` — без mass storage
+   линковка падает.
+2. Гард для MTK-патчей гаджета. `f_midi.c` и `f_mtp.c` зовут
+   `android_lookup_function_device()`, которая объявлена `static` в
+   `drivers/usb/gadget/android.c` и существует только при
+   `CONFIG_USB_G_ANDROID`. Эти файлы включаются в TU android.c через
+   `#include`, поэтому там символ виден; при сборке для configfs — нет.
+   Решение: `android.c` выставляет `FORGE_G_ANDROID_TU` перед включением,
+   а configfs-ветка берёт штатную `create_function_device()` из
+   `configfs.c:39` (она `EXPORT_SYMBOL_GPL`, ровно для этого и заведена).
+3. `forge_userspace_alive` — флаг, которым deadman снимает диагностический
+   дедлайн WDT на здоровой загрузке, — жил в `android.c` и на configfs-пути
+   исчезал (`mtk_wdt.c:222: undefined reference`). Перенесён в `configfs.c`
+   под `#ifndef CONFIG_USB_G_ANDROID`, поднимается при переходе композита в
+   `CONFIGURED` — тот же момент, что и прежняя запись `android0/enable`.
+
+**Вывод по §3 подтверждён практикой: ядро действительно самый готовый
+компонент.** Весь диф — один defconfig плюс три гарда в USB-гаджете, ни
+одной правки в драйверах подсистем.
