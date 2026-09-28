@@ -1,4 +1,4 @@
-# lineage_m5c — LineageOS 16.0 product for the Meizu M5c (MT6737M, arm64).
+# lineage_m5c — LineageOS 18.1 product for the Meizu M5c (MT6737M, arm64).
 
 # arm64: inherit core_64_bit before the phone stack so core_minimal doesn't
 # lock us into ro.zygote=zygote32 (same ordering lesson as the m681/m95 ports).
@@ -24,10 +24,9 @@ PRODUCT_BUILD_PROP_OVERRIDES += \
 # Pie: vendor/lineage does not default LINEAGE_BUILD from TARGET_DEVICE.
 LINEAGE_BUILD := m5c
 
-# Device shipped with Nougat-era Flyme (API 25 blobs); keeps Treble/VTS
-# checks advisory.  Stage A: real vendor partition WITHOUT VNDK — see the
-# BoardConfig.mk vendor block.
-PRODUCT_SHIPPING_API_LEVEL := 25
+# Preserve the legacy real-vendor/no-VNDK ABI until vendor dependency closure
+# is verified against R. A blob SDK is not evidence of the phone's launch SDK;
+# do not forge PRODUCT_SHIPPING_API_LEVEL from that value.
 PRODUCT_FULL_TREBLE_OVERRIDE := false
 
 # profman SIGBUSes deterministically on this build host (m681 evidence in

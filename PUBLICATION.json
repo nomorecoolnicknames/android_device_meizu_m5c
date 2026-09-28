@@ -2,19 +2,25 @@
   "schema_version": 1,
   "device": "m5c",
   "soc": "MT6737M",
-  "android_lane": "Android 9 / LineageOS 16.0",
-  "local_source_commit": "2e2b0640d9519b7295aa02dc73e7a271b248902f",
+  "android_lane": "Android 11 / LineageOS 18.1",
+  "local_source_commit": "6d74feccf6ebb5f29747bbbee9493e2f4c114874",
   "public_ancestry_base": "9ea271f4889f32ac70a5f3db6a82ba9d0492b799",
   "source_only": true,
   "flash_ready": false,
   "publication_runs_build_or_device_tests": false,
-  "status": "Historical Android 9 device implementation, imported from the preserved device snapshot. No new ROM build or device runtime was performed for this publication.",
+  "status": "Source port: the internal complete-input snapshot passed static product-copy closure and all 11 init files passed the SDK30 init parser. C/C++ compilation, a full ROM build and device runtime remain unverified. The public subset intentionally omits non-redistributable inputs, so the private static result is not a build result for this public checkout.",
   "excluded_paths": [
     {
       "path": "Android.mk.bak-etap4",
       "reason": "historical backup, not active source",
       "sha256": "c028cbf5469337be1a42828d180c5da04699a830be3faaccb78f41b0d6f9f0a7",
       "bytes": 216
+    },
+    {
+      "path": "BRINGUP_STATE.md",
+      "reason": "private operational journal replaced by public publication state",
+      "sha256": "300ef584a3e423e8159012a06d1cbb0ccd94d122af06df6d4712b9c8b7e9cf7a",
+      "bytes": 4258
     },
     {
       "path": "BoardConfig.mk.bak-etap4",
@@ -236,8 +242,8 @@
   "redacted_files": [
     {
       "path": "BoardConfig.mk",
-      "original_sha256": "9569ba7c9c2e14c54dc67570b4dc5c0b035d1a96296c9efc74a413869482736e",
-      "published_sha256": "1c89d2a4201d3aef5c025e2f0428c37711305139752c3eaf64cf2f4f2a163dd8",
+      "original_sha256": "eb64e992ef803797b7f2596ba4d67954ab9f6bb521bd854d56f228a8bc97c19a",
+      "published_sha256": "6f6e0423c6a6f178fa8f04dd8d36a8ed065fc77086ebaba6fd66e18cbc5f378d",
       "reason": "private host paths/build-host name or unit-specific identifiers in comments/diagnostic text"
     },
     {
@@ -259,6 +265,6 @@
       "reason": "private host paths/build-host name or unit-specific identifiers in comments/diagnostic text"
     }
   ],
-  "byte_identical_source_files": 62,
+  "byte_identical_source_files": 63,
   "inherited_public_history_contains_old_artifacts": true
 }

@@ -1,8 +1,8 @@
 # M5c public source checkpoint — 2026-09-29
 
-FACT: imported Android 9 / LineageOS 16.0 source checkpoint `2e2b0640d9519b7295aa02dc73e7a271b248902f` through an audited source-only publication.
+FACT: imported Android 11 / LineageOS 18.1 source checkpoint `6d74feccf6ebb5f29747bbbee9493e2f4c114874` through an audited source-only publication.
 
-Historical Android 9 device implementation, imported from the preserved device snapshot. No new ROM build or device runtime was performed for this publication.
+Source port: the internal complete-input snapshot passed static product-copy closure and all 11 init files passed the SDK30 init parser. C/C++ compilation, a full ROM build and device runtime remain unverified. The public subset intentionally omits non-redistributable inputs, so the private static result is not a build result for this public checkout.
 
 FACT: no canonical working tree, phone or cloud job was modified. Private binaries, restrictive-notice dependencies, old backups and unit identifiers were not added to the published branch. See `PUBLICATION.json` for exact exclusions; the kernel identity gate remains enabled.
 

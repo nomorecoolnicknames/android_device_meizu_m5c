@@ -27,11 +27,11 @@ PRODUCT_PROPERTY_OVERRIDES += \
 
 # Prebuilt kernel into the target-files "kernel" slot (m681/14.1 pattern):
 # bacon/target_files generation must not emit an empty ":kernel" rule.
-M5C_EFFECTIVE_KERNEL_PREBUILT := $(strip $(TARGET_PREBUILT_KERNEL))
-ifneq ($(M5C_EFFECTIVE_KERNEL_PREBUILT),)
+# This product is explicitly prebuilt-only. Do not silently omit the kernel
+# when product parsing precedes BoardConfig evaluation; the BoardConfig hash
+# gate verifies this exact source as well.
 PRODUCT_COPY_FILES += \
-    $(M5C_EFFECTIVE_KERNEL_PREBUILT):kernel
-endif
+    $(LOCAL_PATH)/prebuilt-kernel/Image.gz-dtb:kernel
 
 # Ramdisk: fstab (vendor = custom!) plus the N-era MTK rc set carried over
 # from 14.1 as the porting base.  The rc files are NOT yet ported to Pie
@@ -39,12 +39,13 @@ endif
 # explicitly kills the "ramdisk shared with stock" rule at 15.1+).
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/rootdir/fstab.mt6735:root/fstab.mt6735 \
-    $(LOCAL_PATH)/rootdir/init.mt6735.rc:root/init.mt6735.rc \
-    $(LOCAL_PATH)/rootdir/init.mt6735.usb.rc:root/init.mt6735.usb.rc \
-    $(LOCAL_PATH)/rootdir/init.modem.rc:root/init.modem.rc \
-    $(LOCAL_PATH)/rootdir/init.project.rc:root/init.project.rc \
+    $(LOCAL_PATH)/rootdir/fstab.mt6735:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.mt6735 \
+    $(LOCAL_PATH)/rootdir/init.mt6735.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.mt6735.rc \
+    $(LOCAL_PATH)/rootdir/init.mt6735.usb.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.mt6735.usb.rc \
+    $(LOCAL_PATH)/rootdir/init.modem.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.modem.rc \
+    $(LOCAL_PATH)/rootdir/init.project.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.project.rc \
     $(LOCAL_PATH)/rootdir/init.recovery.mt6735.rc:root/init.recovery.mt6735.rc \
-    $(LOCAL_PATH)/rootdir/ueventd.mt6735.rc:root/ueventd.mt6735.rc \
+    $(LOCAL_PATH)/rootdir/ueventd.mt6735.rc:$(TARGET_COPY_OUT_VENDOR)/ueventd.rc \
     $(LOCAL_PATH)/rootdir/enableswap.sh:root/enableswap.sh
 
 # Recovery also needs the fstab at its own path.
@@ -103,7 +104,6 @@ PRODUCT_PACKAGES += \
 # allocator/mapper are the standard passthrough wrappers over it.
 PRODUCT_PACKAGES += \
     hwcomposer.mt6737m \
-    android.hardware.graphics.composer@2.1-impl \
     android.hardware.graphics.composer@2.1-service \
     android.hardware.graphics.allocator@2.0-impl \
     android.hardware.graphics.allocator@2.0-service \
@@ -113,11 +113,10 @@ PRODUCT_PACKAGES += \
 # keystore aborts with "no viable keymaster device found" because no
 # keymaster HAL is registered (hwservicemanager: cannot find
 # android.hardware.keymaster@3.0/@4.0::IKeymasterDevice/default).
-# The AOSP 3.0 default impl is a pure software keymaster (libsoftkeymaster*),
-# no TEE needed - enough to get past the boot blocker.
+# SDK30 keymaster 4.0 service uses CreateKeymasterDevice(SOFTWARE).
+# This implements software keys; it does not claim hardware-backed TEE keys.
 PRODUCT_PACKAGES += \
-    android.hardware.keymaster@3.0-impl \
-    android.hardware.keymaster@3.0-service
+    android.hardware.keymaster@4.0-service
 
 # USB/adb under Pie: nobody in the N-era usb rc sets the configfs knobs, and
 # a late setprop misses the "on boot && property:" combined triggers (they
@@ -145,10 +144,9 @@ PRODUCT_PROPERTY_OVERRIDES += \
     pm.dexopt.inactive=verify \
     pm.dexopt.shared=speed
 
-# Device half of the P configfs gadget + zygote services (see rootdir files).
+# Device configfs gadget and cpuset setup; platform owns the R zygote service.
 PRODUCT_COPY_FILES += \
     device/meizu/m5c/rootdir/forge-usb-gadget.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/forge-usb-gadget.rc \
-    device/meizu/m5c/rootdir/forge-zygote.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/forge-zygote.rc \
     device/meizu/m5c/rootdir/forge-cpuset.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/forge-cpuset.rc
 
 # Blob ABI shim for libvcodecdrv.so (see BoardConfig.mk TARGET_LD_SHIM_LIBS).

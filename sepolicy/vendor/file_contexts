@@ -1,0 +1,5 @@
+# Empty mount directories in the system root after first-stage SwitchRoot.
+# Partition contents keep their own labels; this is not enforcing policy.
+/nvdata             u:object_r:rootfs:s0
+/protect_f          u:object_r:rootfs:s0
+/protect_s          u:object_r:rootfs:s0

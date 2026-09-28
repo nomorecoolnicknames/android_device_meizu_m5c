@@ -1,5 +1,5 @@
 # BoardConfig.mk for the Meizu M5c (m5c, model M710H) — MT6737M, arm64, 2 GB RAM.
-# LineageOS 16.0 (Android 9 Pie) skeleton, Treble stage A: a REAL /vendor
+# LineageOS 18.1 source port, preserving A9 geometry: a REAL /vendor
 # partition on custom (mmcblk0p17, exactly 512 MiB), NO VNDK.
 #
 # Modeled on device/meizu/m95 (standalone Pie BoardConfig in this tree) and
@@ -10,6 +10,8 @@
 # lineage-14.1-20260827 ROM) and its M5C_LOS16_TREBLE_PLAN.md.
 
 DEVICE_PATH := device/meizu/m5c
+
+include vendor/lineage/config/BoardConfigLineage.mk
 
 # Architecture — arm64 quad Cortex-A53 (MT6737M).
 TARGET_ARCH := arm64
@@ -129,11 +131,9 @@ BOARD_USERDATAIMAGE_FILE_SYSTEM_TYPE := ext4
 # mounted by LOS 14.1 — the same size as m681's custom(p3) byte for byte.
 # TARGET_COPY_OUT_VENDOR=vendor is what makes the difference: it builds a
 # vendor.img and removes the ramdisk /vendor -> /system/vendor symlink.
-# Stage A ONLY: PRODUCT_FULL_TREBLE_OVERRIDE stays false and
-# PRODUCT_SHIPPING_API_LEVEL stays 25 (lineage_m5c.mk), so VNDK enforcement
-# is NOT turned on — it is unreachable for this blob set (134 of 403 vendor
-# ELFs need framework libs, plan §6.2) and is not required for a vendor
-# partition (PRODUCT_USE_VNDK gates on shipping API level, not on Treble).
+# PRODUCT_FULL_TREBLE_OVERRIDE stays false. Do not invent a launch API or
+# enable VNDK until stock ELF dependency closure has been verified for R.
+# Having a real vendor partition does not imply a Treble-compliant blob ABI.
 TARGET_COPY_OUT_VENDOR := vendor
 BOARD_VENDORIMAGE_FILE_SYSTEM_TYPE := ext4
 BOARD_VENDORIMAGE_PARTITION_SIZE := 536870912
@@ -142,6 +142,16 @@ BOARD_VENDORIMAGE_PARTITION_SIZE := 536870912
 # (writes no partition); flashing is TWRP/dd over by-name only.
 AB_OTA_UPDATER := false
 BOARD_PROPERTY_OVERRIDES_SPLIT_ENABLED := true
+
+# Android R switches root into the system image during first-stage mounting.
+# Keep the proven stock GPT (1.5 GiB system + 400 MiB cache + custom/vendor).
+# The legacy LK always loads the boot ramdisk; it does not use recovery-as-boot.
+BOARD_BUILD_SYSTEM_ROOT_IMAGE := false
+BOARD_USES_RECOVERY_AS_BOOT := false
+TARGET_COPY_OUT_PRODUCT := system/product
+TARGET_COPY_OUT_SYSTEM_EXT := system/system_ext
+BOARD_ROOT_EXTRA_FOLDERS := nvdata protect_f protect_s
+BOARD_VENDOR_SEPOLICY_DIRS += $(DEVICE_PATH)/sepolicy/vendor
 
 # Recovery
 TARGET_RECOVERY_FSTAB := $(DEVICE_PATH)/rootdir/fstab.mt6735
@@ -260,9 +270,6 @@ TARGET_LD_SHIM_LIBS += \
 BOARD_PROVIDES_LIBRIL := true
 TARGET_SPECIFIC_HEADER_PATH := vendor/mediatek/include
 
-# VINTF device manifest (peripherals lane 2026-09-03).  Without it
-# hwservicemanager answers getTransport() EMPTY for every vendor HAL and
-# HalDeviceManager.isSupported() concludes there is no Wi-Fi vendor HAL, so
-# the MTK combo driver is never powered up and wlan0 never appears.  See the
-# comment at the top of manifest.xml.
+# The software keymaster service needs the explicit declaration here.
+# R Wi-Fi and supplicant services supply their module-owned fragments.
 DEVICE_MANIFEST_FILE := device/meizu/m5c/manifest.xml

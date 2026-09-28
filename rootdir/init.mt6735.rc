@@ -1,6 +1,6 @@
-import init.mt6735.usb.rc
-import init.project.rc
-import init.modem.rc
+import /vendor/etc/init/hw/init.mt6735.usb.rc
+import /vendor/etc/init/hw/init.project.rc
+import /vendor/etc/init/hw/init.modem.rc
 
 on late-fs
     # boot time fs tune
@@ -61,7 +61,7 @@ on init
 
 on fs
     write /proc/bootprof "INIT:Mount_START"
-    mount_all /fstab.mt6735
+    mount_all /vendor/etc/fstab.mt6735
     exec /system/bin/tune2fs -O has_journal -u 10010 -r 4096 /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/userdata
     exec /system/bin/chmod 0640 /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/boot
     exec /system/bin/chown root:system /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/boot
@@ -360,7 +360,7 @@ on post-fs-data
     chown root system /dev/sec
 
     # FM Radio device node
-    mknod /dev/fm     c 193 0;
+    exec -- /system/bin/toybox mknod /dev/fm c 193 0
     chmod 0660 /dev/fm
     chown system media /dev/fm
 
@@ -385,7 +385,7 @@ on post-fs-data
     # NSMtkDefaultCamAdapter::PreviewCmdQueThread::delay still took SIGSEGV
     # with the identical fault address.  Kept because a permission denial on
     # every camera open is wrong on its own terms.
-    mknod /dev/devmap c 196 0;
+    exec -- /system/bin/toybox mknod /dev/devmap c 196 0
     chmod 0444 /dev/devmap
     chown root system /dev/devmap
 
@@ -986,7 +986,8 @@ service mtkbt /system/bin/mtkbt
 	socket bt.int.adp dgram 660 bluetooth net_bt
 	socket bt.a2dp.stream dgram 660 bluetooth net_bt
 	user bluetooth
-	group system vpn net_admin inet net_raw net_bt bluetooth net_bt_admin net_bt_stack sdcard_r
+    # Preserve stock net_bt_stack GID (3008); R no longer defines its name.
+	group system vpn net_admin inet net_raw net_bt bluetooth net_bt_admin 3008 sdcard_r
 	oneshot
 
 service pppd_gprs /system/bin/pppd_dt /dev/ttyACM0 debug noauth refuse-eap usepeerdns nodetach

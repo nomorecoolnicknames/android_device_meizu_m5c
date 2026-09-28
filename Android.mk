@@ -4,6 +4,12 @@ LOCAL_PATH := $(call my-dir)
 # scan m5c subdir makefiles.
 ifeq ($(TARGET_DEVICE),m5c)
 include $(call all-makefiles-under,$(LOCAL_PATH))
+# Pinned private vendor/mediatek supplies real GUI/ICU compatibility code.
+# Its top-level product guard does not otherwise select m5c.
+MTK_SYMBOLS_GUI_ONLY := true
+include vendor/mediatek/symbols/Android.mk
+MTK_SYMBOLS_GUI_ONLY :=
+include vendor/mediatek/wlan/wifi_hal/Android.mk
 # Stage 4 (2026-09-03): the MTK Oreo HIDL rild + libril. vendor/mediatek/
 # Android.mk only pulls symbols/ and wlan/ for the meizu_m6-family products,
 # so vendor/mediatek/ril must be included explicitly (m681/meizu_m6 do the

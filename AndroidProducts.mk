@@ -1,4 +1,4 @@
-# m5c — single lineage product (LOS 16.0 skeleton).
+# m5c — LineageOS 18.1 bring-up, derived from the pinned LOS16 device tree.
 PRODUCT_MAKEFILES := \
     $(LOCAL_DIR)/lineage_m5c.mk
 

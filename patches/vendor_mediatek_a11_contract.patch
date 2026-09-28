@@ -1,0 +1,133 @@
+diff --git a/ril/libril/Android.mk b/ril/libril/Android.mk
+index 90edc0b..4f19f86 100644
+--- a/ril/libril/Android.mk
++++ b/ril/libril/Android.mk
+@@ -36,10 +36,17 @@ ril_shared_libs := \
+     libhwbinder
+ 
+ ril_inc := external/nanopb-c \
+-    $(LOCAL_PATH)/../include
++    $(LOCAL_PATH)/../../include
+ 
+ ril_cflags := -Wno-unused-parameter -DANDROID_SIM_COUNT_2 -DANDROID_MULTI_SIM -DMTK_HARDWARE
+ 
++# MT6737M's pre-N vendor ABI has no roamingProtocol in InitialAttachApn.
++# Keep behavior changes device-scoped; other MTK generations need their own
++# verified ABI selection and must not inherit this from a chipset name.
++ifeq ($(TARGET_DEVICE),m5c)
++  ril_cflags += -DM5C_LEGACY_RIL_ABI
++endif
++
+ # something wrong, cause channel occupied after oNewCommandConnect
+ # workaround but not complete yet
+ ifeq ($(BOARD_USES_RIL_UNSOL_PENDING),true)
+@@ -61,7 +68,7 @@ LOCAL_STATIC_LIBRARIES := \
+ 
+ LOCAL_CFLAGS := $(ril_cflags)
+ LOCAL_C_INCLUDES += $(ril_inc)
+-LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/../include
++LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/../../include
+ LOCAL_MODULE:= libril
+ LOCAL_CLANG := true
+ LOCAL_SANITIZE := integer
+diff --git a/ril/libril/legacy_contract.h b/ril/libril/legacy_contract.h
+new file mode 100644
+index 0000000..fc6bfaf
+--- /dev/null
++++ b/ril/libril/legacy_contract.h
+@@ -0,0 +1,21 @@
++/* Small semantic predicates shared by the RIL and offline regression tests. */
++#ifndef MTK_RIL_LEGACY_CONTRACT_H
++#define MTK_RIL_LEGACY_CONTRACT_H
++
++#include <stddef.h>
++#include <string.h>
++
++/* MT6737M treats NULL as a five-field AT+CRSM request. An empty string still
++ * asks the modem to use a path ID and is not equivalent to no path. */
++static inline int m5c_is_master_file_path(const char *path) {
++    return path != NULL && strcmp(path, "3F00") == 0;
++}
++
++/* An empty active-data-call list is a real disconnect notification. */
++static inline int mtk_valid_data_call_list(const void *response, size_t bytes,
++                                          size_t record_size) {
++    return record_size != 0 && bytes % record_size == 0 &&
++           (response != NULL || bytes == 0);
++}
++
++#endif
+diff --git a/ril/libril/ril_service.cpp b/ril/libril/ril_service.cpp
+index f8a81fb..4afaaed 100644
+--- a/ril/libril/ril_service.cpp
++++ b/ril/libril/ril_service.cpp
+@@ -58,6 +58,14 @@
+ #include <inttypes.h>
+ #include <atomic>
+ #include <cutils/properties.h>
++#include "legacy_contract.h"
++
++#ifdef M5C_LEGACY_RIL_ABI
++static_assert(offsetof(RIL_InitialAttachApn, authtype) == 2 * sizeof(void *),
++              "MT6737M InitialAttachApn ABI must not insert roamingProtocol");
++static_assert(offsetof(RIL_InitialAttachApn, username) == 3 * sizeof(void *),
++              "MT6737M InitialAttachApn username offset changed");
++#endif
+ 
+ #define INVALID_HEX_CHAR 16
+ 
+@@ -1249,6 +1257,15 @@ Return<void> RadioImpl::iccIOForApp(int32_t serial, const IccIo& iccIo) {
+ 	return Void();
+     }
+ 
++#ifdef M5C_LEGACY_RIL_ABI
++    // Preserve the proven MT6737M NULL-path AT+CRSM contract. The path has
++    // not entered the asynchronous request queue yet, so free its allocation.
++    if (m5c_is_master_file_path(rilIccIo.path)) {
++        free(rilIccIo.path);
++        rilIccIo.path = NULL;
++    }
++#endif
++
+     rilIccIo.p1 = iccIo.p1;
+     rilIccIo.p2 = iccIo.p2;
+ #ifdef MTK_HARDWARE
+@@ -7075,7 +7092,7 @@ int radio::dataCallListChangedInd(int slotId,
+ 				  int indicationType, int token, RIL_Errno e, void *response,
+ 				  size_t responseLen) {
+     if (radioService[slotId] != NULL && radioService[slotId]->mRadioIndication != NULL) {
+-	if (response == NULL || responseLen % sizeof(RIL_Data_Call_Response_v11) != 0) {
++	if (!mtk_valid_data_call_list(response, responseLen, sizeof(RIL_Data_Call_Response_v11))) {
+ 	    RLOGE("dataCallListChangedInd: invalid response");
+ 	    return 0;
+ 	}
+diff --git a/tests/legacy_contract_test.c b/tests/legacy_contract_test.c
+new file mode 100644
+index 0000000..04fde01
+--- /dev/null
++++ b/tests/legacy_contract_test.c
+@@ -0,0 +1,24 @@
++#include <assert.h>
++#include <stddef.h>
++#include <telephony/ril.h>
++#include "../ril/libril/legacy_contract.h"
++
++/* Both LP64 and ILP32 compile these against the real exported RIL header. */
++_Static_assert(offsetof(RIL_InitialAttachApn, authtype) == 2 * sizeof(void *),
++               "MT6737M auth offset");
++_Static_assert(offsetof(RIL_InitialAttachApn, username) == 3 * sizeof(void *),
++               "MT6737M username offset");
++
++int main(void) {
++    RIL_Data_Call_Response_v11 entry = {0};
++    assert(m5c_is_master_file_path("3F00"));
++    assert(!m5c_is_master_file_path(NULL));
++    assert(!m5c_is_master_file_path(""));
++    assert(!m5c_is_master_file_path("3F007F20"));
++    assert(mtk_valid_data_call_list(NULL, 0, sizeof(entry)));
++    assert(mtk_valid_data_call_list(&entry, sizeof(entry), sizeof(entry)));
++    assert(!mtk_valid_data_call_list(NULL, sizeof(entry), sizeof(entry)));
++    assert(!mtk_valid_data_call_list(&entry, sizeof(entry) - 1, sizeof(entry)));
++    assert(!mtk_valid_data_call_list(&entry, 0, 0));
++    return 0;
++}
