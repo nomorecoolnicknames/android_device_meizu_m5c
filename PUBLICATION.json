@@ -1,0 +1,264 @@
+{
+  "schema_version": 1,
+  "device": "m5c",
+  "soc": "MT6737M",
+  "android_lane": "Android 9 / LineageOS 16.0",
+  "local_source_commit": "2e2b0640d9519b7295aa02dc73e7a271b248902f",
+  "public_ancestry_base": "9ea271f4889f32ac70a5f3db6a82ba9d0492b799",
+  "source_only": true,
+  "flash_ready": false,
+  "publication_runs_build_or_device_tests": false,
+  "status": "Historical Android 9 device implementation, imported from the preserved device snapshot. No new ROM build or device runtime was performed for this publication.",
+  "excluded_paths": [
+    {
+      "path": "Android.mk.bak-etap4",
+      "reason": "historical backup, not active source",
+      "sha256": "c028cbf5469337be1a42828d180c5da04699a830be3faaccb78f41b0d6f9f0a7",
+      "bytes": 216
+    },
+    {
+      "path": "BoardConfig.mk.bak-etap4",
+      "reason": "historical backup, not active source",
+      "sha256": "50aee196b4f1bf17291e7b46cbfd094f5de3f3e087a186273f25f10f8fc94b55",
+      "bytes": 10942
+    },
+    {
+      "path": "BoardConfig.mk.bak-gps",
+      "reason": "historical backup, not active source",
+      "sha256": "5b020273e1556c3311e37710b8a70a4522b985508acc5f5b10d87c3834131698",
+      "bytes": 8101
+    },
+    {
+      "path": "BoardConfig.mk.bak-preforge-kernel-provenance",
+      "reason": "historical backup, not active source",
+      "sha256": "a56c8c66b981b464cfa7a9b3adbfed408599aa849b26ee8b0e52aa03bbd5fc9d",
+      "bytes": 12390
+    },
+    {
+      "path": "BoardConfig.mk.bak-pregate",
+      "reason": "historical backup, not active source",
+      "sha256": "0beb177b645b17187ea1fc40cb333e66f809207eaed155b16e70d4554d719ff0",
+      "bytes": 13734
+    },
+    {
+      "path": "BoardConfig.mk.bak-shim",
+      "reason": "historical backup, not active source",
+      "sha256": "7728f5fbed19d5f16b0fdec575c6cf99071c896e874949567607b37da4e32273",
+      "bytes": 7147
+    },
+    {
+      "path": "build-m5c-16.sh",
+      "reason": "legacy private-host build runner; not the current Forge build workflow",
+      "sha256": "3e8781ff284e862fdc0249bc0f9dbf18abd172efdcecb864e975d9ca313a6a81",
+      "bytes": 6378
+    },
+    {
+      "path": "device.mk.bak-etap4",
+      "reason": "historical backup, not active source",
+      "sha256": "2fba16d10fac083c96e6c0cb8977d5ed6f369dc574e60acfa518034b59d36a50",
+      "bytes": 10443
+    },
+    {
+      "path": "device.mk.bak-gps",
+      "reason": "historical backup, not active source",
+      "sha256": "60ed19140afe1d3865cc42bc81131232d6d04c7555d079cdde3a903ae847ec29",
+      "bytes": 9340
+    },
+    {
+      "path": "device.mk.bak-keymaster",
+      "reason": "historical backup, not active source",
+      "sha256": "efcc04dc25cbfe1466816178a216ca2fab7168d26f5395ea202a636e407b69d7",
+      "bytes": 8183
+    },
+    {
+      "path": "device.mk.bak-preforge-cpuset",
+      "reason": "historical backup, not active source",
+      "sha256": "70b66f40fc8c2508790dd38bb17dfb657416847cd1b50ef7f9b22597de157df4",
+      "bytes": 11561
+    },
+    {
+      "path": "gps/Android.mk",
+      "reason": "legacy GPS component includes explicit restrictive third-party notices; withheld pending replacement or permission",
+      "sha256": "dde2d124c6a1af8883278b8d7ebe00b7a9198e8004668b52b77f440784e05aca",
+      "bytes": 371
+    },
+    {
+      "path": "gps/gps_hal/Android.mk",
+      "reason": "legacy GPS component includes explicit restrictive third-party notices; withheld pending replacement or permission",
+      "sha256": "345eee0e814b7e3007173f5a29e04a2c32fcb29e82cfe11c08f69efea88d6d59",
+      "bytes": 1468
+    },
+    {
+      "path": "gps/gps_hal/inc/data_coder.h",
+      "reason": "legacy GPS component includes explicit restrictive third-party notices; withheld pending replacement or permission",
+      "sha256": "61654425b3a495e03647a4d5bca28cfc97b2c4c3c30e87e2967dca3dfdb5c735",
+      "bytes": 1067
+    },
+    {
+      "path": "gps/gps_hal/inc/gpshal.h",
+      "reason": "legacy GPS component includes explicit restrictive third-party notices; withheld pending replacement or permission",
+      "sha256": "7a9bd9598a5fc762ba65ebf18b62fd5815a660507ddb14a145f5aa3a95511760",
+      "bytes": 3920
+    },
+    {
+      "path": "gps/gps_hal/inc/gpshal_param_check.h",
+      "reason": "legacy GPS component includes explicit restrictive third-party notices; withheld pending replacement or permission",
+      "sha256": "5f5acfcc82f2fc9f9b870563bb91d83569abc68f027d0a6c44f0ef697cb17a00",
+      "bytes": 4186
+    },
+    {
+      "path": "gps/gps_hal/inc/hal2mnl_interface.h",
+      "reason": "legacy GPS component includes explicit restrictive third-party notices; withheld pending replacement or permission",
+      "sha256": "74651af6f90ac664f586d72e4358ac802a3af38a2627a6d57c48d5b7e32402c4",
+      "bytes": 2589
+    },
+    {
+      "path": "gps/gps_hal/inc/hal_mnl_interface_common.h",
+      "reason": "legacy GPS component includes explicit restrictive third-party notices; withheld pending replacement or permission",
+      "sha256": "0e70757fcd871272ba225b886b3a4f9a41fe24407fa2dcc16d700521721df893",
+      "bytes": 52263
+    },
+    {
+      "path": "gps/gps_hal/inc/hardware/gps_mtk.h",
+      "reason": "legacy GPS component includes explicit restrictive third-party notices; withheld pending replacement or permission",
+      "sha256": "9e2f08bb9663bb6638aeece79ae2a8900e55ffc45c332a4710deb4581269e5bb",
+      "bytes": 1869
+    },
+    {
+      "path": "gps/gps_hal/inc/mtk_lbs_utility.h",
+      "reason": "legacy GPS component includes explicit restrictive third-party notices; withheld pending replacement or permission",
+      "sha256": "7df23f642b1d1caffe2edeba8dd5d9da6ab7cb9ebe60696fbf0866e534f51d3a",
+      "bytes": 1572
+    },
+    {
+      "path": "gps/gps_hal/src/agpsinf.c",
+      "reason": "legacy GPS component includes explicit restrictive third-party notices; withheld pending replacement or permission",
+      "sha256": "45fb66c7c2a969228f85d530a327480addb1bc52de833e0cecf00dabd8d172ba",
+      "bytes": 5255
+    },
+    {
+      "path": "gps/gps_hal/src/data_coder.c",
+      "reason": "legacy GPS component includes explicit restrictive third-party notices; withheld pending replacement or permission",
+      "sha256": "244c7743188f4ebfcab3a1ee32266014e764f6d4b302e2d4d485c443c2aea9db",
+      "bytes": 3154
+    },
+    {
+      "path": "gps/gps_hal/src/gpshal.c",
+      "reason": "legacy GPS component includes explicit restrictive third-party notices; withheld pending replacement or permission",
+      "sha256": "c927cee050e96ff2702ace2a8dcc73d84eff08e931749cae381cc2328ed1b726",
+      "bytes": 7104
+    },
+    {
+      "path": "gps/gps_hal/src/gpshal_worker.c",
+      "reason": "legacy GPS component includes explicit restrictive third-party notices; withheld pending replacement or permission",
+      "sha256": "c37e8afb1b2de5d805b4b17b98b0651a268009003b9914e7a4faf23dc90223da",
+      "bytes": 15155
+    },
+    {
+      "path": "gps/gps_hal/src/gpsinf.c",
+      "reason": "legacy GPS component includes explicit restrictive third-party notices; withheld pending replacement or permission",
+      "sha256": "7fc97ec2f9eacf560c0aa43c7b21c241963cb4bdd9dbfc6a8069feca95210d78",
+      "bytes": 9679
+    },
+    {
+      "path": "gps/gps_hal/src/hal2mnl_interface.c",
+      "reason": "legacy GPS component includes explicit restrictive third-party notices; withheld pending replacement or permission",
+      "sha256": "fc19a8ba90c0e939c55d321166960970456d45f2b50537edfcf9c9a95f58591a",
+      "bytes": 16719
+    },
+    {
+      "path": "gps/gps_hal/src/hal_mnl_interface_common.c",
+      "reason": "legacy GPS component includes explicit restrictive third-party notices; withheld pending replacement or permission",
+      "sha256": "56a9a6f4855282946de07592ef4f7063c8ae4748b109d909d3175f15db1b6f74",
+      "bytes": 6518
+    },
+    {
+      "path": "gps/gps_hal/src/mtk_lbs_utility.c",
+      "reason": "legacy GPS component includes explicit restrictive third-party notices; withheld pending replacement or permission",
+      "sha256": "d0a44d90e42b2653436d09224a6b52fcc9cbbe1de7d4c0380663aa9ecdbb24e7",
+      "bytes": 8137
+    },
+    {
+      "path": "prebuilt-kernel/Image.gz-dtb",
+      "reason": "binary input; no new prebuilt kernel, firmware or static archive publication",
+      "sha256": "99abc693c9264127c066953d6bbd7c61aeee4f0ca171b085dd6cdad73ed2f5b2",
+      "bytes": 7820207
+    },
+    {
+      "path": "prebuilt-kernel/Image.gz-dtb.bak-20260828-preforge",
+      "reason": "historical backup, not active source",
+      "sha256": "828ea66e39e0115a3a4bbfbd3fedaefc8009ed2686f4353c704d0cca89114a42",
+      "bytes": 7808134
+    },
+    {
+      "path": "rootdir/forge-bluetooth.rc.forgebak",
+      "reason": "historical backup, not active source",
+      "sha256": "f8d0311bdb90e9751b975663ffa3a35fb4ac6be71161db7b74b3ad07df00c9cd",
+      "bytes": 3057
+    },
+    {
+      "path": "rootdir/forge-modem.rc.bak-etap4",
+      "reason": "historical backup, not active source",
+      "sha256": "67e1202b74105b5311e689726a643dac36f0ff595f116cbc0f66094e497c7526",
+      "bytes": 3242
+    },
+    {
+      "path": "rootdir/forge-modem.rc.forgebak.sim",
+      "reason": "historical backup, not active source",
+      "sha256": "f9eba536b7e66beef49e1b58a3d20f6115f787477512e565cc949f390eda607e",
+      "bytes": 7041
+    },
+    {
+      "path": "rootdir/init.mt6735.rc.orig-20260903-1248",
+      "reason": "historical backup, not active source",
+      "sha256": "aac1fa9e3e6575cde6917ed0bea8a995626e8b94c581cb6dce83294be0071422",
+      "bytes": 38312
+    },
+    {
+      "path": "rootdir/ueventd.mt6735.rc.bak-fw",
+      "reason": "historical backup, not active source",
+      "sha256": "432ba976f31045b1a445880277c58abe487d5aac583597747b7caeb20568e7de",
+      "bytes": 5028
+    },
+    {
+      "path": "shims/Android.mk.bak-gps",
+      "reason": "historical backup, not active source",
+      "sha256": "103670abc9ab8f84d773b8b63dda4349657e08caa278f3d84850ec700e47cccb",
+      "bytes": 1373
+    },
+    {
+      "path": "system.prop.bak-etap4",
+      "reason": "historical backup, not active source",
+      "sha256": "8b9d331a906552dd157fbb0795e36d09e93bc1125b1afe46d63e7dbb2c44b8b2",
+      "bytes": 3430
+    }
+  ],
+  "redacted_files": [
+    {
+      "path": "BoardConfig.mk",
+      "original_sha256": "9569ba7c9c2e14c54dc67570b4dc5c0b035d1a96296c9efc74a413869482736e",
+      "published_sha256": "1c89d2a4201d3aef5c025e2f0428c37711305139752c3eaf64cf2f4f2a163dd8",
+      "reason": "private host paths/build-host name or unit-specific identifiers in comments/diagnostic text"
+    },
+    {
+      "path": "prebuilt-kernel/EXPECTED.txt",
+      "original_sha256": "f2a06cc3285c5591ecfab596c2f9315105dafe5587d498b012fcd7d3726e3eb9",
+      "published_sha256": "29ff6dde0e4f968b22cd19cdfa1e06b1da0ae12bfd84f2e5f45a0556e791f4d1",
+      "reason": "private host paths/build-host name or unit-specific identifiers in comments/diagnostic text"
+    },
+    {
+      "path": "rootdir/forge-bluetooth.rc",
+      "original_sha256": "12754249e744a68a6ab5747214432bb392572369c58a9d7e7c02a945811c5158",
+      "published_sha256": "f688d9775faaa4b5ebc89bff8651f305295edf86b48c18abfd3bb91e4a7722f7",
+      "reason": "private host paths/build-host name or unit-specific identifiers in comments/diagnostic text"
+    },
+    {
+      "path": "rootdir/m5c-bdaddr.sh",
+      "original_sha256": "97cc3bced826f340a85f5da3856885dd044a8467539e761368a2ecc1c4c8e658",
+      "published_sha256": "56f32332dbb5ca30536ba1fb61388c1150d7a46296511eb84ac785d671214eb0",
+      "reason": "private host paths/build-host name or unit-specific identifiers in comments/diagnostic text"
+    }
+  ],
+  "byte_identical_source_files": 62,
+  "inherited_public_history_contains_old_artifacts": true
+}

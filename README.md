@@ -1,33 +1,20 @@
-# Device tree for Meizu M5c
+# Meizu M5c: Android 9 / LineageOS 16.0
 
-Specs
-================================
-Basic   | Spec Sheet
--------:|:--------------------------------------------------
-CPU     | MediaTek MT6737m (Cortex-A53 1.3Ghz)
-GPU     | Mali-T720 MP1
-Memory  | 2 GB
-Screen  | 720x1280
-Battery | 3000 mAh
-Storage | 16 / 32 GB
-Android | 6.0
-Kernel  | 3.18.19
+Historical Android 9 device implementation, imported from the preserved device snapshot. No new ROM build or device runtime was performed for this publication.
 
-<img width="250" height="300" alt="52940669-removebg-preview" src="https://github.com/user-attachments/assets/e592584b-21ff-4927-9456-75dd53076316" />
+## What this branch contains
 
+Real device configuration, init/fstab/SELinux integration and available userspace source from the project's existing bring-up tree. It is an audited source publication, not a placeholder or a flashable ROM.
 
+Source checkpoint: `2e2b0640d9519b7295aa02dc73e7a271b248902f`. `PUBLICATION.json` records excluded inputs and comment/diagnostic redactions. Existing public history is preserved; the private source repository and its history were not rewritten.
 
-# Build instructions
-```
-git clone https://github.com/dekompilyator/android_device_meizu_m5c.git -b los-14.1 device/meizu/m5c
-git clone https://github.com/dekompilyator/android_vendor_meizu_m5c.git -b los-14.1 vendor/meizu/m5c
-source device/meizu/m5c/patches_mtk/apply-patches.sh
-source device/meizu/m5c/start-build.sh
-```
+## Build boundary
 
-# Credits
-```
-nomorecoolnicknames, XRed_CubeX, seluce, iodine71, olegsvs, danielhk, Zormax, xcore995, SRTK
+A complete ROM still requires separately supplied proprietary vendor components and the exact matching kernel input. Those binaries are intentionally absent. The kernel freshness checks and missing-dependency failures remain enabled; no fake replacement or allow-missing flag was added.
+The inherited GPS component has restrictive third-party notices and is withheld. Its dependency is still unresolved; this branch is not a complete ROM build manifest.
 
-And everyone else who commited!
-```
+## Validation status
+
+No ROM/kernel compilation or hardware operation was performed by this publication. Older inline comments describe their original checkpoint; this README records the publication status. Bring-up settings include permissive SELinux and may relax ADB authentication; this is development source, not a secure production release.
+
+Suitable follow-up work includes source review, init/XML/static checks and separately pinned open-source component compilation. A complete proprietary-free ROM build has not been demonstrated. Retained source notices apply per file; publication does not relicense third-party code. Older public ancestry already includes artifacts, so the full repository history is not claimed to contain source only.
