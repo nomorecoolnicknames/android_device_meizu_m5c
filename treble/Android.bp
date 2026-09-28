@@ -1,0 +1,110 @@
+// Full Treble (2026-09-25): vendor-side answers to the sonames the N-era
+// blobs NEED but a Treble vendor namespace cannot reach.  Measured with
+// meizu-fleet/tools/m5c_treble_needed.py against the VNDK 33 lists
+// (designs/TREBLE_M5C_20260924.md §linkage).  Part of the m5c namespace
+// (../Android.bp), so no other product ever sees these modules.
+
+cc_defaults {
+    name: "m5c_treble_defaults",
+    vendor: true,
+    cflags: ["-Wall", "-Werror"],
+}
+
+// libgui.so -> libgui_vendor.so (lesson 6 of the m95 port, same mechanism as
+// libgui_m95 in device/meizu/m95/shims/Android.bp).
+// FACT: 16 blobs (8 per ABI; camera.mt6737m's closure, libfilterfw,
+// libcam.utils.sensorlistener, libcamalgo, ...) NEED libgui.so, and libgui is
+// VNDK-PRIVATE in Android 13 (vndkprivate.libraries.33.txt), i.e. not linked
+// into the vendor namespace at all.  The m5c blobs were never rewired to a
+// device-specific soname the way m95's were, so the forwarder carries the
+// real name: an empty library, soname libgui.so, whose DT_NEEDED is the AOSP
+// vendor build of libgui.  The vendor namespace finds /vendor/lib*/libgui.so
+// in its own search path; bionic then binds the consumers' symbols across the
+// whole local group, i.e. into libgui_vendor (bionic/linker/linker.cpp,
+// the m95 model check: one libgui instance per process).
+// It does NOT make every consumer load: the N blobs also import libgui
+// symbols Android 13 no longer exports — that is the shim lane.
+cc_library_shared {
+    name: "libgui_m5c_fwd",
+    defaults: ["m5c_treble_defaults"],
+    stem: "libgui",
+    srcs: ["stub.cpp"],
+    shared_libs: ["libgui_vendor"],
+}
+
+// libnativehelper.so as an EMPTY vendor library.
+// FACT: 39 blobs NEED libnativehelper.so, which Android 13 ships only inside
+// the ART apex, out of the vendor namespace's reach.  Of those 39, only
+// libem_bt_jni and libmeizucamera (both ABIs) import anything from it
+// (jniThrowException, jniThrowRuntimeException, jniGetFDFromFileDescriptor);
+// both are JNI libraries for apps this image does not carry.  The other 35 —
+// the audio chain under audio.primary.mt6737m (libaudiocompensationfilter,
+// libaudiocomponentengine, libaudiodcrflt, ...) among them — import zero
+// symbols: it is overlink.  Under Treble an empty library with the real name
+// cannot shadow anything: no vendor or sphal process can see the ART copy,
+// and app namespaces do not search /vendor.
+cc_library_shared {
+    name: "libnativehelper_m5c_stub",
+    defaults: ["m5c_treble_defaults"],
+    stem: "libnativehelper",
+    srcs: ["stub.cpp"],
+}
+
+// android::Region with the N/M object layout for the Mali EGL driver
+// (region.cpp).  Mali's DT_NEEDED libui.so is rewritten to this library at
+// build time by vendor/meizu/m5c (treble-elf-wiring.txt): libui.so stays out
+// of sphal on purpose (system/linkerconfig meizu-legacy-vendor 0dcdd17).
+cc_library_shared {
+    name: "libm5cshim_region",
+    defaults: ["m5c_treble_defaults"],
+    srcs: ["region.cpp"],
+    cflags: ["-fvisibility=hidden"],
+}
+
+// __xlog_buf_printf, android_memset16/32, PermissionCache — see legacy.cpp.
+// Added to the consumers' DT_NEEDED the same way.  Only liblog (LLNDK), so it
+// loads in sphal as well as in the vendor namespace.
+cc_library_shared {
+    name: "libm5cshim_legacy",
+    defaults: ["m5c_treble_defaults"],
+    srcs: ["legacy.cpp"],
+    shared_libs: ["liblog"],
+    cflags: ["-fvisibility=hidden"],
+}
+
+// Audio HAL closure (audio.primary.mt6737m, both ABIs).  FACT (A13 boot of
+// 2026-09-28): the HAL service registers audio@6.0 but the primary module
+// never opens — the blob NEEDs libmedia.so, libpowermanager.so and
+// libtinycompress.so, none of which a vendor process can load, and
+// `dumpsys media.audio_policy` lists no output device (system_server then
+// logs "AudioSystem::listAudioPorts error -19" ten times a second).
+//
+// libmedia.so: the nine AudioSystem statics the HAL imports (audiosystem.cpp).
+// libpowermanager.so: overlink — the HAL imports nothing from it
+// (acquire/release_wake_lock come from libhardware_legacy).  Both platform
+// libraries are system-only, so the real names cannot shadow anything, the
+// same reasoning as libnativehelper above.  libmedia.so is also NEEDed by
+// libhdrproc, libfilterfw, radio.fm.mt6737m and meta_tst; they now get past
+// the soname and stand or fall on their own imports.
+cc_library_shared {
+    name: "libmedia_m5c_stub",
+    defaults: ["m5c_treble_defaults"],
+    stem: "libmedia",
+    srcs: ["audiosystem.cpp"],
+}
+
+cc_library_shared {
+    name: "libpowermanager_m5c_stub",
+    defaults: ["m5c_treble_defaults"],
+    stem: "libpowermanager",
+    srcs: ["stub.cpp"],
+}
+
+// libtinycompress.so is a vendor module of AOSP (external/tinycompress), so
+// its install path is taken; the HAL's DT_NEEDED is rewritten to this name
+// instead (treble-elf-wiring.txt).  See tinycompress.cpp.
+cc_library_shared {
+    name: "libm5cshim_tinycompress",
+    defaults: ["m5c_treble_defaults"],
+    srcs: ["tinycompress.cpp"],
+}

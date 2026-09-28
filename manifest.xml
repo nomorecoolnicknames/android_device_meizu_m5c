@@ -1,0 +1,239 @@
+<!--
+  Device HAL manifest (VINTF) for the m5c on LineageOS 16.0.
+
+  Why this file exists (peripherals lane, 2026-09-03).  The m5c port has no
+  DEVICE_MANIFEST_FILE, so /vendor/etc/vintf/manifest.xml is absent and
+  hwservicemanager answers getTransport() with EMPTY for every vendor HAL.
+  Most clients survive that: system/libhidl's getRawServiceInternal() only
+  warns on an undeclared interface and still tries hwbinder, then passthrough.
+
+  Wi-Fi is the exception.  frameworks/opt/net/wifi HalDeviceManager decides
+  whether a vendor HAL exists at all by asking the manifest directly:
+
+      isSupportedInternal():
+          IServiceManager.getTransport(IWifi.kInterfaceName, "default")
+              != Transport.EMPTY
+
+  With no manifest that returns EMPTY, WifiNative logs
+  "Vendor Hal not supported, ignoring start", IWifi.start() is never called,
+  and hardware/interfaces/wifi/1.2/default/wifi_mode_controller.cpp:63
+  (driver_tool_->LoadDriver() -> wifi_load_driver() -> "1" into
+  WIFI_DRIVER_STATE_CTRL_PARAM = /dev/wmtWifi) never runs.  The MTK combo
+  driver therefore never powers up, wlan0 is never created, and wificond
+  reports "No interface is found".  Measured on the live device 2026-09-03
+  13:36 (M5C_LOS16_PERIPHERALS_MEASURE_20260903.md).
+
+  Scope is deliberately narrow.  A HAL declared here but not actually served
+  hangs its client (the m681 light@2.0 lesson), so this manifest lists only
+  interfaces observed registered in lshal on the running device.  Every other
+  vendor HAL on the m5c already resolves through the EMPTY-transport fallback
+  and needs no entry; add one only together with runtime proof that the
+  service answers.
+-->
+<!--
+  2026-09-25, FULL TREBLE (branch lineage-20-treble,
+  meizu-fleet/designs/TREBLE_M5C_20260924.md).  The narrow-scope rule above
+  was written for a NON-Treble image, where an undeclared HAL still resolves
+  through the EMPTY-transport fallback.  With PRODUCT_FULL_TREBLE the build
+  sets PRODUCT_ENFORCE_VINTF_MANIFEST, and that fallback is gone:
+    * hwservicemanager refuses to register a service that is not declared,
+      so an undeclared HAL is simply absent;
+    * a declared HAL is waited for, so a declared HAL whose service cannot
+      come up still hangs its client (the m681 light@2.0 lesson stands).
+  Hence the rule now is: declare exactly the HIDL HALs whose service AND
+  implementation are in this image.  Declared below, each with its impl:
+    composer 2.1      composer@2.1-service (hwcomposer.mt6737m = forge_hwc is
+                      NOT ported yet; SurfaceFlinger cannot run without a
+                      composer either way — display lane)
+    allocator 2.0     allocator@2.0-impl/-service + gralloc.mt6737m (blob)
+    mapper 2.0        mapper@2.0-impl, passthrough (sphal; closure clean)
+    sensors 1.0       sensors@1.0-impl + sensors.mt6737m (blob)
+    light 2.0         light@2.0-impl + lights.mt6737m (blob)
+    vibrator 1.0      vibrator@1.0-impl + vibrator.default (AOSP)
+    memtrack 1.0      memtrack@1.0-impl + memtrack.mt6737m (blob)
+    camera.provider   provider@2.4-impl legacy/0 + camera.mt6737m (blob)
+    bluetooth 1.1     bluetooth@1.1-service; libbt-vendor is looked up only
+                      at initialize(), so the service itself registers (the
+                      missing 64-bit libbt-vendor is fleet wall (a));
+                      2026-09-28: 32-bit copy of the service, bluetooth/
+    media.omx 1.0     media.omx@1.0-service (IOmx + IOmxStore)
+    wifi 1.2          unchanged from before, see NOT WIRED 2 in device.mk
+    audio 6.0         audio@6.0-impl + effect@6.0-impl under
+                      android.hardware.audio.service; REQUIRED by the FCM 3
+                      matrix (checkvintf rc=65 without it).  The factory
+                      registers; audio.primary.mt6737m still misses libmedia
+                      and libpowermanager in the vendor namespace (shim lane).
+  Declared by their own fragments, not here: health@2.1 (health/2.1/default
+  Android.bp:83), gatekeeper@1.0 software, drm@1.4 clearkey (both REQUIRED by
+  FCM 3 as well), keymint, cas, hostapd, wpa_supplicant (AIDL).
+  Deliberately NOT declared (service present, implementation absent — a
+  declaration would hang the client, and for gnss that client is
+  system_server): gnss 1.0 (gps.mt6737m not ported), radio (mtk-ril.so has
+  no RIL_Init).
+  target-level 3: Android 13 carries FCM levels 3..7 only; 3 is what m95
+  runs (device/meizu/m95/manifest.xml).
+-->
+<manifest version="1.0" type="device" target-level="3">
+    <hal format="hidl">
+        <name>android.hardware.graphics.composer</name>
+        <transport>hwbinder</transport>
+        <version>2.1</version>
+        <interface>
+            <name>IComposer</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl">
+        <name>android.hardware.graphics.allocator</name>
+        <transport>hwbinder</transport>
+        <version>2.0</version>
+        <interface>
+            <name>IAllocator</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl">
+        <name>android.hardware.graphics.mapper</name>
+        <transport arch="32+64">passthrough</transport>
+        <version>2.0</version>
+        <interface>
+            <name>IMapper</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl">
+        <name>android.hardware.sensors</name>
+        <transport>hwbinder</transport>
+        <version>1.0</version>
+        <interface>
+            <name>ISensors</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl">
+        <name>android.hardware.light</name>
+        <transport>hwbinder</transport>
+        <version>2.0</version>
+        <interface>
+            <name>ILight</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl">
+        <name>android.hardware.vibrator</name>
+        <transport>hwbinder</transport>
+        <version>1.0</version>
+        <interface>
+            <name>IVibrator</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl">
+        <name>android.hardware.memtrack</name>
+        <transport>hwbinder</transport>
+        <version>1.0</version>
+        <interface>
+            <name>IMemtrack</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl">
+        <name>android.hardware.camera.provider</name>
+        <transport>hwbinder</transport>
+        <version>2.4</version>
+        <interface>
+            <name>ICameraProvider</name>
+            <instance>legacy/0</instance>
+        </interface>
+    </hal>
+    <hal format="hidl">
+        <name>android.hardware.audio</name>
+        <transport>hwbinder</transport>
+        <version>6.0</version>
+        <interface>
+            <name>IDevicesFactory</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl">
+        <name>android.hardware.audio.effect</name>
+        <transport>hwbinder</transport>
+        <version>6.0</version>
+        <interface>
+            <name>IEffectsFactory</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl">
+        <name>android.hardware.bluetooth</name>
+        <transport>hwbinder</transport>
+        <version>1.1</version>
+        <interface>
+            <name>IBluetoothHci</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl">
+        <name>android.hardware.media.omx</name>
+        <transport>hwbinder</transport>
+        <version>1.0</version>
+        <interface>
+            <name>IOmx</name>
+            <instance>default</instance>
+        </interface>
+        <interface>
+            <name>IOmxStore</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <!--
+      Radio (2026-09-28): the MTK Oreo libril of ril/ registers IRadio,
+      IOemHook and ISap for slot1 and slot2 (ril_service.cpp and
+      sap_service.cpp registerService, SIM_COUNT 2); hwservicemanager refuses
+      a registration that the manifest does not declare.
+    -->
+    <hal format="hidl">
+        <name>android.hardware.radio</name>
+        <transport>hwbinder</transport>
+        <version>1.0</version>
+        <interface>
+            <name>IRadio</name>
+            <instance>slot1</instance>
+            <instance>slot2</instance>
+        </interface>
+        <interface>
+            <name>ISap</name>
+            <instance>slot1</instance>
+            <instance>slot2</instance>
+        </interface>
+    </hal>
+    <hal format="hidl">
+        <name>android.hardware.radio.deprecated</name>
+        <transport>hwbinder</transport>
+        <version>1.0</version>
+        <interface>
+            <name>IOemHook</name>
+            <instance>slot1</instance>
+            <instance>slot2</instance>
+        </interface>
+    </hal>
+    <!--
+      android.hardware.wifi is declared by the fragment of the HAL package
+      itself (android.hardware.wifi@1.0-service.xml, IWifi 1.6,
+      hardware/interfaces/wifi/1.6/default/Android.mk:100), installed together
+      with the service (device.mk, 2026-09-28).  A second entry here is the
+      m95 trap (device/meizu/m95/manifest.xml:294-297): duplicate HAL ->
+      "has a conflict" -> the whole vendor manifest rejected.
+    -->
+    <!--
+      android.hardware.wifi.supplicant is deliberately NOT declared here
+      (2026-09-24, lesson of m95 161682f).  The Android 13 wpa_supplicant of
+      this tree serves only the AIDL ISupplicant (CONFIG_CTRL_IFACE_AIDL,
+      external/wpa_supplicant_8/wpa_supplicant/android.config:332) and declares
+      it itself in its own VINTF fragment,
+      /vendor/etc/vintf/manifest/android.hardware.wifi.supplicant.xml
+      (wpa_supplicant/Android.mk:1827).  The HIDL 1.1 entry that stood here
+      would be a declared-but-unserved HAL (see the rule above).  The service
+      itself is in rootdir/etc/init/init.m5c.wifi.rc.
+    -->
+</manifest>

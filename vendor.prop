@@ -1,0 +1,124 @@
+#
+# vendor.prop for the Meizu M5c (m5c, M710H) — LineageOS 20.0
+#
+# These go to /vendor/build.prop.  Source of every line is the stock Flyme
+# system.prop as carried by the working 14.1 tree
+# (<private-workspace>/m5c/los14.1-m5c-patched/device/meizu/m5c/system.prop),
+# with the LOS 16 corrections applied
+# (.../device/meizu/m5c/los16/system.prop).
+#
+# CAVEAT recorded here so it is not rediscovered the hard way: on this device
+# early init cannot read /vendor/build.prop, because
+# property_load_boot_defaults() runs before /vendor is mounted (FACT, LOS 16
+# bring-up 2026-08-29).  Anything needed before mount_all must go to
+# PRODUCT_PROPERTY_OVERRIDES in device.mk instead.
+
+# --- Platform identity (used by hw_get_module lookups) ---------------------
+ro.board.platform=mt6737m
+ro.mediatek.platform=MT6737M
+ro.mediatek.chip_ver=S01
+ro.mediatek.version.sdk=4
+ro.mediatek.version.release=ZAL856_999A_V0_0_5_BSP_20170605
+ro.meizu.product.model=M5c
+ro.meizu.project.id=m1710-5
+ro.product.flyme.model=m1710
+
+# --- MTK combo chip (Wi-Fi / BT / GPS / FM share one CONSYS) ---------------
+persist.mtk.wcn.combo.chipid=-1
+persist.mtk.wcn.fwlog.status=0
+service.wcn.driver.ready=no
+persist.mtk.combo.coredump=no
+
+# --- Wi-Fi ----------------------------------------------------------------
+mediatek.wlan.chip=CONSYS_MT6735
+mediatek.wlan.module.postfix=_consys_mt6735
+ro.mediatek.wlan.wsc=1
+ro.mediatek.wlan.p2p=1
+mediatek.wlan.ctia=0
+wifi.tethering.interface=wlan0
+wifi.interface=wlan0
+wifi.direct.interface=p2p0
+wifi.supplicant_scan_interval=180
+
+# --- Bluetooth ------------------------------------------------------------
+ro.mtk_bt_support=1
+
+# --- Telephony (dual SIM, LTE) --------------------------------------------
+# rild.libpath points into /vendor now that there is a real vendor partition.
+rild.libpath=/vendor/lib64/mtk-ril.so
+rild.libargs=-d /dev/ttyC0
+ril.specific.sm_cause=0
+ro.telephony.default_network=20,20
+persist.radio.multisim.config=dsds
+persist.radio.default.sim=0
+ro.telephony.sim.count=2
+persist.radio.mobile.data=0,0
+ril.external.md=0
+ril.telephony.mode=0
+ro.mtk_enable_md1=1
+ro.mtk_lte_support=1
+ro.telephony.ril.config=fakeiccid
+ril.current.share_modem=2
+persist.radio.fd.counter=15
+persist.radio.fd.off.counter=5
+persist.radio.fd.r8.counter=15
+persist.radio.fd.off.r8.counter=5
+ro.mtk_gemini_support=1
+persist.gemini.sim_num=2
+ro.gemini.smart_sim_switch=false
+
+# --- GPS ------------------------------------------------------------------
+ro.mtk_gps_support=1
+ro.mtk_agps_app=1
+ro.mtk_omacp_support=1
+
+# --- Audio ----------------------------------------------------------------
+ro.camera.sound.forced=0
+ro.audio.silent=0
+ro.mtk_audio_ape_support=1
+ro.mtk_audio_tuning_tool_ver=V1
+# The MTK legacy audio HAL (audio.primary.mt6737m.so, Nougat vintage) never
+# assigns audio_stream_in::get_capture_position, so the AOSP audio HAL's NULL
+# check passes on uninitialised heap content and the indirect call jumps into
+# the malloc arena: the audio service took SIGSEGV on EVERY microphone capture
+# (measured 2026-09-03 on LOS 16, ten tombstones, all thread name "reader").
+# The guard in StreamIn.impl.h is opt-in.
+# HYPOTHESIS: the same guard still exists in A13's audio default impl.  Verify
+# before relying on it — if the guard was dropped, the mic path needs a shim.
+ro.audio.legacy_hal_no_capture_position=1
+
+# --- Display --------------------------------------------------------------
+# CORRECTION 2026-09-16 (fleet hygiene pass).  The comment that used to stand
+# here claimed this was a "forge rename of AOSP's
+# debug.hwui.enable_partial_updates, which at 33 chars exceeds bionic's 31-char
+# property-name limit".  FACT: AOSP never reads a property by that name.  The
+# macro is called PROPERTY_ENABLE_PARTIAL_UPDATES but the STRING it expands to
+# is "debug.hwui.use_partial_updates" — 30 characters, i.e. it fits
+# (frameworks/base/libs/hwui/Properties.h:124, read in this workspace).  So the
+# renamed property set below was read by nobody and the knob was dead: hwui
+# kept its default (partial updates ON) while the Mali-T720 blob advertises
+# EGL_BUFFER_PRESERVED and does not honour it.  Spelled the way hwui actually
+# reads it now.  HYPOTHESIS to confirm on hardware: with the property finally
+# taking effect the horizontal stitch mid-fling disappears; if instead the
+# device gets visibly slower, the right answer is to drop the knob rather than
+# to re-misspell it.
+debug.hwui.use_partial_updates=false
+
+# --- Camera ---------------------------------------------------------------
+media.stagefright.legacyencoder=true
+media.stagefright.less-secure=true
+ro.camera.disable_zsl_mode=1
+
+# --- FM -------------------------------------------------------------------
+fmradio.driver.enable=0
+
+# --- USB ------------------------------------------------------------------
+ro.sys.usb.mtp.whql.enable=0
+ro.sys.usb.storage.type=mtp
+ro.vold.umsdirtyratio=20
+ro.sys.usb.bicr=no
+ro.sys.usb.charging.only=yes
+
+# --- Misc -----------------------------------------------------------------
+sys.ipo.pwrdncap=2
+ro.kernel.zio=38,108,105,16

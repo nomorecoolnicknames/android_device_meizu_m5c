@@ -1,305 +1,471 @@
-# Meizu M5c and MediaTek 6737M proprietary blob`s requried for building Android 7 Nougat ROM`s
-
-# Blob`s are taken from official Flyme 6.0.2.4G firmware for global M5c model
-
-# NOTE: This proprietary list is not "complete", in sense that listed blob`s below are being compiled from source while ROM building, and not taken from Flyme. This is requried step. Their sources can be found in the device tree of this device. They are being present in the final build.
-
-# libfmcust, radio.fm.mt6737m
-# wmt_loader
-# libion_mtk
-# gps.mt6737m, libepos, mtk_mnld, mtk_agpsd, wifi2agps
-# lights.mt6737m, sensors.mt6737m
-# fuelgauged, fuelgauged_static, libfgauge, libfgauge_static
-# libui_ext
-# libhwm 
-# librrc
-# md_ctrl
-# memtrack.mt6737m
-# mrdump
-# libperfservicenative
-# power.mt6737m
-# libmtcloader, thermal_manager
-
-#######################################################
-#Proprietary list adapted for Meizu M5c by Dekompilyator
-#######################################################
-
-
-# Telephony / RIL / Modem / IMS
-bin/6620_launcher
-bin/ccci_fsd
-bin/ccci_mdinit
-bin/gsm0710muxd
-bin/mtkrild
-bin/muxreport
-bin/netdiag
-bin/terservice
-lib{,64}/libaed.so
-lib{,64}/libccci_util.so
-lib{,64}/libmdloggerrecycle.so
-lib/libmemoryDumpEncoder.so
-lib{,64}/librilmtk.so
-lib64/libterservice.so
-lib{,64}/mtk-ril.so
-etc/firmware/catcher_filter_1_lwg_n.bin
-etc/firmware/dsp_1_lwg_n.bin
-etc/firmware/modem_1_lwg_n.img
-etc/mddb/BPLGUInfoCustomAppSrcP_MT6735_S00_MOLY_LR9_W1444_MD_LWTG_MP_V106_P5_1_lwg_n
-etc/mddb/BPMdMetaDatabase_MOLY_LR9_W1444_MD_LWTG_MP_V106_P5_1_lwg_n
-etc/mddb/mdm_layout_desc_1_lwg_n.dat
-etc/mddb/DbgInfo_LR9.W1444.MD.LWTG.MP_HQ6737M_65_1MZ_M0_MOLY_LR9_W1444_MD_LWTG_MP_V106_P5_2017_11_02_17_46_1_lwg_n
-lib{,64}/mtk-rilmd2.so
-lib{,64}/librilmtkmd2.so
-lib{,64}/libmal.so
-lib{,64}/libmal_datamngr.so
-lib{,64}/libmal_epdga.so
-lib{,64}/libmal_imsmngr.so
-lib{,64}/libmal_mdmngr.so
-lib{,64}/libmal_nwmngr.so
-lib{,64}/libmal_rds.so
-lib{,64}/libmal_rilproxy.so
-lib{,64}/libmal_simmngr.so
-lib{,64}/libmatv_cust.so
-lib{,64}/volte_imsm.so
-etc/firmware/em_filter_1_lwg_n.bin
-
-# Sensors
-bin/akmd09911
-bin/akmd8963
-bin/akmd8975
-bin/ami304d
-bin/bmm050d
-bin/geomagneticd
-bin/memsicd
-bin/memsicd3416x
-bin/msensord
-bin/orientationd
-bin/qmcX983d
-bin/s62xd
-
-# Thermal Configs
-lib{,64}/libmtklimiter.so
-etc/.tp/.ht120.mtc
-etc/.tp/thermal.conf
-etc/.tp/thermal.off.conf
-lib{,64}/libperfservice.so
-
-# NVRAM
-bin/nvram_daemon
-lib{,64}/libcfgdevparam.so
-lib{,64}/libcustom_nvram.so
-lib{,64}/libcustom_prop.so
-lib{,64}/libnvram.so
-lib{,64}/libnvram_daemon_callback.so
-lib{,64}/libnvram_platform.so
-lib{,64}/libnvram_sec.so
-lib{,64}/libnvramagentclient.so
-
-# Meizu framework
-lib{,64}/libarcsoft_makeup.so
-lib{,64}/libdlna_jni.so
-lib{,64}/libDominantColors.so
-lib{,64}/libexif_gallery.so
-lib{,64}/libjni_gauss_blur.so
-lib{,64}/libjni_systemui.so
-lib{,64}/libjni_systemuitools.so
-lib{,64}/libmakeup_style.so
-lib{,64}/libnative_blur.so
-lib{,64}/libnativecheck-jni.so
-lib{,64}/libnative_glrenderer.so
-
-# Display
-etc/firmware/gt9xx_fw.bin
-bin/pq
-lib{,64}/libblisrc32.so
-lib{,64}/libblisrc.so
-lib{,64}/libdpframework.so
-lib{,64}/libgas.so
-lib{,64}/libged.so
-lib{,64}/libgpu_aux.so
-lib64/libpq_cust.so
-lib{,64}/libpq_prot.so
-lib{,64}/libgralloc_extra.so
-lib{,64}/libpqservice.so
-lib{,64}/hw/gralloc.mt6737m.so
-lib{,64}/hw/hwcomposer.mt6737m.so
-lib{,64}/egl/libGLES_mali.so
-
-# WIFI / FM
-etc/firmware/ROMv2_lm_patch_1_0_hdr.bin
-etc/firmware/ROMv2_lm_patch_1_1_hdr.bin
-etc/firmware/WIFI_RAM_CODE_6735
-etc/firmware/WMT_SOC.cfg
-etc/firmware/mt6627/mt6627_fm_v1_coeff.bin
-etc/firmware/mt6627/mt6627_fm_v1_patch.bin
-etc/firmware/mt6627/mt6627_fm_v2_coeff.bin
-etc/firmware/mt6627/mt6627_fm_v2_patch.bin
-etc/firmware/mt6627/mt6627_fm_v3_coeff.bin
-etc/firmware/mt6627/mt6627_fm_v3_patch.bin
-etc/firmware/mt6627/mt6627_fm_v4_coeff.bin
-etc/firmware/mt6627/mt6627_fm_v4_patch.bin
-etc/firmware/mt6627/mt6627_fm_v5_coeff.bin
-etc/firmware/mt6627/mt6627_fm_v5_patch.bin
-etc/fmr/mt6627_fm_cust.cfg
-
-# Camera
-lib{,64}/lib3a.so
-lib{,64}/libcam1_utils.so
-lib{,64}/libcam3_app.so
-lib{,64}/libcam3_hwnode.so
-lib{,64}/libcam3_hwpipeline.so
-lib{,64}/libcam3_pipeline.so
-lib{,64}/libcam3_utils.so
-lib{,64}/libcamalgo.so
-lib{,64}/libcam.camadapter.so
-lib{,64}/libcam.camshot.so
-lib{,64}/libcam.client.so
-lib{,64}/libcam.device1.so
-lib{,64}/libcam.device3.so
-lib{,64}/libcamdrv.so
-lib{,64}/libcameracustom.so
-lib{,64}/libcam.exif.so
-lib{,64}/libcam.exif.v3.so
-lib{,64}/libcam.hal3a.v3.dng.so
-lib{,64}/libcam.hal3a.v3.so
-lib{,64}/libcam.halsensor.so
-lib{,64}/libcam_hwutils.so
-lib{,64}/libcam.iopipe.so
-lib{,64}/libcam.metadataprovider.so
-lib{,64}/libcam.metadata.so
-lib{,64}/libcam_mmp.so
-lib{,64}/libcam.paramsmgr.so
-lib{,64}/libcam_platform.so
-lib{,64}/libcam.utils.sensorlistener.so
-lib{,64}/libcam_utils.so
-lib{,64}/libcam.utils.so
-lib{,64}/libfeatureiodrv.so
-lib{,64}/libfeatureio.so
-lib{,64}/libfile_op.so
-lib{,64}/libimageio_plat_drv.so
-lib{,64}/libimageio.so
-lib/libJpgDecPipe.so
-lib/libSwJpgCodec.so
-lib{,64}/libJpgEncPipe.so
-lib/libmhalImageCodec.so
-lib{,64}/libmtkcamera_client.so
-lib{,64}/libmtkjpeg.so
-lib{,64}/hw/camera.mt6737m.so
+# Proprietary blob manifest — Meizu M5c (m5c, M710H), MT6737M.
 #
-# More proprietary camera libs (including meizu)
+# Generated 2026-09-16 from vendor/meizu/m5c/m5c-vendor-blobs.mk, which is the
+# FULL vendor-migration list produced by the LOS 16 lane on 2026-08-29.  That
+# split is FACT-driven (a strings scan of every stock blob for hardcoded
+# absolute paths), not stylistic:
 #
-lib{,64}/libacdk.so
-lib{,64}/libcameracustom.so 
-lib{,64}/libmeizucamera.so
-lib{,64}/libcamdrv_FrmB.so
-lib{,64}/libcam.iopipe_FrmB.so
-lib{,64}/libcam.sdkclient.so
-lib{,64}/libimageio_plat_drv_FrmB.so
-lib{,64}/libimageio_FrmB.so
-lib{,64}/libcam.common.meizu.so
-lib{,64}/libcam.common.meizu.platform.so
-lib{,64}/libcam.campipe.so
-lib{,64}/libvfb_render.so
-lib{,64}/libvmp_render.so
-lib{,64}/libmpbase.so
-lib{,64}/libarcsoft_makeup.so
-lib{,64}/libmakeup_style.so
-lib{,64}/libfilter_effects.so
-lib{,64}/libhdrproc.so
-lib{,64}/libmmsdkservice.so
-lib{,64}/libmmsdkservice.feature.so
-lib{,64}/libja3m.so
-lib{,64}/libJpgDecPipe.so
-lib{,64}/libavformat.so
-lib{,64}/libexif_gallery.so
-lib{,64}/libjhead.so
-lib{,64}/libdrmmtkutil.so
-lib{,64}/liba3m.so
+#   -> vendor/bin:          all stock daemons and tools (including the former
+#                           xbin/mnld); launch paths are owned by our rc files.
+#   -> vendor/lib{,64}:     the MTK library mass, including egl/ (the EGL
+#                           loader probes /vendor/lib*/egl first) and res/.
+#   -> vendor/etc/firmware: modem images only (modem_*, dsp_*,
+#                           catcher_filter_*, em_filter_*).  ccci_mdinit probes
+#                           /custom/etc/firmware/ FIRST — the M-era daemon
+#                           knows nothing of /vendor/firmware — and
+#                           init.mt6735.rc makes /custom -> /vendor, so the
+#                           stock probe order finds them.
+#
+#   STAYS IN /system, each for a hard reason:
+#     - the RIL/MAL chain (mtk-ril*, librilmtk*, libmal*, volte_imsm,
+#       libccci_util): mtkrild hardcodes /system/lib/mtk-ril.so and
+#       libmal_imsmngr hardcodes /system/lib/volte_imsm.so (both
+#       strings-verified).
+#
+# DELIBERATELY ABSENT (do NOT re-add when regenerating):
+#   - hwcomposer.mt6737m.so — the device tree builds forge_hwc under the same
+#     module name and PRODUCT_COPY_FILES silently beats a built module.
+#     Shipping the blob replaced our composer, it died in
+#     GameDetector::LayersStrategy, took SurfaceFlinger with it, and
+#     system_server hung at "Starting phase 100" — black screen on a flashed
+#     ROM.
+#   - bin/md_ctrl — built against an older android_fork_execvp_ext signature;
+#     on N+ it walks into __write_chk with a garbage count and dies on FORTIFY
+#     ("write: count > SSIZE_MAX"), init respawns it, and the crash loop ends
+#     in a watchdog reboot (WDT_STATUS 0x40000000 in pstore).  The device tree
+#     carries md_ctrl sources instead.
+#
+#   - lib{,64}/hw/{audio_policy.stub,local_time.default,vibrator.default}.so
+#     and lib{,64}/hw/keystore.default.so (removed 2026-09-16) — these are
+#     MediaTek's 2014-toolchain build of AOSP sources, not MediaTek code: the
+#     first three carry the verbatim hw_module_t .name of
+#     hardware/libhardware/modules/{audio,local_time,vibrator} and Android 13
+#     builds and installs its own current copies to the very same vendor paths,
+#     where PRODUCT_COPY_FILES would silently overwrite them.  keystore.default
+#     is AOSP softkeymaster and its DT_NEEDED libs no longer exist in A13, so it
+#     cannot load at all.  power.default.so is NOT in this group and stays: its
+#     .name is "Legacy PowerHAL" and it drives /proc/hps/power_mode — real MTK.
+#
+# Blob source of truth: <private-workspace>/m5c/android_vendor_meizu_m5c
+# (449 files, 207 MiB).  All 426 source paths referenced by the blobs makefile
+# were verified present on disk on 2026-09-16.
 
-# Media
-lib{,64}/libaudiocompensationfilter.so
-lib{,64}/libaudiocomponentengine.so
-lib{,64}/libaudiocustparam.so
-lib{,64}/libbessound_hd_mtk.so
-lib{,64}/libbwc.so
-lib{,64}/libcvsd_mtk.so
-lib{,64}/libdrmmtkwhitelist.so
-lib/libHEVCdec_sa.ca7.android.so
-lib{,64}/libm4u.so
-lib{,64}/libmdfx.so
-lib{,64}/libmmprofile.so
-lib/libmp4enc_sa.ca7.so
-lib{,64}/libmsbc_mtk.so
-lib{,64}/libmtk_drvb.so
-lib{,64}/libmtk_mmutils.so
-lib{,64}/libmtkshifter.so
-lib{,64}/libspeech_enh_lib.so
-lib{,64}/libstagefrighthw.so
-lib/libvc1dec_sa.ca7.so
-lib{,64}/libvcodecdrv.so
-lib{,64}/libvcodec_oal.so
-lib{,64}/libvcodec_utility.so
-lib/libvp8dec_sa.ca7.so
-lib/libvp9dec_sa.ca7.so
-lib{,64}/hw/audio.primary.mt6737m.so
-lib{,64}/libaudiodcrflt.so
-lib{,64}/libaudiomtkdcremoval.so
-#lib{,64}/libaudio-resampler.so
-
-# OMX and Codecs
-etc/mtk_omx_core.cfg
-lib{,64}/libMtkOmxCore.so
-lib{,64}/libMtkOmxAdpcmDec.so
-lib{,64}/libMtkOmxAdpcmEnc.so
-lib{,64}/libMtkOmxAlacDec.so
-lib{,64}/libMtkOmxApeDec.so
-lib{,64}/libMtkOmxFlacDec.so
-lib{,64}/libMtkOmxG711Dec.so
-lib{,64}/libMtkOmxGsmDec.so
-lib{,64}/libMtkOmxMp3Dec.so
-lib{,64}/libMtkOmxRawDec.so
-lib{,64}/libMtkOmxVdecEx.so
-lib{,64}/libMtkOmxVenc.so
-lib{,64}/libMtkOmxVorbisEnc.so
-lib{,64}/libmhalImageCodec.so
-lib{,64}/libSwJpgCodec.so
-lib{,64}/libBnMtkCodec.so
-lib{,64}/libvcodec_cap.so
-lib{,64}/libh264enc_sa.ca7.so
-lib{,64}/libh264enc_sb.ca7.so
-lib{,64}/libmp4enc_sa.ca7.so
-lib{,64}/libmp4enc_xa.ca7.so
-
-# Libem JNI
-lib{,64}/libem_bt_jni.so
-lib{,64}/libem_gpio_jni.so
-lib{,64}/libem_lte_jni.so
-lib{,64}/libem_modem_jni.so
-lib{,64}/libem_sensor_jni.so
-lib{,64}/libem_support_jni.so
-lib{,64}/libem_usb_jni.so
-
-# Meta Mode
-bin/meta_tst
-
-# Factory
-bin/factory
-etc/factory.ini
-lib64/libminiui.so
-lib64/libacdk.so
-res/sound/ringtone.wav
-
-# Filesystem
-lib{,64}/libfs_mgr.so
-
-# Misc
-etc/trustzone.bin
-
-# DRM
+## /vendor
+vendor/bin/6620_launcher
+vendor/bin/akmd09911
+vendor/bin/akmd8963
+vendor/bin/akmd8975
+vendor/bin/ami304d
+vendor/bin/bmm050d
+vendor/bin/ccci_fsd
+vendor/bin/ccci_mdinit
+vendor/bin/factory
+vendor/bin/fuelgauged
+vendor/bin/geomagneticd
+vendor/bin/gsm0710muxd
+vendor/bin/memsicd
+vendor/bin/memsicd3416x
+vendor/bin/meta_tst
+vendor/bin/mnld
+vendor/bin/msensord
+vendor/bin/mtk_agpsd
+vendor/bin/mtkrild
+vendor/bin/muxreport
+vendor/bin/netdiag
+vendor/bin/nvram_daemon
+vendor/bin/orientationd
+vendor/bin/pq
+vendor/bin/qmcX983d
+vendor/bin/s62xd
+vendor/bin/slpd
+vendor/bin/terservice
+vendor/bin/thermal_manager
+vendor/bin/wifi2agps
+vendor/bin/wmt_loader
+vendor/etc/diracmobile.config
+vendor/etc/dirac_types.xml
+vendor/etc/firmware/catcher_filter_1_lwg_n.bin
+vendor/etc/firmware/dsp_1_lwg_n.bin
+vendor/etc/firmware/em_filter_1_lwg_n.bin
+vendor/etc/firmware/modem_1_lwg_n.img
+vendor/etc/pdc.txt
+vendor/lib64/egl/libGLES_mali.so
+vendor/lib64/hw/audio.a2dp.default.so
+vendor/lib64/hw/audio.primary.mt6737m.so
+vendor/lib64/hw/camera.mt6737m.so
+vendor/lib64/hw/gralloc.mt6737m.so
+vendor/lib64/hw/lights.mt6737m.so
+vendor/lib64/hw/memtrack.mt6737m.so
+vendor/lib64/hw/power.default.so
+vendor/lib64/hw/sensors.mt6737m.so
+vendor/lib64/lib3a.so
+vendor/lib64/liba3m.so
+vendor/lib64/libacdk.so
+vendor/lib64/libaed.so
+vendor/lib64/libarcsoft_makeup.so
+vendor/lib64/libaudiocompensationfilter.so
+vendor/lib64/libaudiocomponentengine.so
+vendor/lib64/libaudiocustparam.so
+vendor/lib64/libaudiodcrflt.so
+vendor/lib64/libaudiosetting.so
+vendor/lib64/libavformat.so
+vendor/lib64/libbessound_hd_mtk.so
+vendor/lib64/libblisrc32.so
+vendor/lib64/libblisrc.so
+vendor/lib64/libbluetoothem_mtk.so
+vendor/lib64/libbluetooth_mtk_pure.so
+vendor/lib64/libbluetooth_relayer.so
+vendor/lib64/libBnMtkCodec.so
+vendor/lib64/libbwc.so
+vendor/lib64/libcam1_utils.so
+vendor/lib64/libcam3_app.so
+vendor/lib64/libcam3_hwnode.so
+vendor/lib64/libcam3_hwpipeline.so
+vendor/lib64/libcam3_pipeline.so
+vendor/lib64/libcam3_utils.so
+vendor/lib64/libcamalgo.so
+vendor/lib64/libcam.camadapter.so
+vendor/lib64/libcam.campipe.so
+vendor/lib64/libcam.camshot.so
+vendor/lib64/libcam.client.so
+vendor/lib64/libcam.common.meizu.platform.so
+vendor/lib64/libcam.common.meizu.so
+vendor/lib64/libcam.device1.so
+vendor/lib64/libcam.device3.so
+vendor/lib64/libcamdrv_FrmB.so
+vendor/lib64/libcamdrv.so
+vendor/lib64/libcameracustom.so
+vendor/lib64/libcam.exif.so
+vendor/lib64/libcam.exif.v3.so
+vendor/lib64/libcam.hal3a.v3.dng.so
+vendor/lib64/libcam.hal3a.v3.so
+vendor/lib64/libcam.halsensor.so
+vendor/lib64/libcam_hwutils.so
+vendor/lib64/libcam.iopipe_FrmB.so
+vendor/lib64/libcam.iopipe.so
+vendor/lib64/libcam.metadataprovider.so
+vendor/lib64/libcam.metadata.so
+vendor/lib64/libcam_mmp.so
+vendor/lib64/libcam.paramsmgr.so
+vendor/lib64/libcam_platform.so
+vendor/lib64/libcam.sdkclient.so
+vendor/lib64/libcam.utils.sensorlistener.so
+vendor/lib64/libcam.utils.so
+vendor/lib64/libcam_utils.so
+vendor/lib64/libcustom_nvram.so
+vendor/lib64/libcvsd_mtk.so
+vendor/lib64/libdpframework.so
+vendor/lib64/libdrmmtkutil.so
+vendor/lib64/libdrmmtkwhitelist.so
+vendor/lib64/libem_bt_jni.so
+vendor/lib64/libem_gpio_jni.so
+vendor/lib64/libem_lte_jni.so
+vendor/lib64/libem_modem_jni.so
+vendor/lib64/libem_sensor_jni.so
+vendor/lib64/libem_support_jni.so
+vendor/lib64/libem_usb_jni.so
+vendor/lib64/libem_wifi_jni.so
+vendor/lib64/libexif_gallery.so
+vendor/lib64/libexif.so
+vendor/lib64/libfeatureiodrv.so
+vendor/lib64/libfeatureio.so
+vendor/lib64/libfile_op.so
+vendor/lib64/libfilter_effects.so
+vendor/lib64/libfilterfw.so
+vendor/lib64/libfmcust.so
+vendor/lib64/libgas.so
+vendor/lib64/libged.so
+vendor/lib64/libgpu_aux.so
+vendor/lib64/libgralloc_extra.so
+vendor/lib64/libgui_ext.so
+vendor/lib64/libhdrproc.so
+vendor/lib64/libhwm.so
+vendor/lib64/libimageio_FrmB.so
+vendor/lib64/libimageio_plat_drv_FrmB.so
+vendor/lib64/libimageio_plat_drv.so
+vendor/lib64/libimageio.so
+vendor/lib64/libion_mtk.so
+vendor/lib64/libja3m.so
+vendor/lib64/libjhead.so
+vendor/lib64/libJpgDecPipe.so
+vendor/lib64/libJpgEncPipe.so
+vendor/lib64/libm4u.so
+vendor/lib64/libmakeup_style.so
+vendor/lib64/libmatv_cust.so
+vendor/lib64/libmdfx.so
+vendor/lib64/libmdloggerrecycle.so
+vendor/lib64/libmeizucamera.so
+vendor/lib64/libmhalImageCodec.so
+vendor/lib64/libminiui.so
+vendor/lib64/libmmprofile.so
+vendor/lib64/libmmsdkservice.feature.so
+vendor/lib64/libmmsdkservice.so
+vendor/lib64/libmpbase.so
+vendor/lib64/libmrdump.so
+vendor/lib64/libmsbc_mtk.so
+vendor/lib64/libmtkcamera_client.so
+vendor/lib64/libmtk_drvb.so
+vendor/lib64/libmtkjpeg.so
+vendor/lib64/libmtklimiter.so
+vendor/lib64/libmtk_mmutils.so
+vendor/lib64/libMtkOmxCore.so
+vendor/lib64/libmtkshifter.so
+vendor/lib64/libnvramagentclient.so
+vendor/lib64/libnvram_daemon_callback.so
+vendor/lib64/libnvram_platform.so
+vendor/lib64/libnvram_sec.so
+vendor/lib64/libnvram.so
+vendor/lib64/libpq_cust.so
+vendor/lib64/libpq_prot.so
+vendor/lib64/libpqservice.so
+vendor/lib64/libspeech_enh_lib.so
+vendor/lib64/libstagefrighthw.so
+vendor/lib64/libSwJpgCodec.so
+vendor/lib64/libterservice.so
+vendor/lib64/libui_ext.so
+vendor/lib64/libvcodec_cap.so
+vendor/lib64/libvcodec_oal.so
+vendor/lib64/libvcodec_utility.so
+vendor/lib64/libvfb_render.so
+vendor/lib64/libvmp_render.so
+vendor/lib64/libwebrtc_audio_preprocessing.so
+vendor/lib/drm/libdrmwvmplugin.so
+vendor/lib/egl/libGLES_mali.so
+vendor/lib/hw/audio.a2dp.default.so
+vendor/lib/hw/audio.primary.mt6737m.so
+vendor/lib/hw/camera.mt6737m.so
+vendor/lib/hw/gralloc.mt6737m.so
+vendor/lib/hw/lights.mt6737m.so
+vendor/lib/hw/memtrack.mt6737m.so
+vendor/lib/hw/power.default.so
+vendor/lib/hw/radio.fm.mt6737m.so
+vendor/lib/hw/sensors.mt6737m.so
+vendor/lib/lib3a.so
+vendor/lib/liba3m.so
+vendor/lib/libacdk.so
+vendor/lib/libaed.so
+vendor/lib/libarcsoft_makeup.so
+vendor/lib/libaudiocompensationfilter.so
+vendor/lib/libaudiocomponentengine.so
+vendor/lib/libaudiocustparam.so
+vendor/lib/libaudiodcrflt.so
+vendor/lib/libaudiomtkdcremoval.so
+vendor/lib/libaudiosetting.so
+vendor/lib/libavformat.so
+vendor/lib/libbessound_hd_mtk.so
+vendor/lib/libblisrc32.so
+vendor/lib/libblisrc.so
+vendor/lib/libbluetoothem_mtk.so
+vendor/lib/libbluetooth_mtk_pure.so
+vendor/lib/libbluetooth_mtk.so
+vendor/lib/libbluetooth_relayer.so
+vendor/lib/libBnMtkCodec.so
+vendor/lib/libbt-vendor.so
+vendor/lib/libbwc.so
+vendor/lib/libcam1_utils.so
+vendor/lib/libcam3_app.so
+vendor/lib/libcam3_hwnode.so
+vendor/lib/libcam3_hwpipeline.so
+vendor/lib/libcam3_pipeline.so
+vendor/lib/libcam3_utils.so
+vendor/lib/libcamalgo.so
+vendor/lib/libcam.camadapter.so
+vendor/lib/libcam.campipe.so
+vendor/lib/libcam.camshot.so
+vendor/lib/libcam.client.so
+vendor/lib/libcam.common.meizu.platform.so
+vendor/lib/libcam.common.meizu.so
+vendor/lib/libcam.device1.so
+vendor/lib/libcam.device3.so
+vendor/lib/libcamdrv_FrmB.so
+vendor/lib/libcamdrv.so
+vendor/lib/libcameracustom.so
+vendor/lib/libcam.exif.so
+vendor/lib/libcam.exif.v3.so
+vendor/lib/libcam.hal3a.v3.dng.so
+vendor/lib/libcam.hal3a.v3.so
+vendor/lib/libcam.halsensor.so
+vendor/lib/libcam_hwutils.so
+vendor/lib/libcam.iopipe_FrmB.so
+vendor/lib/libcam.iopipe.so
+vendor/lib/libcam.metadataprovider.so
+vendor/lib/libcam.metadata.so
+vendor/lib/libcam_mmp.so
+vendor/lib/libcam.paramsmgr.so
+vendor/lib/libcam_platform.so
+vendor/lib/libcam.sdkclient.so
+vendor/lib/libcam.utils.sensorlistener.so
+vendor/lib/libcam.utils.so
+vendor/lib/libcam_utils.so
+vendor/lib/libcurl.so
+vendor/lib/libcustom_nvram.so
+vendor/lib/libcvsd_mtk.so
+vendor/lib/libdpframework.so
+vendor/lib/libdrmmtkutil.so
+vendor/lib/libdrmmtkwhitelist.so
+vendor/lib/libem_bt_jni.so
+vendor/lib/libem_gpio_jni.so
+vendor/lib/libem_lte_jni.so
+vendor/lib/libem_modem_jni.so
+vendor/lib/libem_sensor_jni.so
+vendor/lib/libem_support_jni.so
+vendor/lib/libem_usb_jni.so
+vendor/lib/libem_wifi_jni.so
+vendor/lib/libexif_gallery.so
+vendor/lib/libexif.so
+vendor/lib/libfeatureiodrv.so
+vendor/lib/libfeatureio.so
+vendor/lib/libfgauge.so
+vendor/lib/libfile_op.so
+vendor/lib/libfilter_effects.so
+vendor/lib/libfilterfw.so
+vendor/lib/libfmcust.so
+vendor/lib/libgas.so
+vendor/lib/libged.so
+vendor/lib/libgpu_aux.so
+vendor/lib/libgralloc_extra.so
+vendor/lib/libgui_ext.so
+vendor/lib/libhdrproc.so
+vendor/lib/libhwm.so
+vendor/lib/libimageio_FrmB.so
+vendor/lib/libimageio_plat_drv_FrmB.so
+vendor/lib/libimageio_plat_drv.so
+vendor/lib/libimageio.so
+vendor/lib/libion_mtk.so
+vendor/lib/libja3m.so
+vendor/lib/libjhead.so
+vendor/lib/libJpgDecPipe.so
+vendor/lib/libJpgEncPipe.so
+vendor/lib/libm4u.so
+vendor/lib/libmakeup_style.so
+vendor/lib/libmatv_cust.so
+vendor/lib/libmdfx.so
+vendor/lib/libmdloggerrecycle.so
+vendor/lib/libmeizucamera.so
+vendor/lib/libmemoryDumpEncoder.so
+vendor/lib/libmhalImageCodec.so
+vendor/lib/libmmprofile.so
+vendor/lib/libmmsdkservice.feature.so
+vendor/lib/libmmsdkservice.so
+vendor/lib/libmnl.so
+vendor/lib/libmpbase.so
+vendor/lib/libmrdump.so
+vendor/lib/libmsbc_mtk.so
+vendor/lib/libmtcloader.so
+vendor/lib/libmtkcamera_client.so
+vendor/lib/libmtk_drvb.so
+vendor/lib/libmtkjpeg.so
+vendor/lib/libmtklimiter.so
+vendor/lib/libmtk_mmutils.so
+vendor/lib/libMtkOmxAdpcmDec.so
+vendor/lib/libMtkOmxAdpcmEnc.so
+vendor/lib/libMtkOmxAlacDec.so
+vendor/lib/libMtkOmxApeDec.so
+vendor/lib/libMtkOmxCore.so
+vendor/lib/libMtkOmxFlacDec.so
+vendor/lib/libMtkOmxG711Dec.so
+vendor/lib/libMtkOmxGsmDec.so
+vendor/lib/libMtkOmxMp3Dec.so
+vendor/lib/libMtkOmxRawDec.so
+vendor/lib/libMtkOmxVdecEx.so
+vendor/lib/libMtkOmxVenc.so
+vendor/lib/libMtkOmxVorbisEnc.so
+vendor/lib/libmtkshifter.so
+vendor/lib/libnvramagentclient.so
+vendor/lib/libnvram_daemon_callback.so
+vendor/lib/libnvram_platform.so
+vendor/lib/libnvram_sec.so
+vendor/lib/libnvram.so
+vendor/lib/libpq_prot.so
+vendor/lib/libpqservice.so
+vendor/lib/libspeech_enh_lib.so
+vendor/lib/libstagefrighthw.so
+vendor/lib/libSwJpgCodec.so
+vendor/lib/libui_ext.so
+vendor/lib/libvcodec_cap.so
+vendor/lib/libvcodec_oal.so
+vendor/lib/libvcodec_utility.so
+vendor/lib/libvfb_render.so
+vendor/lib/libvmp_render.so
+vendor/lib/libwebrtc_audio_preprocessing.so
 vendor/lib/libwvdrm_L3.so
 vendor/lib/libwvm.so
 vendor/lib/libWVStreamControlAPI_L3.so
-vendor/lib/drm/libdrmwvmplugin.so
-vendor/etc/dirac_types.xml
-vendor/etc/diracmobile.config
-vendor/etc/pdc.txt
+vendor/res/sound/ringtone.wav
+
+## /system (kept there on purpose — see header)
+system/etc/agps_profiles_conf2.xml
+system/etc/audio_device.xml
+system/etc/audio_param/AudioParamOptions.xml
+system/etc/audio_policy.conf
+system/etc/ecc_list.xml
+system/etc/factory.ini
+system/etc/firmware/gt9xx_fw.bin
+system/etc/firmware/mt6627/mt6627_fm_v1_coeff.bin
+system/etc/firmware/mt6627/mt6627_fm_v1_patch.bin
+system/etc/firmware/mt6627/mt6627_fm_v2_coeff.bin
+system/etc/firmware/mt6627/mt6627_fm_v2_patch.bin
+system/etc/firmware/mt6627/mt6627_fm_v3_coeff.bin
+system/etc/firmware/mt6627/mt6627_fm_v3_patch.bin
+system/etc/firmware/mt6627/mt6627_fm_v4_coeff.bin
+system/etc/firmware/mt6627/mt6627_fm_v4_patch.bin
+system/etc/firmware/mt6627/mt6627_fm_v5_coeff.bin
+system/etc/firmware/mt6627/mt6627_fm_v5_patch.bin
+system/etc/firmware/ROMv2_lm_patch_1_0_hdr.bin
+system/etc/firmware/ROMv2_lm_patch_1_1_hdr.bin
+system/etc/firmware/WIFI_RAM_CODE_6735
+system/etc/firmware/WMT_SOC.cfg
+system/etc/fmr/mt6627_fm_cust.cfg
+system/etc/mddb/BPLGUInfoCustomAppSrcP_MT6735_S00_MOLY_LR9_W1444_MD_LWTG_MP_V106_P5_1_lwg_n
+system/etc/mddb/BPMdMetaDatabase_MOLY_LR9_W1444_MD_LWTG_MP_V106_P5_1_lwg_n
+system/etc/mddb/DbgInfo_LR9.W1444.MD.LWTG.MP_HQ6737M_65_1MZ_M0_MOLY_LR9_W1444_MD_LWTG_MP_V106_P5_2017_11_02_17_46_1_lwg_n
+system/etc/mddb/mdm_layout_desc_1_lwg_n.dat
+system/etc/mtk_omx_core.cfg
+system/etc/perfservscntbl.txt
+system/etc/slp_conf
+system/etc/.tp/.ht120.mtc
+system/etc/.tp/thermal.conf
+system/etc/.tp/thermal.off.conf
+system/etc/trustzone.bin
+system/etc/wifi/p2p_supplicant_overlay.conf
+system/etc/wifi/wpa_supplicant.conf
+system/etc/wifi/wpa_supplicant_overlay.conf
+system/lib64/libccci_util.so
+system/lib64/libh264enc_sa.ca7.so
+system/lib64/libmal_datamngr.so
+system/lib64/libmal_epdga.so
+system/lib64/libmal_imsmngr.so
+system/lib64/libmal_mdmngr.so
+system/lib64/libmal_nwmngr.so
+system/lib64/libmal_rds.so
+system/lib64/libmal_rilproxy.so
+system/lib64/libmal_simmngr.so
+system/lib64/libmal.so
+system/lib64/libperfservicenative.so
+system/lib64/librilmtkmd2.so
+system/lib64/libvcodecdrv.so
+system/lib64/mtk-rilmd2.so
+system/lib64/volte_imsm.so
+system/lib/libccci_util.so
+system/lib/libh264enc_sa.ca7.so
+system/lib/libh264enc_sb.ca7.so
+system/lib/libHEVCdec_sa.ca7.android.so
+system/lib/libmal_datamngr.so
+system/lib/libmal_epdga.so
+system/lib/libmal_imsmngr.so
+system/lib/libmal_mdmngr.so
+system/lib/libmal_nwmngr.so
+system/lib/libmal_rds.so
+system/lib/libmal_rilproxy.so
+system/lib/libmal_simmngr.so
+system/lib/libmal.so
+system/lib/libmp4enc_sa.ca7.so
+system/lib/libmp4enc_xa.ca7.so
+system/lib/libperfservicenative.so
+system/lib/librilmtkmd2.so
+system/lib/libvc1dec_sa.ca7.so
+system/lib/libvcodecdrv.so
+system/lib/libvp8dec_sa.ca7.so
+system/lib/libvp9dec_sa.ca7.so
+system/lib/mtk-rilmd2.so
+system/lib/volte_imsm.so

@@ -1,0 +1,37 @@
+// forge_hwc — hwcomposer.mt6737m for the m5c on the forge 4.9 kernel: HWC 1.1
+// over the native mtk_disp_mgr session ABI (header of forge_hwc.c has the
+// design).  Ported from the 14.1 tree (device/meizu/m5c/hwcomposer, d78bdbe)
+// without source changes — lane flash-m5c, 2026-09-28.
+//
+// Why it is needed on A13 (FACT, first A13 boots of 2026-09-28): the image
+// had no hwcomposer.*.so at all, composer@2.1-service fell back to the
+// gralloc FB device and failed ("failed to open framebuffer device: Invalid
+// argument"), SurfaceFlinger restarted every ~5 s and took zygote down with it
+// (boot_progress_preload_start, never further).  A13's passthrough
+// composer@2.1-service still loads HWC1 modules (HWC2On1Adapter), and
+// hw_get_module finds this name through ro.board.platform=mt6737m.
+//
+// disp_session_uapi.h must stay a byte-for-byte copy of the kernel's
+// drivers/misc/mediatek/video/include/disp_session.h (the _IOW numbers encode
+// struct sizes).  FACT: identical to kernel-m5c-4.9-lc 3126b4b06, the source
+// of the prebuilt A13 kernel.
+//
+// The only other dependency is dlopen("libgralloc_extra.so"), a vendor blob
+// in /vendor/lib{,64} (already in the Mali closure, loads in sphal).
+cc_library_shared {
+    name: "hwcomposer.mt6737m",
+    vendor: true,
+    relative_install_path: "hw",
+    compile_multilib: "both",
+    srcs: ["forge_hwc.c"],
+    local_include_dirs: ["."],
+    header_libs: ["libhardware_headers"],
+    shared_libs: [
+        "liblog",
+        "libdl",
+    ],
+    cflags: [
+        "-Wall",
+        "-Wno-unused-parameter",
+    ],
+}

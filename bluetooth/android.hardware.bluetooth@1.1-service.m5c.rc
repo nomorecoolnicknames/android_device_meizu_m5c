@@ -1,0 +1,12 @@
+# The AOSP 1.1 service definition with the 32-bit binary (Android.bp here).
+# Groups beyond `bluetooth` as on LOS 16 of this device: libbluetooth_mtk reads
+# the NVRAM BD-address record through libnvram inside this process
+# (/data/nvram/APCFG/APRDEB/BT_Addr, root:bluetooth 0660 via init.m5c.nvram.rc).
+service vendor.bluetooth-1-1 /vendor/bin/hw/android.hardware.bluetooth@1.1-service.m5c
+    interface android.hardware.bluetooth@1.1::IBluetoothHci default
+    interface android.hardware.bluetooth@1.0::IBluetoothHci default
+    class hal
+    capabilities BLOCK_SUSPEND NET_ADMIN SYS_NICE
+    user bluetooth
+    group bluetooth radio net_bt net_bt_admin inet system
+    task_profiles HighPerformance

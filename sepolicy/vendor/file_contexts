@@ -1,0 +1,54 @@
+# Mount points that BOARD_ROOT_EXTRA_FOLDERS creates in the system-image root.
+#
+# WHY THIS FILE EXISTS (FACT, build 2026-09-17 05:15,
+# meizu-fleet/build-m5c-fit1536.log):
+#   set_selinux_xattr: No such file or directory searching for label "/nvdata"
+#   e2fsdroid: No such file or directory while configuring the file system
+# This is NOT an out-of-space failure.  The "Out of space? Out of inodes?"
+# line that follows it is printed unconditionally by
+# build/make/tools/releasetools/build_image.py:425-436 on ANY image-build
+# error, and in that same run it reported tree size 1 549 871 104 B (1478 MB)
+# against a max of 1 610 612 736 B (1536 MB) — i.e. the content already fits.
+#
+# CHAIN (FACT, verified by source and by the generated ninja):
+#   1. BoardConfig.mk sets BOARD_ROOT_EXTRA_FOLDERS := nvdata protect_f
+#      protect_s, because rootdir/etc/fstab.mt6735:31-33 mounts the MTK
+#      protect1 / protect2 / nvdata partitions there.  On A13 the root after
+#      switch_root IS system.img and is read-only, so init cannot mkdir them
+#      at `on fs` time; if the directory is missing, mount_all fails that
+#      entry (the same lesson is written up in
+#      device/meizu/m95/rootdir/Android.mk:96-99).
+#   2. system/core/rootdir/Android.mk:93-95 splices that list into the
+#      LOCAL_POST_INSTALL_CMD of init.environ.rc:
+#        mkdir -p $(addprefix $(TARGET_ROOT_OUT)/, dev proc sys ... \
+#                             postinstall $(BOARD_ROOT_EXTRA_FOLDERS))
+#      Confirmed in out-m5c/build-lineage_m5c.ninja: the init.environ.rc rule
+#      ends with .../root/nvdata .../root/protect_f .../root/protect_s.
+#   3. META/misc_info.txt:44 carries root_dir=<PRODUCT_OUT>/root, so that root
+#      tree is merged into system.img.
+#   4. system/sepolicy/private/file_contexts has NO catch-all pattern — every
+#      root-level directory is labelled explicitly (`/config` is labelled
+#      rootfs at line 27, `/apex` apex_mnt_dir at 34, `/postinstall`
+#      postinstall_mnt_dir at 37 ...).  Three unlabelled directories therefore
+#      make selabel_lookup return ENOENT and e2fsdroid abort.
+#
+# REJECTED (with evidence): "the m95 tree leaked into this build".  The m5c
+# ninja does contain device/meizu/m95/rootdir's fstab.mt6797 rule, whose
+# LOCAL_POST_INSTALL_CMD also mkdirs nvdata/nvcfg/protect_f/protect_s — but
+# that rule never ran here: out-m5c has no vendor/etc/fstab.mt6797 and no
+# root/nvcfg.  kati defines every tree's modules for every product; it
+# installs only what the product's PRODUCT_PACKAGES asks for.
+#
+# LABEL CHOICE: rootfs, following /config in
+# system/sepolicy/private/file_contexts:27 — the only thing labelled here is
+# the empty mount-point directory baked into the read-only system image.
+# Once the real partition is mounted over it, that filesystem's own labels
+# apply.  This is not a sepolicy port (the tree still carries none, see the
+# "NOT WIRED YET" block in device.mk); it is the minimum that makes the image
+# packable and the mount points correctly labelled before mount.
+#
+# This fix is branch-independent: branch lineage-20 will hit exactly the same
+# wall the moment its system partition is large enough to get past packing.
+/nvdata             u:object_r:rootfs:s0
+/protect_f          u:object_r:rootfs:s0
+/protect_s          u:object_r:rootfs:s0

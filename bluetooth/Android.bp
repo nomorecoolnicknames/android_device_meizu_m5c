@@ -1,0 +1,39 @@
+// Bluetooth HIDL service for the m5c, 32-bit: a copy of
+// hardware/interfaces/bluetooth/1.1/default (service.cpp, bluetooth_hci.cc/h,
+// unchanged, hardware/interfaces c22b35bf0) built with compile_multilib 32.
+//
+// FACT (A13, set 9, 2026-09-28): the AOSP 64-bit
+// android.hardware.bluetooth@1.1-service registers IBluetoothHci, but its
+// 1.0 impl dlopen()s libbt-vendor.so, which this blob set ships 32-bit only
+// (vendor/lib/libbt-vendor.so -> vendor/lib/libbluetooth_mtk.so; no lib64
+// copy of either, unlike m95, so m95's 64-bit forwarding shim is no option).
+// LOS 16 of this device solved it the same way with the 1.0 service
+// (los16-ct07 device/meizu/m5c/bluetooth_hal).  Symbol check of both 32-bit
+// blobs against this tree's out/: nothing but libc/libdl imports left open.
+// android.hardware.bluetooth@1.0-impl already builds for both ABIs.
+cc_binary {
+    name: "android.hardware.bluetooth@1.1-service.m5c",
+    defaults: ["hidl_defaults"],
+    relative_install_path: "hw",
+    vendor: true,
+    compile_multilib: "32",
+    init_rc: ["android.hardware.bluetooth@1.1-service.m5c.rc"],
+    srcs: [
+        "service.cpp",
+        "bluetooth_hci.cc",
+    ],
+    shared_libs: [
+        "liblog",
+        "libcutils",
+        "libdl",
+        "libbase",
+        "libutils",
+        "libhardware",
+        "libhidlbase",
+        "android.hardware.bluetooth@1.0-impl",
+        "android.hardware.bluetooth@1.1",
+    ],
+    static_libs: [
+        "android.hardware.bluetooth-hci",
+    ],
+}

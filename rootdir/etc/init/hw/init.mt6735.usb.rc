@@ -1,0 +1,46 @@
+# init.mt6735.usb.rc — Meizu M5c (m5c), configfs USB gadget for adb on the
+# 4.9 kernel.  Lane flash-m5c, 2026-09-28.
+#
+# Device half of the configfs gadget: system/core init.usb.configfs.rc only
+# DRIVES an existing g1 (writes UDC, links functions), creating g1, ffs.adb
+# and the functionfs mount is the device's job.  Values are the ones that
+# gave a working adb on this device with LOS 16 on the same 4.9 kernel line
+# (FACT: /vendor/etc/init/forge-usb-gadget.rc of the LOS 16 vendor image,
+# captures/m5c-backup-20260928/custom.bin; kernel config has
+# CONFIG_USB_CONFIGFS_F_FS=y).
+#
+# Two A13 details the LOS 16 file did not need:
+#  - system/core/rootdir/init.usb.rc:27-28 does `setprop sys.usb.configfs 0`
+#    on init, "overridden in `on boot` action of init.hardware.rc".  The value
+#    in vendor build.prop is therefore dead; without the setprop below init
+#    takes the legacy /sys/class/android_usb path, which this kernel has not.
+#  - the gadget is created on early-fs rather than post-fs: with
+#    first_stage_mount this file is parsed before early-init, so the LOS 16
+#    reason for post-fs ("vendor rc files are parsed during mount_all") is
+#    gone, and adb should come up even if mount_all fails.
+
+on early-init
+    # usb-shell 2026-08-29 (LOS 16): musb ffs AIO wedges bulk-IN, adbd goes
+    # deaf to every OPEN until a host-side reset; force the legacy r/w path.
+    # adbd reads it once in usb_ffs_init(), long before it is started.
+    setprop sys.usb.ffs.aio_compat 1
+
+on early-fs
+    mkdir /config/usb_gadget/g1 0770 shell shell
+    write /config/usb_gadget/g1/idVendor 0x18d1
+    write /config/usb_gadget/g1/idProduct 0x4ee7
+    mkdir /config/usb_gadget/g1/strings/0x409 0770
+    write /config/usb_gadget/g1/strings/0x409/serialnumber ${ro.serialno}
+    write /config/usb_gadget/g1/strings/0x409/manufacturer meizu
+    write /config/usb_gadget/g1/strings/0x409/product m5c
+    mkdir /config/usb_gadget/g1/configs/b.1 0770
+    mkdir /config/usb_gadget/g1/configs/b.1/strings/0x409 0770
+    write /config/usb_gadget/g1/configs/b.1/MaxPower 500
+    mkdir /config/usb_gadget/g1/functions/ffs.adb
+    mkdir /dev/usb-ffs 0770 shell shell
+    mkdir /dev/usb-ffs/adb 0770 shell shell
+    mount functionfs adb /dev/usb-ffs/adb uid=2000,gid=2000
+
+on boot
+    setprop sys.usb.controller musb-hdrc
+    setprop sys.usb.configfs 1
