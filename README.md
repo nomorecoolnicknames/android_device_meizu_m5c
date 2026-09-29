@@ -1,20 +1,15 @@
-# Meizu M5c: Android 9 / LineageOS 16.0
+# Meizu M5c: LineageOS 16.0
 
-Historical Android 9 device implementation, imported from the preserved device snapshot. No new ROM build or device runtime was performed for this publication.
+Device configuration, init rules, SELinux policy and compatibility code for Android 9.
+Place this tree at `device/meizu/m5c` in the matching LineageOS source tree.
 
-## What this branch contains
+The build requires the referenced common and MediaTek platform trees, matching kernel
+source/headers and prebuilt image where selected, and this board’s proprietary inputs.
+Use `proprietary-files.txt`, dependency manifests and kernel checks provided by this branch.
+Prebuilt firmware and complete ROM images are not supplied by this repository.
 
-Real device configuration, init/fstab/SELinux integration and available userspace source from the project's existing bring-up tree. It is an audited source publication, not a placeholder or a flashable ROM.
+After providing those inputs, select `lunch lineage_m5c-userdebug`.
+These sources remain under development; compiling them does not certify all hardware
+or establish a tested installable release.
 
-Source checkpoint: `2e2b0640d9519b7295aa02dc73e7a271b248902f`. `PUBLICATION.json` records excluded inputs and comment/diagnostic redactions. Existing public history is preserved; the private source repository and its history were not rewritten.
-
-## Build boundary
-
-A complete ROM still requires separately supplied proprietary vendor components and the exact matching kernel input. Those binaries are intentionally absent. The kernel freshness checks and missing-dependency failures remain enabled; no fake replacement or allow-missing flag was added.
-The inherited GPS component has restrictive third-party notices and is withheld. Its dependency is still unresolved; this branch is not a complete ROM build manifest.
-
-## Validation status
-
-No ROM/kernel compilation or hardware operation was performed by this publication. Older inline comments describe their original checkpoint; this README records the publication status. Bring-up settings include permissive SELinux and may relax ADB authentication; this is development source, not a secure production release.
-
-Suitable follow-up work includes source review, init/XML/static checks and separately pinned open-source component compilation. A complete proprietary-free ROM build has not been demonstrated. Retained source notices apply per file; publication does not relicense third-party code. Older public ancestry already includes artifacts, so the full repository history is not claimed to contain source only.
+Retain the copyright and license notices in individual files.
