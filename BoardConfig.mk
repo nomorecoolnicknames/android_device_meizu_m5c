@@ -68,81 +68,8 @@ MTK_HARDWARE := true
 
 TARGET_OTA_ASSERT_DEVICE := m5c,M710H
 
-# ---------------------------------------------------------------------------
-# Kernel — PREBUILT, never rebuilt from this tree
-# ---------------------------------------------------------------------------
-# --- 2026-09-16: the prebuilt was REPLACED with an A13-config rebuild -------
-#
-# WAS (up to 2026-09-16), byte-identical to the kernel the LOS 16 tree ships
-# and that boots the device daily:
-#   md5      e35c74fa0ce6beee5b027a06bd28ada6
-#   sha256   5dadbb8f10051e664ac27b63678de78265b3eb658f1b1d32b2c1128e9ad91b71
-#   version  Linux version 4.9.188-m5c+ (<private-builder>) #22 SMP PREEMPT
-#            Thu Sep  3 21:27:06 MSK 2026
-#   size     7 840 291 B
-# (source: <private-workspace>/m5c/los14.1-m5c-patched/device/meizu/m5c/
-#  prebuilt-kernel/{Image.gz-dtb,EXPECTED.txt}; md5sum re-run on the copy.)
-# That file is untouched in the LOS 16 tree — it remains the rollback target.
-#
-# IS (2026-09-16), same source commit, ten config flags added, nothing else:
-#   md5      10856200094faeafd08060dd6f7ed2e1
-#   sha256   0f3c2afddc71fa4d1ee237ee86a56f7d1716dd9a64d68f19f870e9e4d9b1a57f
-#   version  Linux version 4.9.188-m5c+ (<private-builder>) #2 SMP PREEMPT
-#            Wed Sep 16 19:45:58 MSK 2026
-#   size     7 866 417 B   (+26 126 B = +0,33 % over #22)
-#
-# FACT (origin, every field reproducible):
-#   worktree  <private-workspace>/meizu-fleet/kernels/m5c-4.9-a13
-#   branch    forge/m5c-49-a13   (repo <private-workspace>/m5c/kernel-m5c-4.9-lc)
-#   base      54bd7024fd0c7752c79a6559e05089df580c14ae  ("cmdq: p51 — runtime
-#             race amplifier", branch pie-disp) — the exact commit the #22
-#             kernel above was built from, NOT subsys49/HEAD.
-#   defconfig arch/arm64/configs/m5c_a13_defconfig (new; savedefconfig of the
-#             built .config, round-trip verified byte-for-byte).  NOTE: the old
-#             committed m5c_defconfig does NOT reproduce #22 — the shipping
-#             config lived only in the piedisp worktree .config (configfs USB
-#             gadget, MTK_STK3X1X, I2C_CHARDEV, LMK, PM_AUTOSLEEP).  Building
-#             from m5c_defconfig would silently regress adb and sensors.
-#   toolchain <private-workspace>/original-build-host-import/toolchains/
-#             aarch64-linux-android-4.9  (__VERSION__ "4.9 20150123
-#             (prerelease)" — matches the #22 banner; the los20 prebuilts copy
-#             reports "4.9.x 20150123" and is therefore NOT the one used)
-#   recipe    make ARCH=arm64 CROSS_COMPILE=aarch64-linux-android- \
-#               O=/mnt/ramdisk/out-k-m5c-49-a13 -j16 Image
-#             then gzip -n -9 -c Image > Image.gz
-#             then cat Image.gz <stock dtb 69 427 B> > Image.gz-dtb
-#             (tools/los16_repack_boot_kernel.sh of the 14.1 tree, same steps)
-#   artifacts <private-workspace>/meizu-fleet/kernels/artifacts/m5c-4.9-a13/
-#             (Image, Image.gz-dtb, config, System.map, vmlinux, build logs,
-#              SHA256SUMS.txt)
-#   report    meizu-fleet/kernels/M5C_49_A13_CONFIG.md
-#
-# FACT (the ten Android 13 flags, verified by scripts/extract-ikconfig ON THE
-# SHIPPED FILE, not on a build directory):
-#   CONFIG_CPUSETS=y          CONFIG_BLK_CGROUP=y      CONFIG_BPF_JIT=y
-#   CONFIG_PSI=y              # CONFIG_PSI_DEFAULT_DISABLED is not set
-#   CONFIG_TMPFS_XATTR=y      CONFIG_TMPFS_POSIX_ACL=y CONFIG_VETH=y
-#   CONFIG_UNIX_DIAG=y        CONFIG_NETLINK_DIAG=y    CONFIG_PACKET_DIAG=y
-# CPUSETS and BPF_JIT were already =y in #22; the other eight are new.  The
-# full diff of the two embedded configs is exactly these lines plus four
-# kconfig-derived ones (DEBUG_BLK_CGROUP=n, CGROUP_WRITEBACK=y,
-# BLK_DEV_THROTTLING=n, CFQ_GROUP_IOSCHED=n).  No source change, no backport.
-#
-# HYPOTHESIS, NOT verified: that this kernel boots.  It has never been flashed.
-# Falsification is the first flash; rollback is the md5 e35c74fa file above.
-#
-# FACT (appended-DTB gate, re-run on the copy in this tree):
-#   strings Image.gz-dtb | grep -c mt6735m-mmc  == 2   (stock DTB present)
-#   strings Image.gz-dtb | grep -c mediatek,msdc == 0   (tree DTB absent)
-# Project rule: the 4.9 kernel runs with the STOCK DTB byte-for-byte.  The
-# tree-built DTB spells the eMMC node "mediatek,msdc" while the driver binds
-# "mediatek,mt6735m-mmc"; shipping it bricks storage (conn49 lesson,
-# M5C_HANDOFF_20260824.md §2).
-#
-# Empty TARGET_KERNEL_SOURCE keeps vendor/lineage/build/tasks/kernel.mk on its
-# prebuilt branch (kernel.mk:127-148: no kernel source + TARGET_PREBUILT_KERNEL
-# set -> FULL_KERNEL_BUILD := false).  It prints a "prebuilt kernel is
-# DEPRECATED" warning; that is expected and is not an error.
+# Use an MT6737M kernel with the matching stock DTB and the required Android BPF/cgroup interfaces.
+# Keep kernel version, symbol and checksum validation enabled.
 TARGET_KERNEL_ARCH := arm64
 TARGET_KERNEL_HEADER_ARCH := arm64
 TARGET_KERNEL_SOURCE :=
@@ -181,31 +108,7 @@ BOARD_MKBOOTIMG_ARGS := \
 # buildvariant= is appended by build/make automatically — do not set it here.
 BOARD_KERNEL_CMDLINE := bootopt=64S3,32N2,64N2 androidboot.selinux=permissive androidboot.hardware=mt6735
 
-# ---------------------------------------------------------------------------
-# Partitions — A-only, no slots, no dynamic partitions
-# ---------------------------------------------------------------------------
-# FACT (GPT map, derived from `fastboot getvar all` reversed and cross-checked
-# against two independent by-name anchors boot=p7 and expdb=p10 —
-# BRINGUP_STATE.md:3529-3564, M5C_HANDOFF_20260824.md §5):
-#   p6 para   p7 boot   p8 recovery  p10 expdb  p17 custom
-#   p19 nvdata  p22 metadata  p23 system  p24 cache  p25 userdata
-#
-# FACT (sizes): boot 16 MiB, recovery 32 MiB, para 512 KiB, expdb 10 MiB are
-# straight from getvar (BRINGUP_STATE.md:3563, :3505).  system / cache /
-# userdata are the values the 14.1 tree flashes with and that boot the device
-# daily (board/filesystem.mk of the 14.1 tree):
-#   system   1 610 612 736 B = 1.50 GiB
-#   cache      419 430 400 B = 400 MiB
-#   userdata 12 831 948 800 B
-# The 20 MiB recovery size in the old 14.1 BoardConfig is a known
-# contradiction; ground truth is getvar's 32 MiB.
-#
-# NOTE / CORRECTION: the fleet factbase
-# (<private-workspace>/meizu-fleet/factbase/mt6753_mt6737.md §1.1) states
-# "p23 system 2.5 ГБ" and cites M5C_HANDOFF_20260824.md §5 +
-# BRINGUP_STATE.md:3492-3564.  Neither source contains a system size at all —
-# that number is unsourced.  See M5C_LOS20_TREE.md §"Partition size" for the
-# arithmetic that rules 2.5 GB out.  1.50 GiB is used here.
+# A-only partition geometry from the M5c stock layout. Do not reuse another board partition map.
 BOARD_BOOTIMAGE_PARTITION_SIZE := 16777216
 BOARD_RECOVERYIMAGE_PARTITION_SIZE := 33554432
 # ---------------------------------------------------------------------------
@@ -231,10 +134,7 @@ TARGET_USES_MKE2FS := true
 BOARD_SYSTEMIMAGE_FILE_SYSTEM_TYPE := ext4
 BOARD_USERDATAIMAGE_FILE_SYSTEM_TYPE := ext4
 
-# A-only.  fastboot writes NOTHING on this device: all three of boot, recovery
-# and para answer "format for partition 'X' is not allowed" while the Sending
-# phase succeeds (FACT, BRINGUP_STATE.md p87 :3576-3586).  Install path is
-# TWRP + dd over by-name only.
+# A successful fastboot transfer does not prove a partition write; installation requires readback verification.
 AB_OTA_UPDATER := false
 BOARD_USES_RECOVERY_AS_BOOT := false
 
@@ -242,25 +142,7 @@ BOARD_USES_RECOVERY_AS_BOOT := false
 TARGET_COPY_OUT_SYSTEM_EXT := system/system_ext
 TARGET_COPY_OUT_PRODUCT := system/product
 
-# ---------------------------------------------------------------------------
-# Vendor partition / VNDK — the one real design decision in this file
-# ---------------------------------------------------------------------------
-# The brief said "there is no vendor partition, the blobs live in
-# /system/vendor".  That was true of LOS 14.1 and is NO LONGER TRUE.
-#
-# FACT: the stock GPT carries `custom` = mmcblk0p17, exactly 512 MiB ext4,
-# which LineageOS 14.1 never mounts and which holds ~73 MiB of leftover Flyme
-# data (BRINGUP_STATE.md:638, M5C_LOS16_TREBLE_PLAN.md §1.1).  A full image
-# dump of it exists at <private-home>/Flyme5.1.6.0A/custom.img.
-# FACT: the LOS 16 port already repurposed it and it is mounted on the live
-# device: "/vendor — реальный раздел (/dev/block/mmcblk0p17 on /vendor type
-# ext4)" (M5C_LOS16_BT_LANE.md:136, measured 2026-09-03).
-# FACT: the blob set is 212 MiB / 449 files (du -sh on
-# <private-workspace>/m5c/android_vendor_meizu_m5c/proprietary), so it fits
-# 512 MiB with room to spare.
-# INFERENCE: moving those 212 MiB off /system is also the single biggest lever
-# available for fitting Android 13 into a 1.50 GiB /system — see the report.
-# Decision: real /vendor on custom(p17).
+# The custom partition supplies /vendor. Preserve the stock partition boundaries.
 TARGET_COPY_OUT_VENDOR := vendor
 BOARD_VENDORIMAGE_FILE_SYSTEM_TYPE := ext4
 BOARD_VENDORIMAGE_PARTITION_SIZE := 536870912

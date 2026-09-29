@@ -1,21 +1,5 @@
-# init.m5c.nvram.rc — NVRAM ordering fixes carried over from the m95
-# bring-up (device/meizu/m95 8c12925, meizu-fleet/BRINGUP_STATE.md 2026-09-24).
-#
-# Layout: on this device /data/nvram is a SYMLINK to /nvdata (FACT: the 14.1/16
-# rc, m5c/los14.1-m5c-patched/device/meizu/m5c/rootdir/root/init.mt6735.rc:125,
-# `symlink /nvdata /data/nvram` in `on post-fs-data`).  So this file creates
-# nothing: an extra `mkdir /data/nvram` here would make that symlink fail and
-# move NVRAM off the /nvdata partition.
-#
-# Ordering: this file lives in /vendor/etc/init and is parsed AFTER the hw rc.
-# /vendor/etc/init/hw/init.mt6735.rc is imported from init.rc, and init
-# resolves that import when init.rc ends (system/core/init/init.cpp:312 vs
-# :319, import_parser.cpp:48-51); actions of one trigger run in parse order.
-# So the post-fs-data below runs after the hw rc has made the symlink.  If the
-# rc lane moves the symlink into another file of /vendor/etc/init instead of
-# hw/, that file must sort before this one (a directory is parsed in name
-# order).  Until the rc lane lands, /data/nvram does not exist, the copy fails
-# and init only logs it.
+# M5c uses /data/nvram as a symlink to /nvdata.
+# Create the target and set permissions before starting NVRAM consumers.
 
 on post-fs-data
     # nvram_daemon runs `cp fstab* -f /data/nvram/` from / and libnvram then
