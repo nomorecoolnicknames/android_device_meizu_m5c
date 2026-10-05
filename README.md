@@ -28,6 +28,8 @@ Hardware observations are from the development port as of **2026-09-29**, The cu
 
 ## Building
 
+The selected ROM kernel sources are on [m5c-4.9-a13-rom](https://github.com/nomorecoolnicknames/mtk-t-alps-release-q0-kernel-4.9-lc/tree/m5c-4.9-a13-rom), commit `b256a404e931f75e85a5debf9b2693b6a6fcffbf`. This is the ROM baseline; the newer `m5c-4.9-a13` work branch is a separate source selection.
+
 Use a matching LineageOS 20.0 source checkout, with this tree at `device/meizu/m5c`. Required inputs:
 
 - The matching vendor tree, firmware, board configuration files and platform compatibility changes. This repository alone is not a complete ROM checkout.
