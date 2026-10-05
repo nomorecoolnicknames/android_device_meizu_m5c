@@ -2,7 +2,7 @@
 // hardware/interfaces/bluetooth/1.1/default (service.cpp, bluetooth_hci.cc/h,
 // unchanged, hardware/interfaces c22b35bf0) built with compile_multilib 32.
 //
-// FACT (A13, set 9, 2026-09-28): the AOSP 64-bit
+
 // android.hardware.bluetooth@1.1-service registers IBluetoothHci, but its
 // 1.0 impl dlopen()s libbt-vendor.so, which this blob set ships 32-bit only
 // (vendor/lib/libbt-vendor.so -> vendor/lib/libbluetooth_mtk.so; no lib64

@@ -1,0 +1,37 @@
+# Display and GPU: gralloc, forge_hwc (hwcomposer/), surfaceflinger, Mali.
+# Base from m95 graphics.te.
+
+allow hal_graphics_allocator_default { graphics_device gpu_device ion_device MTK_SMI_device }:chr_file rw_file_perms;
+allow hal_graphics_allocator_default mtk_m4u_proc:file rw_file_perms;
+
+allow hal_graphics_composer_default { graphics_device gpu_device ion_device sw_sync_device MTK_SMI_device }:chr_file rw_file_perms;
+allow hal_graphics_composer_default mtk_m4u_proc:file rw_file_perms;
+# Opens /dev/vndbinder (census set 21: open/ioctl 0x6209 at boot).
+vndbinder_use(hal_graphics_composer_default)
+
+allow surfaceflinger { MTK_SMI_device sw_sync_device }:chr_file rw_file_perms;
+allow surfaceflinger mtk_m4u_proc:file rw_file_perms;
+
+# /proc/m4u: only the camera HAL issues M4U ioctls (allowxperm in
+# hal_camera_default.te).  The domains above open the node but issue none:
+# census set 23 (boot, video playback, screen off/on) shows no ioctl denial
+# on mtk_m4u_proc from them, and A13 would have logged every call.
+
+# GED (Mali) and CMDQ ioctls (m95: 8ad2037).  FACT (m5c set 20): ged-swd in
+# systemui issued ioctl 0x6704 on /proc/ged ~24000 times in the permissive log.
+allow { hal_graphics_composer_default hal_graphics_allocator_default surfaceflinger bootanim system_server mediacodec hal_camera_default } proc_ged:file r_file_perms;
+allow { appdomain -isolated_app } proc_ged:file { getattr open read ioctl };
+allowxperm {
+  hal_graphics_composer_default
+  hal_graphics_allocator_default
+  surfaceflinger
+  bootanim
+  system_server
+  hal_camera_default
+  mediacodec
+  appdomain
+  -isolated_app
+} proc_ged:file ioctl { 0x6700-0x6709 0x6764-0x6768 };
+# /proc/mtk_cmdq is opened by the camera HAL and mediacodec only
+# (hal_camera_default.te, mediacodec.te).
+allowxperm { hal_camera_default mediacodec } proc_cmdq:file ioctl { 0x7801-0x780c };

@@ -1,0 +1,24 @@
+# nvram_daemon restores the NVRAM files (/data/nvram -> /nvdata) from the nvram
+# partition, sets service.nvram_init=Ready, and applies calibrations it reads
+# from them (ALS/PS, ADC) through the drivers.
+type nvram_daemon, domain;
+init_daemon_domain(nvram_daemon)
+allow nvram_daemon nvram_device:blk_file rw_file_perms;
+allow nvram_daemon nvdata_device:blk_file r_file_perms;
+allow nvram_daemon proinfo_block_device:blk_file rw_file_perms;
+allow nvram_daemon block_device:dir search;
+allow nvram_daemon nvdata_file:dir create_dir_perms;
+allow nvram_daemon nvdata_file:file create_file_perms;
+allow nvram_daemon nvdata_file:lnk_file r_file_perms;
+allow nvram_daemon self:capability { chown fowner fsetid };
+set_prop(nvram_daemon, nvram_prop)
+# ro.wlan.mtk.wifi.5g from the Wi-Fi NVRAM record (census set 21).
+set_prop(nvram_daemon, m5c_wlan_prop)
+allow nvram_daemon hwmsensor_device:chr_file rw_file_perms;
+allow nvram_daemon mtk_adc_cali_device:chr_file rw_file_perms;
+allow nvram_daemon kmsg_device:chr_file { getattr w_file_perms };
+# `cp fstab* -f /data/nvram/` (strings of the blob) through system(); bionic
+# picks /vendor/bin/sh for a /vendor executable (__bionic_get_shell_path.cpp).
+allow nvram_daemon { vendor_shell_exec vendor_toolbox_exec }:file rx_file_perms;
+# Driver attributes (m95 template; nodes not recorded).
+allow nvram_daemon sysfs:file r_file_perms;

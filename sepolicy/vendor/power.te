@@ -1,0 +1,6 @@
+# m5c-spm.sh (init.m5c.power.rc): opens /dev/spm once so that the kernel loads
+# the SPM PCM code (vendor/meizu/m5c/firmware/spm/README).
+type m5c_spm, domain;
+init_daemon_domain(m5c_spm)
+allow m5c_spm vendor_shell_exec:file rx_file_perms;
+allow m5c_spm m5c_spm_device:chr_file r_file_perms;

@@ -1,5 +1,3 @@
-# Declare the AIDL supplicant interface expected by Android 13.
-# Keep a single wpa_supplicant service definition; init ignores duplicate service names.
 
 on post-fs-data
     # Control sockets (-O below) and the conf the AIDL HAL creates from the

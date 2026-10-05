@@ -1,0 +1,5 @@
+PQ                                                     u:object_r:pq_vndservice:s0
+
+# The MTK MMSDK service the camera HAL looks up (hosted by the N cameraserver,
+# absent on A13): labelled so the lookup is an ordinary "not found".
+media.mmsdk                                            u:object_r:m5c_mmsdk_vndservice:s0

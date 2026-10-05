@@ -1,0 +1,31 @@
+# CONSYS / WMT (Wi-Fi, BT, GPS, FM share one combo chip): wmt_loader probes the
+# chip, 6620_launcher downloads the ROM patch (init.m5c.connectivity.rc).
+# (This file sorts before violators.te, which uses its domain types.)
+type wmt_loader, domain;
+init_daemon_domain(wmt_loader)
+allow wmt_loader stpwmt_device:chr_file rw_file_perms;
+allow wmt_loader wmtdetect_device:chr_file rw_file_perms;
+set_prop(wmt_loader, wmt_prop)
+# chown of /proc/driver/wmt_dbg to shell:system.  No dac_override: A13 grants
+# it to no vendor domain (private/domain.te:393); the loader runs with group
+# system instead (init.m5c.connectivity.rc), which /dev/wmtdetect and
+# /dev/stpwmt (system:system 0660) need.
+allow wmt_loader self:capability chown;
+allow wmt_loader mtk_wmt_proc:file setattr;
+
+type wmt_launcher, domain;
+init_daemon_domain(wmt_launcher)
+allow wmt_launcher stpwmt_device:chr_file rw_file_perms;
+allow wmt_launcher wmtdetect_device:chr_file rw_file_perms;
+allow wmt_launcher mtk_wmt_proc:file rw_file_perms;
+set_prop(wmt_launcher, wmt_prop)
+
+# The WMT kernel driver reads WMT_SOC.cfg and the ROM patch with filp_open()
+# from /system/etc/firmware in the context of the process whose ioctl
+# triggers it (violators.te).
+allow { wmt_loader wmt_launcher } system_file:file r_file_perms;
+
+# init opens the CONSYS nodes for the rc chown/chmod of the connectivity rc.
+allow init stpwmt_device:chr_file rw_file_perms;
+allow init stpbt_device:chr_file rw_file_perms;
+allow init wmtWifi_device:chr_file rw_file_perms;

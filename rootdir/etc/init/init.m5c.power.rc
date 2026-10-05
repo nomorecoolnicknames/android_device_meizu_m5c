@@ -1,0 +1,12 @@
+# SPM firmware for the forge 4.9 kernel (see /vendor/bin/m5c-spm.sh).
+# After ueventd serves firmware (/vendor/firmware) and before the device can
+# try to suspend.  Check: kernel log "spm fw version(0..3) = pcm_..._2015...".
+service m5c_spm /vendor/bin/m5c-spm.sh
+    class core
+    user root
+    group root
+    oneshot
+    disabled
+
+on post-fs
+    start m5c_spm

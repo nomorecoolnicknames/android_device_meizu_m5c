@@ -1,0 +1,16 @@
+# thermal_manager (MTK thermal policy, one-shot): writes the cooler and zone
+# settings under /proc/driver/thermal and its state file /data/.tp/.settings.
+type thermal_manager, domain;
+type thermal_manager_exec, exec_type, vendor_file_type, file_type;
+init_daemon_domain(thermal_manager)
+allow thermal_manager proc_mtk_thermal:dir r_dir_perms;
+allow thermal_manager proc_mtk_thermal:file rw_file_perms;
+allow thermal_manager thermal_data_file:dir create_dir_perms;
+allow thermal_manager thermal_data_file:file create_file_perms;
+# No dac_override (private/domain.te:393): the service runs with group system
+# (init.mt6735.rc) for /data/.tp/.settings (system:system 0660).
+allow thermal_manager self:capability { chown fowner fsetid };
+# Thermal zone / cooling device attributes (m95 template; nodes not
+# recorded - candidate for a label of its own).
+allow thermal_manager sysfs:dir r_dir_perms;
+allow thermal_manager sysfs:file rw_file_perms;

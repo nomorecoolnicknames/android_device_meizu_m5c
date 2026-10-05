@@ -1,0 +1,30 @@
+# Treble exceptions, each with the reason it cannot be avoided today.
+
+# /data/nvram (a symlink to the nvdata partition) and /data/misc/{gps,sensor,
+# akmd} are hardcoded in the N-era blobs, and those paths are core data by
+# location, so every vendor process that uses them is a data violator.  Moving
+# NVRAM to /data/vendor needs the blobs' paths changed (m95 violators.te).
+typeattribute ccci_fsd data_between_core_and_vendor_violators;
+typeattribute ccci_mdinit data_between_core_and_vendor_violators;
+typeattribute nvram_daemon data_between_core_and_vendor_violators;
+typeattribute mnld data_between_core_and_vendor_violators;
+typeattribute thermal_manager data_between_core_and_vendor_violators;
+typeattribute akmd data_between_core_and_vendor_violators;
+typeattribute rild data_between_core_and_vendor_violators;
+typeattribute m5c_bdaddr data_between_core_and_vendor_violators;
+typeattribute hal_audio_default data_between_core_and_vendor_violators;
+typeattribute hal_camera_default data_between_core_and_vendor_violators;
+typeattribute hal_sensors_default data_between_core_and_vendor_violators;
+typeattribute hal_gnss_default data_between_core_and_vendor_violators;
+typeattribute hal_bluetooth_default data_between_core_and_vendor_violators;
+typeattribute vendor_init data_between_core_and_vendor_violators;
+
+# The WMT kernel driver reads its config and ROM patch with filp_open() from
+# /system/etc/firmware (conn_soc wmt_conf.h:34, vendor/meizu/m5c
+# m5c-vendor-blobs.mk), in the context of the process whose ioctl triggers it:
+# wmt_loader (WMT_SOC.cfg) and 6620_launcher (ROMv2_lm_patch_*).  A vendor
+# domain may not read system_file otherwise (public/domain.te:996).  Retired
+# when the kernel lane moves that path to /vendor (same length:
+# "/system/etc/firmware/" -> "/vendor/etc/firmware/").
+typeattribute wmt_loader vendor_executes_system_violators;
+typeattribute wmt_launcher vendor_executes_system_violators;

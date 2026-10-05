@@ -1,7 +1,7 @@
 // libmedia.so (vendor) — the nine android::AudioSystem statics that
 // audio.primary.mt6737m.so (both ABIs) imports from the Nougat MTK libmedia.
 //
-// FACT (symbol audit of the HAL's closure against this tree, 2026-09-28):
+
 // with libtinyxml and the other vendor libraries in place, the HAL's only
 // unresolved imports are these nine plus the twelve tinycompress calls
 // (tinycompress.cpp).  Eight are MediaTek "voice unlock" (wake-on-voice)

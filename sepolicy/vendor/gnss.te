@@ -1,0 +1,38 @@
+# GPS: mnld (MTK location daemon, init.m5c.gps.rc) and the GNSS HAL, which
+# talk over datagram sockets in /data/gps_mnl (mnld_data_file) and
+# /dev/socket/mnld.
+type mnld, domain;
+init_daemon_domain(mnld)
+allow mnld stpgps_device:chr_file rw_file_perms;
+allow mnld stpwmt_device:chr_file rw_file_perms;
+allow mnld mnld_data_file:dir create_dir_perms;
+allow mnld mnld_data_file:file create_file_perms;
+allow mnld mnld_data_file:sock_file create_file_perms;
+allow mnld mnld_socket:sock_file rw_file_perms;
+allow mnld self:unix_dgram_socket { create_socket_perms sendto };
+allow mnld hal_gnss_default:unix_dgram_socket sendto;
+set_prop(mnld, mnld_prop)
+get_prop(mnld, wmt_prop)
+get_prop(mnld, m5c_mtk_ril_prop)
+# The GPS NVRAM record, through /data/nvram and the raw partition (census 21).
+r_dir_file(mnld, nvdata_file)
+allow mnld nvdata_file:file rw_file_perms;
+get_prop(mnld, nvram_prop)
+allow mnld nvram_device:blk_file rw_file_perms;
+allow mnld kmsg_device:chr_file getattr;
+# The GPS driver's control nodes under /sys (m95 template; which nodes on
+# m5c is not recorded - candidate for a label of its own).
+allow mnld sysfs:file rw_file_perms;
+
+allow hal_gnss_default stpgps_device:chr_file rw_file_perms;
+allow hal_gnss_default mnld_data_file:dir create_dir_perms;
+allow hal_gnss_default mnld_data_file:file create_file_perms;
+allow hal_gnss_default mnld_data_file:sock_file create_file_perms;
+allow hal_gnss_default mnld:unix_dgram_socket sendto;
+allow hal_gnss_default self:unix_dgram_socket create_socket_perms;
+get_prop(hal_gnss_default, mnld_prop)
+# Opens /dev/vndbinder (census set 21).
+vndbinder_use(hal_gnss_default)
+
+# init creates /dev/socket/mnld (socket line of the mnld service).
+allow init mnld_socket:sock_file { create setattr };

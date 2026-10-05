@@ -1,9 +1,10 @@
 // forge_hwc — hwcomposer.mt6737m for the m5c on the forge 4.9 kernel: HWC 1.1
 // over the native mtk_disp_mgr session ABI (header of forge_hwc.c has the
 // design).  Ported from the 14.1 tree (device/meizu/m5c/hwcomposer, d78bdbe)
-// without source changes — lane flash-m5c, 2026-09-28.
+
+// was brought up to date since.
 //
-// Why it is needed on A13 (FACT, first A13 boots of 2026-09-28): the image
+
 // had no hwcomposer.*.so at all, composer@2.1-service fell back to the
 // gralloc FB device and failed ("failed to open framebuffer device: Invalid
 // argument"), SurfaceFlinger restarted every ~5 s and took zygote down with it

@@ -1,0 +1,4 @@
+# mediaserver (MediaRecorder) resolves the caller's package through
+# package_native when a recording starts (census set 22, mic scenario);
+# core-to-core, absent from A13 system/sepolicy, not neverallowed.
+allow mediaserver package_native_service:service_manager find;

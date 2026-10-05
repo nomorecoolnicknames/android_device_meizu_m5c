@@ -1,0 +1,32 @@
+# MTK camera HAL (HAL3 via libcam.device3, treble/camera.cpp); base from m95.
+allow hal_camera_default { camera_isp_device camera_device cam_cal_device video_device MTK_SMI_device }:chr_file rw_file_perms;
+allow hal_camera_default devmap_device:chr_file r_file_perms;
+allow hal_camera_default self:global_capability_class_set sys_nice;
+# Sensor calibration / OTP data in NVRAM.
+r_dir_file(hal_camera_default, nvdata_file)
+allow hal_camera_default nvdata_file:file rw_file_perms;
+get_prop(hal_camera_default, nvram_prop)
+get_prop(hal_camera_default, m5c_camera_prop)
+get_prop(hal_camera_default, m5c_pq_prop)
+allow hal_camera_default kmsg_device:chr_file getattr;
+allow hal_camera_default sysfs_dev_info:file r_file_perms;
+# Memory-bandwidth scenario switch (mem_bw_ctrl/concurrency_scenario).
+allow hal_camera_default m5c_sysfs_mem_bw:dir search;
+allow hal_camera_default m5c_sysfs_mem_bw:file rw_file_perms;
+# Sensor driver attributes (m95 template; nodes not recorded).
+allow hal_camera_default sysfs:file r_file_perms;
+
+# M4U (IOMMU) and CMDQ.  A13 restricts file ioctls to FIOCLEX/FIONCLEX unless
+# listed (allowx domain fs_type ...), so every M4U ioctl ('g') was denied until
+# listed: 0x670b, 156 audit lines in one camera open (census set 21).
+allow hal_camera_default mtk_m4u_proc:file rw_file_perms;
+allowxperm hal_camera_default mtk_m4u_proc:file ioctl { 0x6700-0x67ff };
+allow hal_camera_default proc_cmdq:file r_file_perms;
+
+# Graphic buffers: allocator client (HIDL and AIDL lookup), mapper lookup.
+hal_client_domain(hal_camera_default, hal_graphics_allocator)
+allow hal_camera_default hal_graphics_mapper_hwservice:hwservice_manager find;
+# The MTK MMSDK service the HAL looks up (hosted by the N cameraserver, absent
+# on A13): labelled so that the lookup is an ordinary "not found".
+vndbinder_use(hal_camera_default)
+allow hal_camera_default m5c_mmsdk_vndservice:service_manager find;

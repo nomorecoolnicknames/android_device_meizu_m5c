@@ -1267,23 +1267,7 @@ Return<void> RadioImpl::iccIOForApp(int32_t serial, const IccIo& iccIo) {
      * SubscriptionInfoUpdater "handleSimLoaded: IccID null" -> no active
      * subscription -> DcTracker builds no APN list and feeds the modem AOSP's
      * "this_is_an_invalid_apn" placeholder -> LTE attach never completes. */
-    /* forge (m5c, 2026-09-03): the pathid must be dropped by passing NULL, not
-     * by emptying the string. Blanking it left a non-NULL empty buffer, and the
-     * MTK RIL picks its AT format on "path != NULL": it emitted
-     * AT+CRSM=192,12258,0,0,0,,"" and the modem answered a bare ERROR
-     * ("simIo Fail!" -> RILC "Invalid response: NULL" -> RILJ
-     * "[NNNN]< SIM_IO error 2 GENERIC_FAILURE"), so EF_ICCID stayed unreadable
-     * and the chain described above still broke - only one step later.
-     * FACT (disassembly of vendor/lib64/mtk-ril.so): at 0x3749c the path
-     * pointer is null-checked (cbz x4, 0x37b7c) BEFORE any strlen/strncmp, and
-     * the NULL branch formats "AT+CRSM=%d,%d,%d,%d,%d" (string at 0x95ef0) -
-     * exactly the five-field shape the RIL's own EF_DIR probe uses,
-     * AT+CRSM=192,12032,0,0,0, which this modem answers with +CRSM: 144,0.
-     * So NULL is both the intended contract and safe on this blob.
-     * The pointer is not freed here on purpose: the final
-     * memsetAndFreeStrings() below is commented out because my_enqueue keeps a
-     * shallow copy of these strings, so dropping the pointer leaks the same
-     * five bytes the surrounding code already leaks, a few times per boot. */
+
     if (rilIccIo.path != NULL && strcmp(rilIccIo.path, "3F00") == 0) {
 	RLOGD("iccIOForApp: forge - bare MF pathid -> NULL, fileid %d", rilIccIo.fileid);
 	rilIccIo.path = NULL;
@@ -1642,7 +1626,7 @@ Return<void> RadioImpl::writeSmsToSim(int32_t serial, const SmsWriteArgs& smsWri
 			android::FMT_WrSMSSIM, pRI);
 
     //memsetAndFreeStrings(2, args.smsc, args.pdu);
-    
+
     return Void();
 }
 
@@ -2158,10 +2142,7 @@ Return<void> RadioImpl::setInitialAttachApn(int32_t serial, const DataProfileInf
 	}
 
 #ifdef MTK_RIL_IAA_NO_ROAMING_PROTOCOL
-	/* forge (m5c, 2026-09-03): this blob's RIL_InitialAttachApn has NO
-	 * roamingProtocol member - see the offset evidence in ril.h - so pick the
-	 * protocol the way AOSP does and keep every later field where the blob
-	 * expects it. */
+
 	if (!copyHidlStringToRil(&iaa.protocol,
 		isRoaming ? dataProfileInfo.roamingProtocol : dataProfileInfo.protocol, pRI)) {
 	    memsetAndFreeStrings(1, iaa.apn);
@@ -6060,8 +6041,13 @@ int radio::getDeviceIdentityResponse(int slotId,
 	    radioService[slotId]->checkReturnStatus(retStatus);
 	} else {
 	    RIL_IDENTITY identity = *((RIL_IDENTITY *) response);
+#if VDBG
             RLOGD("getDeviceIdentityResponse: IMEI=%s", identity.imei);
             RLOGD("getDeviceIdentityResponse: IMEISV=%s", identity.imeisv);
+#else
+            RLOGD("getDeviceIdentityResponse: IMEI %s, IMEISV %s",
+                  identity.imei ? "set" : "missing", identity.imeisv ? "set" : "missing");
+#endif
 	    Return<void> retStatus
 		    = radioService[slotId]->mRadioResponse->getDeviceIdentityResponse(responseInfo,
 		    convertCharPtrToHidlString(identity.imei),
@@ -7600,21 +7586,7 @@ int radio::dataCallListChangedInd(int slotId,
 				  int indicationType, int token, RIL_Errno e, void *response,
 				  size_t responseLen) {
     if (radioService[slotId] != NULL && radioService[slotId]->mRadioIndication != NULL) {
-	/* forge (m5c, 2026-09-03): an EMPTY list is a legitimate, meaningful
-	 * indication - it means "no data calls are active any more" - and the
-	 * vendor sends it exactly that way: response == NULL with responseLen == 0
-	 * (log: "unsolResponse=1010,datalen=0 (UNSOL_DATA_CALL_LIST_CHANGED)").
-	 * The old guard rejected it on "response == NULL" alone, so when the
-	 * operator dropped the PDP context the framework was never told: DcTracker
-	 * kept the connection in DcActiveState with a stale address, ConnectivityService
-	 * kept reporting MOBILE(LTE) CONNECTED with LinkAddresses 100.82.38.247/32,
-	 * while the kernel interface had already lost both the address and IFF_UP -
-	 * every packet then died with "Network is unreachable" and nothing ever
-	 * retried. AOSP's own guard is the tolerant one; restore it.
-	 * Non-empty lists keep the strict size check, but now say what they got:
-	 * this blob returns a longer per-entry variant elsewhere (see the m681 note
-	 * in setupDataCallResponse), so if a non-empty indication ever shows up the
-	 * log will carry the real length instead of a bare "invalid response". */
+
 	if ((response == NULL && responseLen != 0)
 		|| responseLen % sizeof(RIL_Data_Call_Response_v11) != 0) {
 	    RLOGE("dataCallListChangedInd: invalid response: len=%zu, entry=%zu",

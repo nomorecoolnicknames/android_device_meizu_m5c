@@ -1,0 +1,22 @@
+# MTK legacy audio HAL (audio.primary.mt6737m, Nougat ABI) in the AOSP audio
+# service.
+# Calibration and speech parameters from NVRAM (/data/nvram).
+r_dir_file(hal_audio_default, nvdata_file)
+allow hal_audio_default nvdata_file:file rw_file_perms;
+get_prop(hal_audio_default, nvram_prop)
+# CCCI nodes of the modem (speech control), and the CCCI version from
+# /sys/kernel/ccci (census set 21).
+allow hal_audio_default ccci_device:chr_file rw_file_perms;
+allow hal_audio_default sysfs_ccci:dir search;
+allow hal_audio_default sysfs_ccci:file r_file_perms;
+allow hal_audio_default sysfs_dev_info:file r_file_perms;
+allow hal_audio_default kmsg_device:chr_file getattr;
+get_prop(hal_audio_default, m5c_mtk_ril_prop)
+set_prop(hal_audio_default, m5c_audio_hal_prop)
+# Codec and accdet attributes under /sys (m95 template; nodes not recorded).
+allow hal_audio_default sysfs:file r_file_perms;
+# From the m95 template: the HAL's libmedia calls are stubs on m5c
+# (treble/audiosystem.cpp), so these may be unused - not confirmed either way
+# by the census (an allowed access leaves no trace).
+binder_use(hal_audio_default)
+allow hal_audio_default audioserver_service:service_manager find;

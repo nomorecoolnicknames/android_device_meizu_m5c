@@ -1,0 +1,47 @@
+
+# Core processes looking up vendor.* / ro.vendor.* / persist.vendor.* names
+# (prefix -> vendor_default_prop).  A core read of vendor_default_prop is
+# neverallowed with compatible properties on (private/property.te).  The only
+# properties of that type that exist here are init.svc.vendor.*, ro.odm.build.*
+# and ro.vendor.audio.legacy_nougat_abi (read by the audio HAL, a vendor
+# domain); none has a core reader, so a denied lookup returns the same empty
+# default the lookup of a missing name returns now.
+dontaudit { audioserver cameraserver surfaceflinger system_server untrusted_app } vendor_default_prop:file r_file_perms;
+
+# MTK blobs asking for debug knobs outside any vendor prefix (mtk.vdec.*,
+# camera.3dnr.*, persist.chiptest.*, ...; tools/m5c-sepolicy/blobprops.py) fall
+# on default_prop, which vendor domains may not read.  Cross-check of every
+# name the blobs spell against getprop -Z: the only one that exists is
+# ro.wlan.mtk.wifi.5g, now m5c_wlan_prop.  The rest are absent, so the denied
+# read returns the default they get today.
+dontaudit { hal_audio_default hal_bluetooth_default hal_camera_default mnld nvram_daemon rild } default_prop:file r_file_perms;
+
+# The same for system_prop / radio_prop, core types a vendor domain may not
+# read (private/property.te, compatible_property_only).  rild's libraries
+# spell persist.sys.ct.ir.mode, persist.sys.lock.freq.lte and
+# persist.sys.log_reject_level, mnld persist.radio.mnl.prop: none exists
+# here (getprop -Z).  rild keeps radio_prop through hal_telephony_server.
+dontaudit rild system_prop:file r_file_perms;
+dontaudit mnld { radio_prop system_prop }:file r_file_perms;
+
+# terservice asks for persist.ter.service.current, which does not exist here
+# (FACT: getprop on set 21); a denied read returns the same default.
+dontaudit terservice default_prop:file r_file_perms;
+
+# nvram_daemon runs `cp fstab* -f /data/nvram/` (strings of the blob), which
+# globs the cwd "/"; the A13 root has no fstab* (it is in /vendor/etc), so the
+# copy finds nothing whether the read is allowed or not.
+dontaudit nvram_daemon rootfs:dir r_dir_perms;
+
+# e2fsck's is_on_batt() probes /sys/class/power_supply/AC/online to decide
+# whether to postpone a check; there is no AC supply of that name here.
+dontaudit fsck sysfs_batteryinfo:dir search;
+
+# network_stack opens map_offload_tether_downstream4_map pinned with the plain
+# fs_bpf label (the 4.9 kernel cannot load the tethering module's programs);
+# neverallowed (private/bpfloader.te).  Tethering falls back to the
+# non-offloaded path.
+dontaudit network_stack fs_bpf:file { read write };
+
+# ueventd searches /metadata/gsi (DSU state); no DSU on this device.
+dontaudit ueventd gsi_metadata_file:dir search;

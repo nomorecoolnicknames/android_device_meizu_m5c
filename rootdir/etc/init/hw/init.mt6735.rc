@@ -1,42 +1,19 @@
-# init.mt6735.rc — Meizu M5c (m5c), LOS 20 full Treble: the minimum device rc
-# that a first boot needs to be observable (item 7 of "NOT WIRED YET" in
-# device.mk, first part).  Lane flash-m5c, 2026-09-28.
-#
-# Imported by init.rc as /vendor/etc/init/hw/init.${ro.hardware}.rc
-# (androidboot.hardware=mt6735).  The LOS 16 rc set is NOT pasted: only what
-# a boot to adb needs, each line with its source.  Everything else of
-# item 7 (modem, connectivity, cpuset, bluetooth) is still open.
-#
-# FACT that makes this file load-bearing (flash-m5c-20260928.md §4): without
-# it nothing runs mount_all, so /data, /metadata, /protect_f, /protect_s and
-# /nvdata are never mounted — first-stage init mounts only the three
-# first_stage_mount entries.
 
 import /vendor/etc/init/hw/init.mt6735.usb.rc
 
+on early-init
+    write /sys/module/firmware_class/parameters/path /vendor/firmware
+
 on init
-    # FACT (boot 4 of 2026-09-28, forge_hwc in place): the default SkiaGL
-    # RenderEngine aborts in primeShaderCache with "Unable to generate SkImage.
-    # isTextureValid:1 dataspace:513" on this Mali-T720 r7p0 (N-era DDK), SF
-    # restarts and takes zygote with it.  With the legacy GLES RenderEngine
-    # (set live with setprop) SF stays up and system_server boots.  Same wall
-    # and same fix as m95 (device/meizu/m95/rootdir/init.mt6797.rc, "on init":
-    # a vendor build.prop entry is dropped, an rc setprop is honoured).
+    # The kernel log only for CAP_SYSLOG.  FACT: this kernel has
+    # CONFIG_SECURITY_DMESG_RESTRICT unset (IKCONFIG of the boot 61e3f822 kernel) and
+    # the A13 init.rc does not set the sysctl (only kptr_restrict), so any
+    # process could read dmesg; with SELinux permissive nothing else stops an
+    # app.  For the bench: `adb root` or `su 0 dmesg` (userdebug).
+    write /proc/sys/kernel/dmesg_restrict 1
+
     setprop debug.renderengine.backend gles
 
-    # RT budget for the cpu cgroups init.rc creates above.  This 4.9 kernel
-    # has CONFIG_RT_GROUP_SCHED=y (/proc/config.gz), and a new group starts
-    # with cpu.rt_runtime_us 0, where the kernel refuses SCHED_FIFO/RR with
-    # EPERM even to CAP_SYS_NICE (__sched_setscheduler).  Pie kept every task
-    # in the root group (950000); Android 13 moves them into the groups.
-    # FACT (A13, set 9, 2026-09-28): every child of /dev/cpuctl had
-    # rt_runtime_us 0; surfaceflinger, audioserver, the audio HAL,
-    # system_server and com.android.bluetooth sat in cpu:/foreground; BT
-    # (CapEff 0x1800803400, CAP_SYS_NICE set) died on each enable with
-    #   pthread_create sched_setscheduler(1, {1}) call failed: Operation not permitted
-    #   alarm.cc:683 timer_create_internal ... clock 7: Operation not permitted
-    #   FATAL:alarm.cc(170) Check failed: false.
-    # The children's sum must stay within the root's 950000 (per 1 s period).
     write /dev/cpuctl/foreground/cpu.rt_runtime_us 400000
     write /dev/cpuctl/top-app/cpu.rt_runtime_us 200000
     write /dev/cpuctl/rt/cpu.rt_runtime_us 100000
@@ -44,6 +21,14 @@ on init
     write /dev/cpuctl/system-background/cpu.rt_runtime_us 50000
     write /dev/cpuctl/background/cpu.rt_runtime_us 50000
     write /dev/cpuctl/camera-daemon/cpu.rt_runtime_us 50000
+
+on early-boot
+    chown root root /sys/power/spm/suspend_pcm
+    chmod 0400 /sys/power/spm/suspend_pcm
+    chown root root /sys/power/spm/dpidle_pcm
+    chmod 0400 /sys/power/spm/dpidle_pcm
+    chown root root /sys/power/spm/sodi_pcm
+    chmod 0400 /sys/power/spm/sodi_pcm
 
 on fs
     # The ramdisk copy of the fstab is gone after switch_root (m95 lesson,
@@ -78,3 +63,35 @@ on post-fs-data
     symlink /nvdata /data/nvram
     mkdir /nvdata/media 0771 media audio
     restorecon_recursive /nvdata
+    # [LOS 16 init.mt6735.rc:532 and its mem_bw_ctrl lines] thermal_manager's
+    # runtime directory and the memory-bandwidth scenario switch of the camera
+    # HAL (FACT: root 0644 on set 13).  LOS 16's mtk_disp_mgr.0/rgb line is
+    # not carried: the 4.9 kernel has no such attribute (FACT, ls on set 13).
+    mkdir /data/.tp 0775 system system
+    chown system camera /sys/bus/platform/drivers/mem_bw_ctrl/concurrency_scenario
+    chmod 0660 /sys/bus/platform/drivers/mem_bw_ctrl/concurrency_scenario
+
+on property:sys.boot_completed=1
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq 1248000
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor ondemand
+
+# Thermal policy loader and display PQ daemon, as on LOS 16 (los16-ct07
+# device/meizu/m5c/rootdir/init.mt6735.rc:774-778, 1148-1151).  FACT (A13,
+# set 12): neither was defined, although both blobs are installed —
+# thermal_manager path-patched to /odm/etc/thermal.conf and pq wired to
+# libm5cshim_legacy (vendor/meizu/m5c Android.mk, treble-elf-wiring.txt).
+# fuelgauged stays undefined: this kernel computes the SOC itself
+# (CONFIG_MTK_GAUGE_VERSION=10, LOS 16 note at :1153).
+service thermal_manager /vendor/bin/thermal_manager
+    class main
+    user root
+    # group system for /data/.tp/.settings (system:system 0660) without
+    # CAP_DAC_OVERRIDE, which A13 grants no vendor domain (census set 21).
+    group root system
+    oneshot
+
+service pq /vendor/bin/pq
+    class main
+    user system
+    group system graphics
+    oneshot

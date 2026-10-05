@@ -563,7 +563,10 @@ int isInitialAttachAPN(const char *requestedApn, const char * protocol,
 {
     char iaProperty[PROPERTY_VALUE_MAX * 2] = { 0 };
     getIaCache(iaProperty);
-    RLOGD("[RILData_GSM_IRAT]: isInitialAttachApn IaCache=%s", iaProperty);
+    /* IaCache and apnParameter start with the ICCID: only whether they are
+     * set and whether they match goes to the log. */
+    RLOGD("[RILData_GSM_IRAT]: isInitialAttachApn IaCache %s",
+          iaProperty[0] != '\0' ? "set" : "empty");
     if (strlen(iaProperty) == 0) {
 	// No initial attach APN, return false.
 	return 0;
@@ -586,9 +589,10 @@ int isInitialAttachAPN(const char *requestedApn, const char * protocol,
 			authType, username, requestedApn);
     }
 
-    RLOGD("[RILData_GSM_IRAT]: isInitialAttachApn IaCache=%s, apnParameter=%s.", iaProperty,
-			apnParameter);
-    if (strcmp(apnParameter, iaProperty) == 0 || strcmp(requestedApn, "ctnet") == 0) {
+    int same = strcmp(apnParameter, iaProperty) == 0;
+    RLOGD("[RILData_GSM_IRAT]: isInitialAttachApn apnParameter %s IaCache",
+          same ? "matches" : "differs from");
+    if (same || strcmp(requestedApn, "ctnet") == 0) {
 	return 1;
     }
     return 0;
@@ -1500,6 +1504,32 @@ static void malComplete(int slot, RIL_Errno e, void *response, size_t responsele
     pthread_mutex_unlock(&s_malDoneMutex);
 }
 
+/* The name of an AT command without its arguments ("AT+EGMR", "ATD"): MAL
+ * commands can carry a dialled number, an ICCID or a PIN, and the radio log
+ * is readable by more than rild.  VDBG builds log the whole command. */
+static const char *malCmdName(const char *cmd, char *out, size_t n) {
+#if VDBG
+    snprintf(out, n, "%s", cmd ? cmd : "");
+#else
+    size_t i = 0;
+    if (cmd != NULL && n > 0) {
+        if ((cmd[0] == 'A' || cmd[0] == 'a') && (cmd[1] == 'T' || cmd[1] == 't')) {
+            for (; i < 2 && i + 1 < n; i++) out[i] = cmd[i];
+            while (cmd[i] != '\0' && strchr("+$%^*#&", cmd[i]) != NULL && i + 1 < n) {
+                out[i] = cmd[i];
+                i++;
+            }
+        }
+        while (isalpha((unsigned char) cmd[i]) && i + 1 < n) {
+            out[i] = cmd[i];
+            i++;
+        }
+    }
+    if (n > 0) out[i] = '\0';
+#endif
+    return out;
+}
+
 static void malDispatch(uint32_t simId, uint32_t requestId, uint32_t serial,
         const uint8_t *payload, size_t payloadLen) {
     if (requestId != RIL_REQUEST_AT_COMMAND_WITH_PROXY) {
@@ -1593,9 +1623,11 @@ static void malDispatch(uint32_t simId, uint32_t requestId, uint32_t serial,
     int chan = (int) simId * 6;
     int attempt;
     int timedOut = 0;
+    char cmdName[32];
+    malCmdName(cmd, cmdName, sizeof(cmdName));
     for (attempt = 1; ; attempt++) {
         RLOGD("MAL: > serial=%u sim=%u channel=%u attempt=%d cmd=(%s)",
-              serial, simId, channel, attempt, cmd);
+              serial, simId, channel, attempt, cmdName);
         pthread_mutex_lock(&s_malDoneMutex);
         s_malInflight[slot].done = 0;
         pthread_mutex_unlock(&s_malDoneMutex);
@@ -1622,13 +1654,13 @@ static void malDispatch(uint32_t simId, uint32_t requestId, uint32_t serial,
         pthread_mutex_unlock(&s_malDoneMutex);
 
         if (timedOut) {
-            RLOGE("MAL: serial %u (%s) never completed", serial, cmd);
+            RLOGE("MAL: serial %u (%s) never completed", serial, cmdName);
             break;
         }
         if (err == 0 || attempt >= MAL_MAX_ATTEMPTS) break;
         RLOGW("MAL: serial %u (%s) failed with error %u on attempt %d -- "
               "channel busy? retrying in %d ms",
-              serial, cmd, err, attempt, MAL_RETRY_DELAY_US / 1000);
+              serial, cmdName, err, attempt, MAL_RETRY_DELAY_US / 1000);
         usleep(MAL_RETRY_DELAY_US);
     }
 
@@ -2124,14 +2156,14 @@ RIL_onRequestComplete(RIL_Token t, RIL_Errno s_e, void *s_response, size_t s_res
 	     * queries do not leak. */
 	    free(Device_ID[i].imei);
 	    Device_ID[i].imei = response ? strdup((const char *) response) : NULL;
-	    RLOGD("IMEI=%s", Device_ID[i].imei);
+	    RLOGD("IMEI %s", Device_ID[i].imei ? "cached" : "missing");
 	}
 	else if (pRI->pCI->requestNumber == RIL_REQUEST_GET_IMEISV) {
 	    int i = (int)socket_id;
 	    RLOGD("SOCKET_ID_IMEI_SV= %d", i);
             free(Device_ID[i].imeisv);
 	    Device_ID[i].imeisv = response ? strdup((const char *) response) : NULL;
-	    RLOGD("IMEISV=%s", Device_ID[i].imeisv);
+	    RLOGD("IMEISV %s", Device_ID[i].imeisv ? "cached" : "missing");
 	}
 	goto done;
     }

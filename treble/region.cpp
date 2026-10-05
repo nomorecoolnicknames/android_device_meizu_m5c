@@ -8,7 +8,7 @@
 // 32 bytes), while Android 10+ libui keeps a FatVector, so the platform libui
 // crashed every HWUI process on m95.
 //
-// m5c (FACT, nm against the VNDK 33 libui, both ABIs, 2026-09-25): the m5c
+
 // Mali imports from libui.so exactly the same seven Region symbols as m95's
 // (ctor, dtor, set(int,int), clear, orSelf(Rect), subtractSelf(Rect),
 // getArray(size_t*)) and nothing else. libui.so is not linked into sphal on
@@ -143,15 +143,17 @@ public:
     M5C_EXPORT ~Region();
     Region(const Region& rhs);
     explicit Region(const Rect& rhs);
-    // hwcomposer.mt6797.so (LayerList::getBounds & co.) additionally imports
-    // operator=, set(Rect), begin/end and translate; it reads the same +8/+16
-    // fields of stack-allocated Regions, so it gets this layout too.
-    M5C_EXPORT Region& operator=(const Region& rhs);
+    // Exported: exactly what libGLES_mali imports (both ABIs, FACT readelf):
+    // the ctor, dtor, clear, set(w, h), orSelf, subtractSelf and getArray.
+    // operator=, set(Rect), translate and begin/end were exported for m95's
+    // hwcomposer.mt6797; no m5c blob imports them (the stock HWC is not
+    // shipped), so they stay internal.
+    Region& operator=(const Region& rhs);
 
     M5C_EXPORT void clear();
-    M5C_EXPORT void set(const Rect& r);
+    void set(const Rect& r);
     M5C_EXPORT void set(int32_t w, int32_t h);
-    M5C_EXPORT Region translate(int dx, int dy) const;
+    Region translate(int dx, int dy) const;
 
     M5C_EXPORT Region& orSelf(const Rect& r);
     M5C_EXPORT Region& subtractSelf(const Rect& r);
@@ -162,8 +164,8 @@ public:
     inline bool isEmpty() const { return getBounds().isEmpty(); }
     inline bool isRect() const { return mStorage.size() == 1; }
     inline Rect getBounds() const { return mStorage[mStorage.size() - 1]; }
-    M5C_EXPORT const_iterator begin() const;
-    M5C_EXPORT const_iterator end() const;
+    const_iterator begin() const;
+    const_iterator end() const;
 
 private:
     class rasterizer;

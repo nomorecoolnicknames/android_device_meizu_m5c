@@ -1,0 +1,37 @@
+# vendor/build.prop is loaded as vendor_init BEFORE SELinux kernel logging is
+# up (init.cpp PropertyInit vs SelinuxSetupKernelLogging): refusals there are
+# silent.  Settable here: every type vendor.prop and the vendor rc files use
+# (checked statically, tools/m5c-sepolicy vprops_check.sh / trig_check.sh).
+set_prop(vendor_init, {
+  m5c_camera_prop
+  m5c_mtk_config_prop
+  m5c_mtk_ril_prop
+  m5c_pq_prop
+  wmt_prop
+})
+get_prop(vendor_init, nvram_prop)
+# rc triggers on mtk.md1.status (init.m5c.modem.rc).
+get_prop(vendor_init, mtk_md_prop)
+
+# mkdir / chown / chmod / restorecon of the vendor data directories.
+allow vendor_init {
+  ccci_cfg_file
+  mnld_data_file
+  mtk_sensor_data_file
+  nvdata_file
+  thermal_data_file
+}:dir { create search getattr open read setattr write add_name relabelfrom relabelto };
+allow vendor_init nvdata_file:file { create getattr open read write setattr };
+allow vendor_init nvdata_file:lnk_file { create getattr read };
+allow vendor_init m5c_bt_data_file:dir { create search getattr open read setattr write add_name };
+allow vendor_init { system_data_root_file system_data_file }:dir { write add_name };
+# chown / chmod of MTK sysfs attributes (init.mt6735.rc, init.m5c.sensors.rc).
+allow vendor_init { sysfs_mtk_sensor sysfs_ccci }:file { getattr setattr };
+allow vendor_init sysfs_mtk_sensor:dir r_dir_perms;
+# write /proc/sys/vm/swappiness (zram setup, init.mt6735.rc).
+allow vendor_init m5c_proc_swappiness:file w_file_perms;
+
+# write /proc/sys/kernel/dmesg_restrict 1 (init.mt6735.rc, on init).
+# public/domain.te:456 leaves proc_security to init and vendor_init.
+allow vendor_init proc_security:file w_file_perms;
+allow vendor_init sysfs_fw_class_path:file w_file_perms;

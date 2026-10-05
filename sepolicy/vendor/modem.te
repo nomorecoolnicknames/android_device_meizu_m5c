@@ -1,0 +1,82 @@
+# Modem chain of init.m5c.modem.rc: ccci_fsd, ccci_mdinit, gsm0710muxd (via
+# m5c-muxd.sh), muxreport, terservice.  Base rules from m95 modem_daemons.te.
+
+# ccci_mdinit boots the modem: loads /vendor/etc/firmware/modem_1_lwg_n.img,
+# reports the modem state in mtk.md1.status and starts the mux/RIL chain.
+type ccci_mdinit, domain;
+init_daemon_domain(ccci_mdinit)
+set_prop(ccci_mdinit, mtk_md_prop)
+set_prop(ccci_mdinit, ctl_mtk_radio_prop)
+set_prop(ccci_mdinit, m5c_mtk_ril_prop)
+get_prop(ccci_mdinit, nvram_prop)
+allow ccci_mdinit ccci_device:chr_file rw_file_perms;
+allow ccci_mdinit sysfs_ccci:dir search;
+allow ccci_mdinit sysfs_ccci:file rw_file_perms;
+allow ccci_mdinit ccci_cfg_file:dir create_dir_perms;
+allow ccci_mdinit ccci_cfg_file:file create_file_perms;
+# Modem NVRAM: files under /data/nvram and the raw nvram partition; board id
+# from dev_info; log lines to /dev/kmsg (census set 21).
+r_dir_file(ccci_mdinit, nvdata_file)
+allow ccci_mdinit nvdata_file:file rw_file_perms;
+allow ccci_mdinit nvram_device:blk_file rw_file_perms;
+allow ccci_mdinit block_device:dir search;
+allow ccci_mdinit sysfs_dev_info:file r_file_perms;
+allow ccci_mdinit kmsg_device:chr_file { getattr w_file_perms };
+# CCCI attributes outside /sys/kernel/ccci (m95 template; nodes not recorded).
+allow ccci_mdinit sysfs:file r_file_perms;
+
+# ccci_fsd serves the modem's file requests from /data/nvram and the
+# protect_f / protect_s partitions.
+type ccci_fsd, domain;
+init_daemon_domain(ccci_fsd)
+get_prop(ccci_fsd, mtk_md_prop)
+wakelock_use(ccci_fsd)
+allow ccci_fsd ccci_device:chr_file rw_file_perms;
+allow ccci_fsd sysfs_ccci:dir search;
+allow ccci_fsd sysfs_ccci:file r_file_perms;
+r_dir_file(ccci_fsd, nvdata_file)
+allow ccci_fsd nvdata_file:file rw_file_perms;
+r_dir_file(ccci_fsd, protect_f_data_file)
+allow ccci_fsd protect_f_data_file:file rw_file_perms;
+r_dir_file(ccci_fsd, protect_s_data_file)
+allow ccci_fsd protect_s_data_file:file rw_file_perms;
+allow ccci_fsd sysfs:file r_file_perms;
+
+# gsm0710muxd multiplexes /dev/ttyC0 into the /dev/radio/ptty* channels rild
+# uses.  Started through /vendor/bin/m5c-muxd.sh (same exec type), which waits
+# for the modem's second handshake in the kernel log (`dmesg | grep`, toybox
+# reading /dev/kmsg) and then execs the daemon.
+type gsm0710muxd, domain;
+init_daemon_domain(gsm0710muxd)
+allow gsm0710muxd vendor_shell_exec:file rx_file_perms;
+allow gsm0710muxd vendor_toolbox_exec:file rx_file_perms;
+allow gsm0710muxd gsm0710muxd_exec:file execute_no_trans;
+allow gsm0710muxd kernel:system syslog_read;
+allow gsm0710muxd self:capability2 syslog;
+allow gsm0710muxd kmsg_device:chr_file r_file_perms;
+allow gsm0710muxd ccci_device:chr_file rw_file_perms;
+allow gsm0710muxd sysfs_ccci:dir search;
+allow gsm0710muxd sysfs_ccci:file r_file_perms;
+allow gsm0710muxd devpts:chr_file { rw_file_perms setattr };
+allow gsm0710muxd ptmx_device:chr_file rw_file_perms;
+allow gsm0710muxd radio_device:dir rw_dir_perms;
+allow gsm0710muxd radio_device:lnk_file create_file_perms;
+allow gsm0710muxd self:capability { setuid setgid chown fowner };
+get_prop(gsm0710muxd, mtk_md_prop)
+set_prop(gsm0710muxd, ctl_mtk_radio_prop)
+set_prop(gsm0710muxd, m5c_mtk_ril_prop)
+
+# muxreport restarts the mux on modem reset.
+type muxreport, domain;
+init_daemon_domain(muxreport)
+allow muxreport ccci_device:chr_file rw_file_perms;
+get_prop(muxreport, mtk_md_prop)
+get_prop(muxreport, m5c_mtk_ril_prop)
+set_prop(muxreport, ctl_mtk_radio_prop)
+
+# terservice (modem terminal service).
+type terservice, domain;
+init_daemon_domain(terservice)
+allow terservice ccci_device:chr_file rw_file_perms;
+get_prop(terservice, mtk_md_prop)
+get_prop(terservice, m5c_mtk_ril_prop)

@@ -3,13 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-# BoardConfig.mk — Meizu M5c (m5c, M710H), MT6737M, arm64, 2 GB RAM.
-# LineageOS 20.0 (Android 13, SDK 33) skeleton.
-#
-# Every value below is either carried from a tree that demonstrably boots the
-# device (the forge LOS 14.1 tree and its LOS 16 successor, both on
-# <private-workspace>/m5c/los14.1-m5c-patched/device/meizu/m5c) or derived from
-# a recorded measurement.  Where it is a guess it says HYPOTHESIS.
 
 DEVICE_PATH := device/meizu/m5c
 
@@ -62,14 +55,9 @@ TARGET_BOARD_PLATFORM := mt6737m
 TARGET_BOOTLOADER_BOARD_NAME := mt6737m
 TARGET_NO_BOOTLOADER := true
 TARGET_NO_RADIOIMAGE := true
-BOARD_NAME := m5c
-BOARD_USES_MTK_HARDWARE := true
-MTK_HARDWARE := true
 
 TARGET_OTA_ASSERT_DEVICE := m5c,M710H
 
-# Use an MT6737M kernel with the matching stock DTB and the required Android BPF/cgroup interfaces.
-# Keep kernel version, symbol and checksum validation enabled.
 TARGET_KERNEL_ARCH := arm64
 TARGET_KERNEL_HEADER_ARCH := arm64
 TARGET_KERNEL_SOURCE :=
@@ -77,9 +65,6 @@ TARGET_KERNEL_CONFIG :=
 TARGET_PREBUILT_KERNEL := $(DEVICE_PATH)/prebuilt-kernel/Image.gz-dtb
 BOARD_KERNEL_IMAGE_NAME := Image.gz-dtb
 
-# Freshness gate on the hand-placed prebuilt (carried from the LOS 16 tree).
-# The file goes stale silently: on 2026-09-03 a kernel from Aug 28 sat here and
-# a clean build would have shipped a ROM without a single fix of that day.
 forge_kernel_check := $(shell $(DEVICE_PATH)/tools/check_prebuilt_kernel.sh \
         $(TARGET_PREBUILT_KERNEL) $(DEVICE_PATH)/prebuilt-kernel/EXPECTED.txt)
 ifneq ($(strip $(forge_kernel_check)),)
@@ -108,33 +93,16 @@ BOARD_MKBOOTIMG_ARGS := \
 # buildvariant= is appended by build/make automatically — do not set it here.
 BOARD_KERNEL_CMDLINE := bootopt=64S3,32N2,64N2 androidboot.selinux=permissive androidboot.hardware=mt6735
 
-# A-only partition geometry from the M5c stock layout. Do not reuse another board partition map.
 BOARD_BOOTIMAGE_PARTITION_SIZE := 16777216
 BOARD_RECOVERYIMAGE_PARTITION_SIZE := 33554432
-# ---------------------------------------------------------------------------
-# 2026-09-17: ВЕТКА ВАРИАНТА B — требует ПЕРЕРАЗМЕТКИ аппарата
-# ---------------------------------------------------------------------------
-# Владелец разрешил переразметку 2026-09-17. cache (p24, 400 МиБ) вливается в
-# смежный system (p23) -> 1936 МиБ: meizu-fleet/tools/repartition-cache-into-system.sh
-# --device m5c (сначала без --confirm: бэкап GPT + проверка смежности).
-#
-# Пока переразметка НЕ сделана, собранный с этой ветки образ (>1536 МиБ) в
-# раздел не влезет — прошивка честно оборвётся на записи. Вариант без
-# переразметки — ветка lineage-20-fit1536 (режет 8 optional-пакетов, запас 2 %).
-#
-# /cache после слияния НЕ СУЩЕСТВУЕТ: BOARD_CACHEIMAGE_* убраны, строка cache
-# убрана из rootdir/etc/fstab.mt6735. Android 13 обходится без /cache
-# (OTA живёт в /data/ota); TWRP смонтирует его как отсутствующий.
 BOARD_SYSTEMIMAGE_PARTITION_SIZE := 2030043136
 BOARD_USERDATAIMAGE_PARTITION_SIZE := 12831948800
 BOARD_FLASH_BLOCK_SIZE := 131072
 
 TARGET_USERIMAGES_USE_EXT4 := true
-TARGET_USES_MKE2FS := true
 BOARD_SYSTEMIMAGE_FILE_SYSTEM_TYPE := ext4
 BOARD_USERDATAIMAGE_FILE_SYSTEM_TYPE := ext4
 
-# A successful fastboot transfer does not prove a partition write; installation requires readback verification.
 AB_OTA_UPDATER := false
 BOARD_USES_RECOVERY_AS_BOOT := false
 
@@ -142,28 +110,10 @@ BOARD_USES_RECOVERY_AS_BOOT := false
 TARGET_COPY_OUT_SYSTEM_EXT := system/system_ext
 TARGET_COPY_OUT_PRODUCT := system/product
 
-# The custom partition supplies /vendor. Preserve the stock partition boundaries.
 TARGET_COPY_OUT_VENDOR := vendor
 BOARD_VENDORIMAGE_FILE_SYSTEM_TYPE := ext4
 BOARD_VENDORIMAGE_PARTITION_SIZE := 536870912
 
-# ---------------------------------------------------------------------------
-# Treble + VNDK (2026-09-25, owner's directive "all of the fleet Treble",
-# branch lineage-20-treble; design: meizu-fleet/designs/TREBLE_M5C_20260924.md)
-# ---------------------------------------------------------------------------
-# WAS: VNDK off, PRODUCT_FULL_TREBLE_OVERRIDE := false, on the argument that
-# 134 of 403 vendor ELFs link framework-only libraries (M5C_LOS16_TREBLE_PLAN.md
-# §6.2).  That count is still right — re-measured on this blob set with
-# meizu-fleet/tools/m5c_treble_needed.py: 137 vendor ELFs have a DT_NEEDED the
-# vendor namespace cannot reach — but "unreachable" turned out to be wrong:
-# m95 runs the same generation of N-era MTK blobs in a VNDK namespace on this
-# same platform tree (vendor copies, forwarders and shims, lessons 5-8 of
-# designs/FLEET_PORT_FROM_M95_20260924.md).  device.mk carries the m5c half.
-#
-# FACT (build/make/core/config.mk:721-737): PRODUCT_USE_VNDK (and with it the
-# implicit BOARD_VNDK_VERSION := current) needs PRODUCT_SHIPPING_API_LEVEL > 27,
-# which a Marshmallow-launched handset does not have, so both switches are set
-# explicitly, exactly as m95 does (device/meizu/m95/BoardConfig.mk:236, :267).
 PRODUCT_FULL_TREBLE_OVERRIDE := true
 
 # current, NOT 30.  The m95 tree tried 30 first and rejected it with two build
@@ -175,55 +125,13 @@ PRODUCT_FULL_TREBLE_OVERRIDE := true
 # 109 MiB of /system, measured in out-m95).
 BOARD_VNDK_VERSION := current
 
-# ---------------------------------------------------------------------------
-# Boot / root layout
-# ---------------------------------------------------------------------------
-# NOT system-as-root in the BOARD_BUILD_SYSTEM_ROOT_IMAGE sense.  That mode
-# needs the bootloader to pass skip_initramfs / force_normal_boot, and this
-# 2017 Meizu LK does neither (it always loads the boot.img ramdisk; it also
-# refuses `fastboot boot` with "unknown command", so the cmdline cannot be
-# changed from the host either).  Android 13 init handles this the normal
-# non-A/B way instead: the boot ramdisk carries first-stage init plus
-# fstab.mt6735, DoFirstStageMount() mounts /system and SwitchRoot()s into it,
-# which produces the same "/ is the system partition" result at runtime.
-# (first_stage_init.cpp:388-401 only switches into /first_stage_ramdisk when
-# ForceNormalBoot() is true, which needs androidboot.force_normal_boot=1.)
-# HYPOTHESIS to verify on the first boot attempt: that A13 first-stage init
-# finds /fstab.mt6735 in the ramdisk root on this device.  The LOS 16 port ran
-# WITHOUT first-stage mount at all (device.mk comment: "on this
-# no-first-stage-mount device the ONLY prop file early init actually loads is
-# /system/build.prop"), and that mode no longer exists in A13 — this is the
-# single largest untested change in the port.
 BOARD_ROOT_EXTRA_FOLDERS := nvdata protect_f protect_s
 
-# /metadata mount point on the system root (system/core/rootdir/Android.mk:116-118).
-# FACT (flash-m5c, first A13 boots 2026-09-28): the fstab mounts /metadata
-# (first_stage_mount,formattable), but without this flag the system image has
-# no /metadata directory.  First stage switches root to /system BEFORE it
-# mounts the other partitions (first_stage_mount.cpp:529-568), so the mount
-# fails (formattable -> ignored); in the second stage mount_all fails it again,
-# returns FS_MGR_MNTALL_FAIL, ro.crypto.state is never set and zygote-start
-# never fires.  The HYPOTHESIS above ("fstab.mt6735 found in the ramdisk
-# root") is CONFIRMED by the same boots: system and vendor were mounted by
-# the first stage.
 BOARD_USES_METADATA_PARTITION := true
 
-# RIL: the MTK Oreo HIDL libril + rild of ril/ (IRadio 1.0, drives mtk-ril.so
-# through RIL_InitSocket — the m5c blob has no RIL_Init, so hardware/ril's
-# libril/rild cannot host it).  These two switch hardware/ril's modules off
-# (hardware/ril/libril/Android.mk:3, hardware/ril/rild/Android.mk:1) and ours
-# on (ril/libril/Android.mk, ril/rild/Android.mk).  flash-m5c, 2026-09-28.
 BOARD_PROVIDES_LIBRIL := true
 ENABLE_VENDOR_RIL_SERVICE := true
 
-# ...and the SELinux labels for exactly those three directories.  Without them
-# e2fsdroid aborts while configuring system.img:
-#   set_selinux_xattr: No such file or directory searching for label "/nvdata"
-# because system/sepolicy/private/file_contexts has no catch-all entry and
-# every root-level directory must be labelled explicitly.  Full derivation and
-# the rejected alternatives are in sepolicy/vendor/file_contexts itself.
-# This is the tree's ONLY sepolicy input; the "NOT WIRED YET" note in device.mk
-# (nothing carried over, runtime is permissive) still stands.
 BOARD_VENDOR_SEPOLICY_DIRS += device/meizu/m5c/sepolicy/vendor
 
 # Recovery
@@ -241,23 +149,13 @@ TARGET_VENDOR_PROP := $(DEVICE_PATH)/vendor.prop
 # ---------------------------------------------------------------------------
 # SELinux
 # ---------------------------------------------------------------------------
-# Runtime stays permissive via the kernel cmdline for bring-up, exactly as on
-# 14.1 and 16.  Build-time neverallow assertions are skipped because the
-# Oreo-era MTK vendor rules this port inherits violate A13 public policy.
-SELINUX_IGNORE_NEVERALLOWS := true
-
-# ---------------------------------------------------------------------------
-# Seccomp
-# ---------------------------------------------------------------------------
-# m681 evidence: without the vendor mediacodec seccomp policy the MTK omx
-# service takes SIGSYS, crash_dump storms, and the device OOM-bootloops.
-BOARD_SECCOMP_POLICY := $(DEVICE_PATH)/seccomp
-
-# ---------------------------------------------------------------------------
-# Graphics
-# ---------------------------------------------------------------------------
-BOARD_EGL_CFG := $(DEVICE_PATH)/configs/egl.cfg
-USE_OPENGL_RENDERER := true
+# TEMPORARY: the runtime is permissive through androidboot.selinux in
+# BOARD_KERNEL_CMDLINE above.  The vendor policy (sepolicy/vendor) left 0
+# system/vendor denials in the permissive census of set 23; the switch to
+# enforcing waits for the lead's approval and a live `setenforce 1` run, and
+# needs ro.adb.secure handled first (device.mk).
+# The build enforces the neverallows (SELINUX_IGNORE_NEVERALLOWS is not set):
+# neverallow checks, sepolicy_test and the treble tests pass.
 
 # ---------------------------------------------------------------------------
 # Wi-Fi — MTK CONSYS MT6735 combo
@@ -276,25 +174,23 @@ WIFI_DRIVER_STATE_OFF := 0
 # Bluetooth — same CONSYS chip
 # ---------------------------------------------------------------------------
 BOARD_HAVE_BLUETOOTH := true
-BOARD_HAVE_BLUETOOTH_MTK := true
-BOARD_BLUETOOTH_DOES_NOT_USE_RFKILL := true
 
-# ---------------------------------------------------------------------------
-# VINTF
-# ---------------------------------------------------------------------------
-# Wi-Fi is the one HAL that asks the manifest directly: HalDeviceManager
-# decides a vendor HAL exists iff getTransport(IWifi) != EMPTY.  With no
-# manifest wlan0 is never created at all (measured on the live LOS 16 device
-# 2026-09-03, M5C_LOS16_PERIPHERALS_MEASURE_20260903.md).
 DEVICE_MANIFEST_FILE := $(DEVICE_PATH)/manifest.xml
 
 # ---------------------------------------------------------------------------
 # Build workarounds
 # ---------------------------------------------------------------------------
 # The blob set is Nougat/Oreo vintage; its ELF dependency closure does not
-# resolve against A13 libraries, so the prebuilt ELF checker must not gate the
-# build.  This is a statement of fact about the blobs, not a wish.
+# resolve against A13 libraries by name (it is wired at build time, vendor/
+# meizu/m5c treble-elf-wiring.txt), so the prebuilt ELF checker must not gate
+# the build.
 BUILD_BROKEN_ELF_PREBUILT_PRODUCT_COPY_FILES := true
 BUILD_BROKEN_PREBUILT_ELF_FILES := true
+# Make rules defined twice.  Which rule needs it is not recorded; the blob
+# list of vendor/meizu/m5c installs several destinations twice, so this is a
+# candidate for removal once that list is deduplicated and a build confirms.
 BUILD_BROKEN_DUP_RULES := true
+# The MTK blobs read and set properties outside the vendor namespaces
+# (ro.mtk_*, persist.mtk.*, ril.*, af.*, ...), so sepolicy/vendor/
+# property_contexts has to name them.
 BUILD_BROKEN_VENDOR_PROPERTY_NAMESPACE := true

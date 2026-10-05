@@ -1,0 +1,20 @@
+# init: mount points of the MTK data partitions (mount_all, fstab.mt6735) and
+# the relabel of their roots (restorecon_recursive /nvdata).
+allow init nvdata_file:dir { mounton create_dir_perms relabelfrom relabelto };
+allow init nvdata_file:file { getattr setattr relabelfrom relabelto };
+allow init nvdata_file:lnk_file { create getattr };
+allow init protect_f_data_file:dir { mounton create_dir_perms relabelfrom relabelto };
+allow init protect_s_data_file:dir { mounton create_dir_perms relabelfrom relabelto };
+# init.rc writes discard_max_bytes of the userdata disk (mmcblk0 queue,
+# labelled sysfs_devices_block in genfs_contexts; census set 21).
+allow init sysfs_devices_block:file w_file_perms;
+# From the m95 template (MTK_SMI relabel, uevent socket, thermal proc,
+# last_kmsg, sensor/ccci attribute chown): rc actions on these run in
+# vendor_init on A13, so these grants are candidates for removal once a
+# census confirms init never uses them.
+allow init MTK_SMI_device:chr_file { getattr relabelfrom relabelto };
+allow init self:netlink_kobject_uevent_socket create_socket_perms_no_ioctl;
+allow init proc_mtk_thermal:file r_file_perms;
+allow init m5c_proc_last_kmsg:file { getattr setattr };
+allow init { sysfs_mtk_sensor sysfs_ccci }:file { getattr setattr };
+allow init sysfs_mtk_sensor:dir r_dir_perms;

@@ -1,33 +1,8 @@
-# M5c uses /data/nvram as a symlink to /nvdata.
-# Create the target and set permissions before starting NVRAM consumers.
 
 on post-fs-data
-    # nvram_daemon runs `cp fstab* -f /data/nvram/` from / and libnvram then
-    # parses /data/nvram/fstab.<ro.hardware> for the /nvram raw partition
-    # (FACT, strings: vendor/meizu/m5c/proprietary/bin/nvram_daemon has
-    # "cp fstab* -f /data/nvram/", proprietary/lib64/libnvram.so has
-    # "/data/nvram/fstab.%s").  On Android 13 / is the system image and
-    # fstab.mt6735 exists only in the boot ramdisk (FACT, build of 2026-09-17:
-    # installed-files-ramdisk.txt lists /ramdisk/fstab.mt6735, out/.../root/
-    # has no fstab), so the daemon's copy finds nothing.  On m95 the same wall
-    # made nvram_daemon exit 1 ("failed to read /data/nvram/fstab.mt6797"),
-    # service.nvram_init never became Ready, the audio HAL, ccci_mdinit, GPS
-    # and MAL waited on it, StartAudioService took 100 s and the Watchdog
-    # killed system_server in a loop.
     copy /vendor/etc/fstab.mt6735 /data/nvram/fstab.mt6735
     chmod 0644 /data/nvram/fstab.mt6735
 
-# nvram_daemon — restores the NVRAM records (IMEI, Wi-Fi/BT MAC, calibration)
-# from /nvdata and sets service.nvram_init=Ready; the modem chain and the BT
-# address below wait for it.  FACT (A13 boot of 2026-09-28): nothing defined
-# it, service.nvram_init stayed empty.  Definition = the LOS 16 one from this
-# device (forge-modem.rc of the LOS 16 vendor image,
-# captures/m5c-backup-20260928/custom.bin).  Its libraries (libnvram,
-# libcustom_nvram, libfile_op, libnvram_daemon_callback, libhwm, stock
-# libfs_mgr) are all in /vendor/lib.
-# oneshot: FACT (A13 boot of 2026-09-28 18:47) the daemon restores NVRAM and
-# exits with status 0 ("Service 'nvram_daemon' exited with status 0" every
-# ~10 s without it); m95 has it too (device/meizu/m95/rootdir/init.mt6797.rc:185).
 service nvram_daemon /vendor/bin/nvram_daemon
     class main
     user root
@@ -35,25 +10,25 @@ service nvram_daemon /vendor/bin/nvram_daemon
     oneshot
 
 # Bluetooth address from NVRAM (m95 lesson, device/meizu/m95 15d2dc9).
-# The AOSP BT HAL of this tree aborts with "No Bluetooth Address!" unless an
-# address property is set (hardware/interfaces/bluetooth/1.0/default/
-# vendor_interface.cc:217); m5c-bdaddr.sh publishes the NVRAM one as
-# persist.service.bdroid.bdaddr.  The HAL (user bluetooth) also reads BT_Addr
-# itself through libnvram (FACT: lib/libbluetooth_mtk.so NEEDED libnvram.so),
-# hence the regroup.  Both wait for NVRAM's own Ready flag: nvram_daemon
-# restores BT_Addr only after post-fs-data, and on m95 the publisher, started
-# earlier, found no file on a fresh /data and the HAL aborted ("Open: No
-# Bluetooth Address!", tombstone_18).
-# No seclabel and no domain yet: in permissive mode init only logs the missing
-# transition and runs the script in init's domain
-# (system/core/init/service.cpp:97-100).  An enforcing build needs a domain,
-# as m95 has (seclabel u:r:m95_bdaddr:s0).
-service m5c_bdaddr /vendor/bin/sh /vendor/bin/m5c-bdaddr.sh
+# The AOSP BT HAL aborts with "No Bluetooth Address!" without one
+# (hardware/interfaces/bluetooth/1.0/default/vendor_interface.cc:217);
+# m5c-bdaddr.sh writes the NVRAM address to /data/vendor/bluetooth/bdaddr,
+# named by ro.bt.bdaddr_path in vendor.prop (script header).  The HAL (user
+# bluetooth) also reads BT_Addr itself through libnvram (FACT:
+# lib/libbluetooth_mtk.so NEEDED libnvram.so), hence the regroup.  Both wait
+# for NVRAM's own Ready flag: nvram_daemon restores BT_Addr only after
+# post-fs-data, and on m95 a publisher started earlier found no file on a
+# fresh /data and the HAL aborted (tombstone_18).  The script is executed
+# directly, so init transitions to m5c_bdaddr on its exec label.
+service m5c_bdaddr /vendor/bin/m5c-bdaddr.sh
     class core
     user root
     group root bluetooth
     oneshot
     disabled
+
+on post-fs-data
+    mkdir /data/vendor/bluetooth 0770 bluetooth bluetooth
 
 on property:service.nvram_init=Ready
     chown root bluetooth /data/nvram/APCFG/APRDEB/BT_Addr

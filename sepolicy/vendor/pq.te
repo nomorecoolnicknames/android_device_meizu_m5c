@@ -1,0 +1,18 @@
+# pq: MTK picture-quality service (MiraVision) on /dev/graphics and
+# /proc/mtk_mira; publishes the PQ vndservice for the display, camera and codec
+# clients.
+type pq, domain;
+type pq_exec, exec_type, vendor_file_type, file_type;
+init_daemon_domain(pq)
+allow pq graphics_device:chr_file rw_file_perms;
+vndbinder_use(pq)
+add_service(pq, pq_vndservice)
+allow { mediacodec hal_camera_default hal_graphics_composer_default } pq_vndservice:service_manager find;
+binder_call({ mediacodec hal_camera_default hal_graphics_composer_default }, pq)
+# persist.sys.pq.* (m5c_pq_prop; census set 21: set persist.sys.pq.shp.idx).
+set_prop(pq, m5c_pq_prop)
+# DISP_IOCTL_* of the MTK display driver ('x'); seen in census set 21:
+# 0x7817 0x7818 0x783c 0x7840 0x7841 0x7843 0x7845.  pq is the only client of
+# /proc/mtk_mira.
+allow pq m5c_proc_mira:file rw_file_perms;
+allowxperm pq m5c_proc_mira:file ioctl { 0x7800-0x78ff };

@@ -1,31 +1,9 @@
-#
-# system.prop for the Meizu M5c (m5c, M710H) — LineageOS 20.0
-#
-# Only framework-side / system-partition properties belong here.  MTK hardware
-# knobs live in vendor.prop (TARGET_VENDOR_PROP).
-#
-# Deliberately NOT carried from the 14.1/16 system.prop:
-#   ro.product.brand / manufacturer / model / name / device / board
-#     -> these are generated from PRODUCT_* by build/make/core/sysprop.mk:40-50
-#        as ro.product.system.*; repeating them here is a duplicate-sysprop
-#        error in Android 13 unless BUILD_BROKEN_DUP_SYSPROP is set, and there
-#        is no reason to set it.
-#   ro.telephony.ril_class=MT6735
-#     -> BOARD_RIL_CLASS / ril_class has been dead since Android 9
-#        (M5C_LOS16_TREBLE_PLAN.md §4.6); leaving it in only misleads readers.
-#   debug.hwui.render_dirty_regions
-#     -> no such knob exists in modern hwui; it was already a dead property on
-#        Nougat.  The live replacement on this device is
-#        debug.hwui.use_partial_updates (see vendor.prop; until 2026-09-16 this
-#        tree misspelled it "debug.hwui.partial_updates", a name hwui never
-#        reads — frameworks/base/libs/hwui/Properties.h:124) — kept because the
-#        Mali-T720 blob advertises EGL_BUFFER_PRESERVED and does not honour it,
-#        which shows up as a horizontal stitch mid-fling.
 
 # Display density for a 720x1280 panel
 ro.sf.lcd_density=320
 
-# No capacitive nav bar is wired on this unit -> software keys
+# On-screen navigation bar: the front mBack key gives only Home (press, mtk-kpd)
+# and Back (touch, mtk-tpd-kpd), no Recents.
 qemu.hw.mainkeys=0
 
 # GLES 3.0 (Mali-T720)
@@ -34,5 +12,17 @@ ro.opengles.version=196608
 # Tethering
 net.tethering.noprovisioning=true
 
-# Media / DRM: Widevine on this SoC is L3 only
+# Legacy drmserver (not started by default on Android 13).  It loads plugins
+# from /system/lib*/drm only (frameworks/av/drm/drmserver/DrmManager.cpp:214);
+# the one there is AOSP's forward-lock engine, libfwdlockengine (OMA DRM v1
+# ringtones/MMS; installed-files.txt).  The stock Widevine classic plugin is
+# not shipped (vendor/meizu/m5c m5c-vendor-blobs.mk).  Kept as m2note/m5s.
 drm.service.enabled=true
+
+# mtk-ril.so logs at DEBUG under the tags AT and RIL: whole AT traffic
+# (dialled and calling numbers, USSD, SMS PDUs), ICCID, IMSI and IMEI (set 23
+# census, counts only).  A13 liblog drops a line below the tag's level before
+# it reaches logd or pmsg (system/logging/liblog/logger_write.cpp:319-372).
+# For a debugging session: setprop log.tag.AT D (and RIL), back to I after.
+log.tag.AT=I
+log.tag.RIL=I

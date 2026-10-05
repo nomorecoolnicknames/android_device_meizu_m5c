@@ -1,8 +1,4 @@
 #!/bin/sh
-# Verify the prebuilt against the supplied MD5/VERSION expectations.
-# Success is silent; stdout on mismatch makes BoardConfig reject the input.
-# Usage: check_prebuilt_kernel.sh IMAGE EXPECTATIONS
-
 set -u
 IMG=$1
 EXP=$2

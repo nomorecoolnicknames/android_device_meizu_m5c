@@ -1,0 +1,24 @@
+# MTK rild (/vendor/bin/hw/rild, AOSP label rild_exec) with mtk-ril.so.
+allow rild ccci_device:chr_file rw_file_perms;
+allow rild sysfs_ccci:dir search;
+allow rild sysfs_ccci:file r_file_perms;
+allow rild radio_device:dir r_dir_perms;
+allow rild radio_device:lnk_file r_file_perms;
+allow rild devpts:chr_file rw_file_perms;
+allow rild pmsg_device:chr_file w_file_perms;
+allow rild self:capability sys_resource;
+r_dir_file(rild, nvdata_file)
+allow rild nvdata_file:file rw_file_perms;
+get_prop(rild, nvram_prop)
+# ril.active.md and friends (census set 21: set of mtk_md_prop).
+set_prop(rild, mtk_md_prop)
+set_prop(rild, ctl_mtk_radio_prop)
+set_prop(rild, m5c_mtk_ril_prop)
+# ICCID / serial properties of mtk-ril (property_contexts: m5c_iccid_prop).
+set_prop(rild, m5c_iccid_prop)
+# init creates /dev/socket/rild-mal (socket line of ril-daemon-mtk); rild
+# unlinks it and binds its own at the same path (census set 21: unlink,
+# create in socket_device), which keeps the rild_mal_socket label.
+type_transition rild socket_device:sock_file rild_mal_socket "rild-mal";
+allow rild socket_device:dir rw_dir_perms;
+allow rild rild_mal_socket:sock_file create_file_perms;

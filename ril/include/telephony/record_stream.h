@@ -40,4 +40,3 @@ extern int record_stream_get_next (RecordStream *p_rs, void ** p_outRecord,
 
 
 #endif /*_LIBRIL_RECORD_STREAM_H*/
-

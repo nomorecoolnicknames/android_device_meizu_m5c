@@ -1,35 +1,6 @@
-# init.m5c.modem.rc — modem and RIL chain of the m5c on Android 13.
-# Lane flash-m5c, 2026-09-28.
-#
-# FACT (A13 boot of 2026-09-28): nothing brought the modem up — no ccci_*,
-# mux or MTK rild defined; the AOSP rild of hardware/ril sat in "RIL_Init
-# starting sleep loop" (mtk-ril.so has only RIL_InitSocket and was not even
-# installed), both phones OUT_OF_SERVICE.
-#
-# This is the LOS 16 chain of this device (forge-modem.rc of the LOS 16
-# vendor image, captures/m5c-backup-20260928/custom.bin), with which SIM,
-# calls and data worked (FLEET_MATRIX.md §3 rows 6/7/9); the ordering facts
-# in its comments were measured on this hardware and are kept short here:
-#  - ril.muxreport seeded to 0: otherwise the MTK libril's "reset modem once
-#    after boot" (onNewCommandConnect) takes the whole modem down;
-#  - ccci_mdinit must run as root and only after NVRAM is ready;
-#  - gsm0710muxd waits for the modem's second handshake (md_hs2_msg_notify)
-#    before it starts, or its 10 s "+EIND: 128" window can expire on a late
-#    modem -> ASSERT -> muxreport resets the modem;
-#  - the RIL starts when the mux runs; muxreport only when the RIL asks for it.
-# nvram_daemon itself is in init.m5c.nvram.rc.  The RIL daemon is the MTK
-# Oreo rild of device/meizu/m5c/ril (ENABLE_VENDOR_RIL_SERVICE); the service
-# keeps the name ril-daemon-mtk because ccci_mdinit start/stops it by that
-# name (strings).  No `override`: nothing else defines these names on A13.
 
 on post-fs-data
     setprop ril.muxreport 0
-    # gsm0710muxd links its channel ptys under /dev/radio (pttycmd1, ...).
-    # FACT (A13 boot 2026-09-28 20:47, set 8): without the directory every
-    # channel failed "setup_pty_interface(): system-error: 'No such file or
-    # directory'" -> "ASSERT : ERROR_CODE=17", although the modem had passed
-    # both handshakes and the mux had opened /dev/pts/0..11.  LOS 16 made it in
-    # init.mt6735.rc on post-fs-data ("create for muxd pts device node").
     mkdir /dev/radio 0770 radio radio
     mkdir /data/nvram/md 0770 root system
     mkdir /data/ccci_cfg 0770 system radio
@@ -60,8 +31,7 @@ service ccci_mdinit /vendor/bin/ccci_mdinit 0
 on property:service.nvram_init=Ready
     start ccci_mdinit
 
-# No '$' anywhere in the command: init expands $x as a property name.
-service gsm0710muxd /system/bin/sh -c "timeout 30 sh -c 'while ! dmesg | grep -q md_hs2_msg_notify; do sleep 1; done'; exec /vendor/bin/gsm0710muxd -s /dev/ttyC0 -f 512 -n 8 -m basic"
+service gsm0710muxd /vendor/bin/m5c-muxd.sh
     class main
     user root
     group radio cache inet misc
@@ -86,13 +56,12 @@ on property:mtk.md1.status=init_done
     chown radio radio /dev/ttyC0
     start terservice
     start gsm0710muxd
+    start ril-daemon-mtk
 
 on property:mtk.md1.status=ready
     chown radio radio /dev/ttyC0
     start terservice
     start gsm0710muxd
-
-on property:init.svc.gsm0710muxd=running
     start ril-daemon-mtk
 
 on property:ril.muxreport=1

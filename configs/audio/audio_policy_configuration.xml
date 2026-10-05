@@ -1,36 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<!-- Audio policy configuration for the Meizu M5c (m5c, MT6737M), Android 13.
 
-     Converted from the stock Nougat audio_policy.conf of this device
-     (configs/audio/audio_policy.conf, primary module); the layout follows the
-     m95 conversion (device/meizu/m95/audio/audio_policy_configuration.xml,
-     whose notes on the fallback and on the renamed devices apply here too).
-     Android 10+ has no .conf parser, so without this file AudioPolicyManager
-     falls back to AudioPolicyConfig::setDefault().
-
-     FACT (A13 boot of 2026-09-28, set 9): /vendor/etc had only
-     audio_policy.conf; `dumpsys media.audio_policy` listed no module, and
-     system_server logged "AudioSystem::listAudioPorts error -19" every 100 ms.
-
-     Differences from the stock conf, all forced by the Android 13 parser
-     (an unknown name makes it reject the whole file):
-     * AUDIO_DEVICE_IN_MATV dropped (MediaTek extension, no such enum).
-     * AUDIO_DEVICE_OUT_DEFAULT / AUDIO_DEVICE_IN_DEFAULT dropped: not devices.
-     * Canonical spellings of plain aliases (same numeric values):
-         AUDIO_DEVICE_IN_VOICE_CALL   -> AUDIO_DEVICE_IN_TELEPHONY_RX
-         AUDIO_DEVICE_IN_AUX_DIGITAL  -> AUDIO_DEVICE_IN_HDMI
-         AUDIO_DEVICE_OUT_AUX_DIGITAL -> AUDIO_DEVICE_OUT_HDMI
-       and AUDIO_DEVICE_OUT_ALL_SCO / AUDIO_DEVICE_IN_ALL_SCO spelled out as
-       the SCO devices they stand for.
-     * No speaker_drc_enabled: the stock conf does not set it (legacy default
-       false).
-     Kept verbatim: the single primary output (44100 Hz stereo, PCM 16 and
-     32 bit, AUDIO_OUTPUT_FLAG_PRIMARY, no fast or offload output), the input
-     rates/masks/format, and the headset/headphone/primary gain ranges.
-     Device-port profiles are not in the conf; they are the m95 ones, cut to
-     what the mix ports here can feed.  a2dp/usb/r_submix are 2.0 modules in
-     the conf and come from the AOSP include files, as on m95.
--->
 
 <audioPolicyConfiguration version="1.0" xmlns:xi="http://www.w3.org/2001/XInclude">
     <globalConfiguration speaker_drc_enabled="false"/>
@@ -209,7 +178,7 @@
             </routes>
         </module>
 
-        <xi:include href="a2dp_audio_policy_configuration.xml"/>
+
         <xi:include href="usb_audio_policy_configuration.xml"/>
         <xi:include href="r_submix_audio_policy_configuration.xml"/>
     </modules>

@@ -4,7 +4,7 @@ Device configuration for **Meizu M5c (m5c, MT6737M)**. Branch: **`lineage-20-tre
 
 **Port status:** Android 13 boots on Linux 4.9, with working display, touch and ADB. Other subsystems are at different stages; see the table below.
 
-Hardware observations are from the development port as of **2026-09-29**, including changes newer than this published source snapshot. They are not a fresh test of this exact branch tip.
+Hardware observations are from the development port as of **2026-09-29**, The current source snapshot additionally includes the changes listed below; those source changes have not received a new complete physical acceptance pass. They are not a fresh test of this exact branch tip.
 
 ## Components
 
@@ -43,10 +43,16 @@ mka bacon
 
 ## Next steps
 
-Publish and rebuild the latest runtime fixes, complete camera and microphone support, then test Wi-Fi association, Bluetooth pairing, cellular traffic/calls, GPS fix and deep suspend. SELinux enforcing remains a separate milestone.
+Rebuild the current source selection, complete camera and microphone support, then test Wi-Fi association, Bluetooth pairing, cellular traffic/calls, GPS fix and deep suspend. SELinux enforcing remains a separate milestone.
 
 The [ReMeizu overview](https://github.com/nomorecoolnicknames/remeizu/blob/main/PROJECT_STATUS.md) tracks the whole device family; the [source index](https://github.com/nomorecoolnicknames/remeizu/blob/main/SOURCE_INDEX.md) links related device, common and kernel trees.
 
 ## Credits
 
 Based on Android, CyanogenMod / LineageOS and MediaTek device support, with contributors retained in Git history. Keep the original copyright and license notices. Vendor firmware and libraries are separate inputs with their own licenses.
+
+## Current source changes
+
+The tree selects the source-built 4.9.188 kernel with CIRQ initialization fixes and guarded SPM low-power entry. Kernel identity is pinned in `prebuilt-kernel/EXPECTED.txt`; the binary remains an external input. Init uses ondemand with a 1248 MHz cap because interactive frequency scaling is not qualified on this kernel. Firmware loads from `/vendor/firmware`; SPM debug PCM nodes are restricted to root because reading them can panic the kernel. These are source changes, not evidence that suspend, charging, thermals or performance are complete.
+
+The matching vendor tree also supplies restricted MediaTek GPS/RIL inputs and vendor libraries. Files marked confidential/proprietary remain separate; the public RIL and compatibility sources retain their original Android/MediaTek copyright and licensing notices.

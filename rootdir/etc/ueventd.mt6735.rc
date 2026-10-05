@@ -1,26 +1,3 @@
-# ueventd.rc (installed as /vendor/etc/ueventd.rc) — Meizu M5c, LOS 20 Treble.
-# Lane flash-m5c, 2026-09-28: taken verbatim from the ueventd.mt6735.rc of the
-# working LOS 16 boot ramdisk on this unit (4.9.188-m5c+ #22; boot partition
-# dump sha256 6c149be6…, captures/m5c-backup-20260928/boot.bin).  A13 ueventd
-# reads /vendor/etc/ueventd.rc after /system/etc/ueventd.rc; with
-# first_stage_mount /vendor is mounted before ueventd starts, so the LOS 16
-# remark below about the vendor copy being unreadable no longer applies — the
-# firmware_directories line works from here.
-#
-# forge (2026-09-03, los16-modem-gps): the MD image is loaded by the KERNEL
-# (ccci_util_lib_load_img.c request_firmware) and the kernel's own fw_path[]
-# is /lib/firmware* only, so the load always goes through the ueventd
-# fallback, whose list is /etc/firmware /odm/firmware /vendor/firmware
-# /firmware/image (system/core/rootdir/ueventd.rc). m5c-vendor-blobs.mk puts
-# modem_*/dsp_*/catcher_* in /vendor/etc/firmware (ccci_mdinit probes
-# /custom/etc/firmware first) - not in that list, hence
-#   ueventd: firmware: could not find firmware for modem_1_lwg_n.img
-#   [ccci1/FSM] MD_BOOT_HS1_FAIL!   (dmesg 2026-09-03, both boots)
-# firmware_directories APPENDS (ueventd_parser.cpp). /vendor/ueventd.rc cannot
-# carry this: ueventd starts in early-init, before /vendor is mounted on this
-# no-first-stage-mount device. The vendor image also gets a
-# /vendor/firmware -> etc/firmware symlink (firmware-link/Android.mk) so a
-# boot.img without this line still finds the image via /vendor/firmware/.
 firmware_directories /vendor/etc/firmware/
 
 #change partition permission
@@ -59,13 +36,6 @@ firmware_directories /vendor/etc/firmware/
 # WIFI
 /dev/wmtWifi              0660   wifi       system
 
-# FMRadio
-/dev/fm                   0660   media     media
-
-# NFC
-/dev/msr3110              0666   root       root
-/dev/mt6605               0660   nfc        radio
-
 # MTK BTIF driver
 /dev/btif                 0600   system     system
 
@@ -97,12 +67,6 @@ firmware_directories /vendor/etc/firmware/
 /dev/ccci_aud             0660   audio      audio
 /dev/ccci2_aud            0660   audio      audio
 /dev/eemcs_aud            0660   audio      audio
-/dev/irtx                 0660   system     system
-/dev/ir-learning          0660   system     system
-
-# SGX device node
-/dev/pvrsrvkm             0666   root       root
-/dev/pvr_sync             0666   root       root
 
 
 #lsm modify start
@@ -125,13 +89,6 @@ firmware_directories /vendor/etc/firmware/
 /dev/mtgpio               0600   radio      root
 
 
-#FOR VIA MODEM
-/dev/ttySDIO*             0660   radio      sdcard_rw
-/dev/ttyRB*               0660   radio      radio
-
-# Mali node
-/dev/mali                 0666   system     graphics
-
 # Change ION driver permission
 /dev/ion                  0666   system     graphics
 
@@ -146,16 +103,41 @@ firmware_directories /vendor/etc/firmware/
 #MTK In-House TEE
 /dev/ttyACM0              0660   radio      radio
 
-# --- flash-m5c 2026-09-28, first A13 boot: display/GPU nodes of the 4.9 kernel.
-# FACT (boot 1): /dev/mali0 came up crw------- root root; SurfaceFlinger's
-# Mali DDK then logs "The DDK is not compatible with any of the Mali GPUs on
-# the system" and RenderEngine aborts "no suitable EGLConfig found".  The
-# /dev/mali line above is the 3.18 name; LOS 16 on 4.9 fixed the node with
-# `chmod 666 /dev/mali0` and the display nodes with chown/chmod in
-# init.mt6735.rc:173 and :328-343 — the ueventd form is what m95 uses
-# (device/meizu/m95/rootdir/ueventd.mt6797.rc:99,133).
 /dev/mali0                0666   system     graphics
 /dev/mtk_disp_mgr         0660   system     graphics
 /dev/mtkfb_vsync          0660   system     graphics
 /dev/sw_sync              0660   system     graphics
 /dev/graphics/fb0         0660   system     graphics
+
+/dev/hwmsensor            0660   system     system
+/dev/gsensor              0660   system     system
+/dev/msensor              0660   system     system
+/dev/gyroscope            0660   system     system
+/dev/als_ps               0660   radio      system
+/dev/aal_als              0660   system     system
+/dev/kd_camera_hw         0660   system     camera
+/dev/kd_camera_hw_bus2    0660   system     camera
+/dev/kd_camera_flashlight 0660   system     camera
+/dev/camera-sysram        0660   system     camera
+/dev/camera-isp           0660   system     camera
+/dev/camera-fdvt          0660   system     camera
+/dev/camera-pipemgr       0660   system     camera
+/dev/CAM_CAL_DRV          0660   system     camera
+/dev/MAINAF               0660   system     camera
+/dev/DW9714AF             0660   system     camera
+/dev/S5K4H8_*_OTP         0660   system     camera
+/dev/S5K5E8_*_OTP         0660   system     camera
+/dev/Vcodec               0660   media      camera
+/dev/MTK_SMI              0660   media      media
+/dev/MJC                  0660   media      system
+/dev/mt-mdp               0660   system     media
+/dev/mtk_sched            0660   system     media
+/dev/ebc                  0660   media      media
+/dev/offloadservice       0640   media      media
+/dev/uibc                 0660   system     media
+/dev/fm                   0660   system     media
+/dev/mtk_cmdq             0640   system     system
+/dev/devmap               0444   root       system
+/dev/md32                 0440   root       system
+/dev/sec                  0660   root       system
+/dev/m4u                  0444   root       root

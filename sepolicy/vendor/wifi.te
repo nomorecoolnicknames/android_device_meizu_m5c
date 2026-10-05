@@ -1,0 +1,6 @@
+# Wi-Fi: /dev/wmtWifi switches the WLAN function of the combo chip on and off
+# (written by the Wi-Fi HAL, and by system_server's legacy path).
+allow hal_wifi_default wmtWifi_device:chr_file rw_file_perms;
+get_prop(hal_wifi_default, wmt_prop)
+allow system_server wmtWifi_device:chr_file rw_file_perms;
+get_prop(system_server, wmt_prop)

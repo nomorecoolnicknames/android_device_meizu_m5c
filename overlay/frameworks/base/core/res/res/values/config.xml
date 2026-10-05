@@ -1,27 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-     Device overlay for the Meizu M5c (m5c, M710H) — LineageOS 20.0.
 
-     Every value here is carried from the 14.1 overlay that runs on the device
-     today (<private-workspace>/m5c/android_device_meizu_m5c/overlay/
-     frameworks/base/core/res/res/values/config.xml).  Names were checked
-     one by one against this tree's frameworks/base/core/res/res/values before
-     being copied; the following entries from the 14.1 overlay were DROPPED
-     because the resource no longer exists in Android 13 and an unknown name
-     is an aapt2 error, not a no-op:
-
-       config_wifi_background_scan_support   (gone)
-       config_dozeAfterScreenOff             (gone)
-       config_intrusiveBatteryLed            (gone)
-       config_deviceHardwareKeys             (moved to lineage-sdk — it is
-                                              overlaid in the lineage-sdk
-                                              overlay next to this file)
-
-     Not carried on purpose:
-       config_wifi_dual_band_support — MT6735 CONSYS is 2.4 GHz only on this
-       unit; the 14.1 value was copy-paste from another board.  HYPOTHESIS to
-       disprove if 5 GHz ever appears in a scan.
--->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
 
     <!-- Backlight: measured LUX/backlight pairs from the 14.1 tree. -->
@@ -104,10 +82,7 @@
     <!-- No double-tap-to-wake support in the ILI9881C / GT917D stack. -->
     <bool name="config_supportDoubleTapWake">false</bool>
 
-    <!-- RGB notification LED exists in hardware but is NOT yet driven by the
-         4.9 kernel (component matrix 2026-09-03: "RGB-индикатор — не заведён
-         в 4.9").  The setting is left on so the UI appears once the driver
-         lands; if it stays dark this is the line to flip. -->
+
     <bool name="config_intrusiveNotificationLed">true</bool>
     <color name="config_defaultNotificationColor">#ff0000ff</color>
 

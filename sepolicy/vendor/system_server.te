@@ -1,0 +1,5 @@
+# /proc/last_kmsg (previous-boot console, read by the boot-reason/dropbox path).
+allow system_server m5c_proc_last_kmsg:file r_file_perms;
+# InputReader reads /sys/board_properties/virtualkeys.mtk-tpd (census set 21).
+allow system_server m5c_sysfs_virtualkeys:dir search;
+allow system_server m5c_sysfs_virtualkeys:file r_file_perms;

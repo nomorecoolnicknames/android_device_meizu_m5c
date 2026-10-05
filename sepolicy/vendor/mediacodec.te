@@ -1,0 +1,7 @@
+allow mediacodec video_device:chr_file rw_file_perms;
+allow mediacodec mtk_m4u_proc:file rw_file_perms;
+allow mediacodec { MTK_SMI_device gpu_device }:chr_file rw_file_perms;
+allow mediacodec sysfs:file r_file_perms;
+allow mediacodec devmap_device:chr_file r_file_perms;
+allow mediacodec proc_cmdq:file r_file_perms;
+allow mediacodec sysfs_dev_info:file r_file_perms;

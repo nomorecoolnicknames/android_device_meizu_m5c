@@ -1,0 +1,15 @@
+# The WMT/Wi-Fi driver reads its NVRAM record (/data/nvram/APCFG/...) from a
+# kernel thread (mtk_wmtd), following the /data/nvram symlink (census set 21).
+allow kernel nvdata_file:dir search;
+allow kernel nvdata_file:file r_file_perms;
+allow kernel nvdata_file:lnk_file read;
+# From the m95 template (kernel threads opening files they do not own).
+dontaudit kernel self:capability dac_override;
+# Direct firmware loading (firmware_class.path=/vendor/firmware, init.mt6735.rc
+# early-init): the firmware cache of each suspend attempt re-reads
+# /vendor/firmware/pcm_*_2.bin from a kworker, i.e. in the kernel domain.
+# Platform policy grants vendor_configs_file (/vendor/etc/firmware, the modem
+# files behind the links) and vendor_file_type:lnk_file to every domain, but
+# vendor_file:file only to vendor domains; the coredomain neverallow on
+# vendor_file exempts kernel (private/domain.te:473-487).
+allow kernel vendor_file:file r_file_perms;

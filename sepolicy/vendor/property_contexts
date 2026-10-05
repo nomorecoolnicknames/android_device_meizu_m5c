@@ -1,0 +1,94 @@
+# MTK property names used by the m5c blobs, rc files and vendor.prop.
+# Scheme as m95 (device/meizu/m95/sepolicy/vendor/property_contexts).
+persist.mtk.wcn.        u:object_r:wmt_prop:s0
+service.wcn.            u:object_r:wmt_prop:s0
+mediatek.wlan.          u:object_r:wmt_prop:s0
+mnld.                   u:object_r:mnld_prop:s0
+persist.mnld.           u:object_r:mnld_prop:s0
+ril.active.md           u:object_r:mtk_md_prop:s0
+mtk.md                  u:object_r:mtk_md_prop:s0
+net.cdma.mdmstat        u:object_r:mtk_md_prop:s0
+service.nvram_init      u:object_r:nvram_prop:s0
+ctl.ccci                u:object_r:ctl_mtk_radio_prop:s0
+ctl.ril-                u:object_r:ctl_mtk_radio_prop:s0
+ctl.gsm0710muxd         u:object_r:ctl_mtk_radio_prop:s0
+ctl.muxreport           u:object_r:ctl_mtk_radio_prop:s0
+ctl.start$ril-daemon-mtk   u:object_r:ctl_mtk_radio_prop:s0
+ctl.stop$ril-daemon-mtk    u:object_r:ctl_mtk_radio_prop:s0
+ctl.start$muxreport-daemon u:object_r:ctl_mtk_radio_prop:s0
+ctl.stop$muxreport-daemon  u:object_r:ctl_mtk_radio_prop:s0
+ctl.start$gsm0710muxd      u:object_r:ctl_mtk_radio_prop:s0
+ctl.stop$gsm0710muxd       u:object_r:ctl_mtk_radio_prop:s0
+nosecure.akm.           u:object_r:m5c_sensor_prop:s0
+persist.sys.pq.         u:object_r:m5c_pq_prop:s0
+debug.pq.               u:object_r:m5c_pq_prop:s0
+ro.mtk_pq               u:object_r:m5c_pq_prop:s0
+ro.mtk_                 u:object_r:m5c_mtk_config_prop:s0
+ro.mediatek.            u:object_r:m5c_mtk_config_prop:s0
+ro.meizu.               u:object_r:m5c_mtk_config_prop:s0
+ro.product.flyme.       u:object_r:m5c_mtk_config_prop:s0
+persist.mtk_            u:object_r:m5c_mtk_config_prop:s0
+persist.mtk.            u:object_r:m5c_mtk_config_prop:s0
+persist.gemini.         u:object_r:m5c_mtk_config_prop:s0
+ro.gemini.              u:object_r:m5c_mtk_config_prop:s0
+mtk.eccci.              u:object_r:m5c_mtk_config_prop:s0
+ro.telephony.sim.count  u:object_r:m5c_mtk_config_prop:s0
+rild.libpath            u:object_r:m5c_mtk_config_prop:s0
+rild.libargs            u:object_r:m5c_mtk_config_prop:s0
+ril.first.md            u:object_r:m5c_mtk_ril_prop:s0
+ril.external.md         u:object_r:m5c_mtk_ril_prop:s0
+ril.telephony.mode      u:object_r:m5c_mtk_ril_prop:s0
+ril.specific.           u:object_r:m5c_mtk_ril_prop:s0
+ril.current.share_modem u:object_r:m5c_mtk_ril_prop:s0
+ril.mux                 u:object_r:m5c_mtk_ril_prop:s0
+ril.getccci.response    u:object_r:m5c_mtk_ril_prop:s0
+ril.pid.                u:object_r:m5c_mtk_ril_prop:s0
+ril.phone1.mapped.md    u:object_r:m5c_mtk_ril_prop:s0
+ril.phone2.mapped.md    u:object_r:m5c_mtk_ril_prop:s0
+ril.emulation.userload  u:object_r:m5c_mtk_ril_prop:s0
+persist.radio.mtk_      u:object_r:m5c_mtk_ril_prop:s0
+persist.radio.fd.       u:object_r:m5c_mtk_ril_prop:s0
+af.modem_               u:object_r:m5c_audio_hal_prop:s0
+af.recovery.            u:object_r:m5c_audio_hal_prop:s0
+af.rf_                  u:object_r:m5c_audio_hal_prop:s0
+af.ril.                 u:object_r:m5c_audio_hal_prop:s0
+af.mixer.               u:object_r:m5c_audio_hal_prop:s0
+af.track.               u:object_r:m5c_audio_hal_prop:s0
+af.karaoke.             u:object_r:m5c_audio_hal_prop:s0
+af.resouce.             u:object_r:m5c_audio_hal_prop:s0
+persist.af.             u:object_r:m5c_audio_hal_prop:s0
+persist.camera.         u:object_r:m5c_camera_prop:s0
+ctl.start$akmd09911     u:object_r:m5c_ctl_sensor_prop:s0
+ctl.stop$akmd09911      u:object_r:m5c_ctl_sensor_prop:s0
+ctl.start$akmd09912     u:object_r:m5c_ctl_sensor_prop:s0
+ctl.stop$akmd09912      u:object_r:m5c_ctl_sensor_prop:s0
+ctl.start$geomagneticd  u:object_r:m5c_ctl_sensor_prop:s0
+ctl.stop$geomagneticd   u:object_r:m5c_ctl_sensor_prop:s0
+ctl.start$orientationd  u:object_r:m5c_ctl_sensor_prop:s0
+ctl.stop$orientationd   u:object_r:m5c_ctl_sensor_prop:s0
+persist.radio.default.sim   u:object_r:m5c_mtk_ril_prop:s0 exact string
+persist.radio.mobile.data   u:object_r:m5c_mtk_ril_prop:s0 exact string
+
+# ro.wlan.mtk.wifi.5g: set by nvram_daemon from NVRAM; no other blob names it
+# (grep -a over vendor, system/lib*, framework).  Fell on default_prop.
+ro.wlan.mtk.wifi.5g     u:object_r:m5c_wlan_prop:s0 exact string
+# msensord ctl.start's the compass daemon the kernel names in
+# /sys/bus/platform/drivers/msensor/daemon (akmd09912 on this unit) and polls
+# init.svc.<name> ("init.svc.%s" in the blob) until it runs; those names fell on
+# init_service_status_private_prop, which a vendor domain may not read.
+init.svc.akmd09911      u:object_r:m5c_sensor_svc_prop:s0 exact string
+init.svc.akmd09912      u:object_r:m5c_sensor_svc_prop:s0 exact string
+init.svc.geomagneticd   u:object_r:m5c_sensor_svc_prop:s0 exact string
+init.svc.orientationd   u:object_r:m5c_sensor_svc_prop:s0 exact string
+
+# Identifiers mtk-ril.so publishes as properties (strings of the blob).  On
+# the platform "ril."/"gsm."/"persist.radio" they are radio_prop, which every
+# app may read (checkpolicy on the compiled policy: untrusted_app radio_prop
+# file { read open getattr map }).  Only rild sets and reads them (mtk-ril,
+# and our libril's isInitialAttachApn); effective under enforcing only.
+ril.iccid.              u:object_r:m5c_iccid_prop:s0
+ril.ia.iccid            u:object_r:m5c_iccid_prop:s0 exact string
+persist.radio.data.iccid        u:object_r:m5c_iccid_prop:s0 exact string
+persist.radio.simswitch.iccid   u:object_r:m5c_iccid_prop:s0 exact string
+persist.radio.capability.iccid  u:object_r:m5c_iccid_prop:s0 exact string
+gsm.serial              u:object_r:m5c_iccid_prop:s0 exact string

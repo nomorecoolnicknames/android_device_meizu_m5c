@@ -1312,4 +1312,3 @@ int RIL_get3GSimInfo();
 #endif
 
 #endif /*MTK_RIL_H*/
-

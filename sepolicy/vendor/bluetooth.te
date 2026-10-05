@@ -1,0 +1,26 @@
+# Bluetooth: the 32-bit HAL service (android.hardware.bluetooth@1.1-service.m5c)
+# over libbt-vendor, and m5c-bdaddr.sh, which publishes the factory address.
+allow hal_bluetooth_default stpbt_device:chr_file rw_file_perms;
+get_prop(hal_bluetooth_default, wmt_prop)
+# libbt-vendor reads the BT NVRAM records (BT_Addr, radio settings), through
+# the /data/nvram symlink and the raw nvram partition (census set 21).
+get_prop(hal_bluetooth_default, nvram_prop)
+r_dir_file(hal_bluetooth_default, nvdata_file)
+allow hal_bluetooth_default nvram_device:blk_file rw_file_perms;
+allow hal_bluetooth_default kmsg_device:chr_file getattr;
+# The address file named by ro.bt.bdaddr_path.
+allow hal_bluetooth_default m5c_bt_data_file:dir search;
+allow hal_bluetooth_default m5c_bt_data_file:file r_file_perms;
+
+# m5c-bdaddr.sh (init.m5c.nvram.rc): reads BT_Addr from NVRAM and writes
+# /data/vendor/bluetooth/bdaddr.  The script carries its own exec type, so
+# init transitions on exec (m95: m95_bdaddr).
+type m5c_bdaddr, domain;
+init_daemon_domain(m5c_bdaddr)
+allow m5c_bdaddr vendor_shell_exec:file rx_file_perms;
+allow m5c_bdaddr vendor_toolbox_exec:file rx_file_perms;
+allow m5c_bdaddr nvdata_file:dir search;
+allow m5c_bdaddr nvdata_file:lnk_file read;
+allow m5c_bdaddr nvdata_file:file r_file_perms;
+allow m5c_bdaddr m5c_bt_data_file:dir rw_dir_perms;
+allow m5c_bdaddr m5c_bt_data_file:file create_file_perms;

@@ -2,31 +2,44 @@
  * forge_hwc — hwcomposer.mt6737m for the Meizu m5c on the forge 4.9 kernel.
  *
  * HWC1 (HWC_DEVICE_API_VERSION_1_1) facade over the NATIVE 4.9 mtk_disp_mgr
- * session ABI.  The vendor 3.18-built blob is broken against this kernel
- * (frames stall inside its internal queues, root cause never established);
- * this module replaces it with the minimal correct pipeline:
+ * session ABI; Android 13 loads it through composer@2.1-service and
+ * HWC2On1Adapter.  The vendor 3.18-built blob is broken against this kernel
+ * (frames stall inside its internal queues, root cause never established;
+ * on A13 it also aborts in GameDetector, vendor/meizu/m5c
+ * m5c-vendor-blobs.mk).  Pipeline:
  *
- *   prepare(): every layer -> HWC_FRAMEBUFFER (SurfaceFlinger composes
- *              everything with GLES into the framebuffer target).
- *   set():     wait FBT acquire fence (the kernel does not consume
+ *   prepare(): layers go to hardware overlays (OVL, up to 4 planes) only as
+ *              a contiguous run from the top of the z-order and only if
+ *              unscaled, unrotated, on-screen and of a mapped format
+ *              (layer_fits_overlay); the rest is HWC_FRAMEBUFFER, composed
+ *              by SurfaceFlinger with GLES into the FBT, which then takes
+ *              OVL 0.  All layers fit -> no FBT at all.
+ *   set():     wait every plane's acquire fence (the kernel does not consume
  *              src_fence_fd, verified: no reader outside compat conversion)
  *              -> PREPARE_INPUT_BUFFER(204)  ion_fd -> buff idx + release fence
  *              -> GET_PRESENT_FENCE(217)     -> retire fence + idx
- *              -> SET_INPUT_BUFFER(206)      native 12-layer struct, L0 only
+ *              -> SET_INPUT_BUFFER(206)      native 12-layer struct, <= 4 used
  *              -> TRIGGER_SESSION(203)       with present_fence_idx
  *   vsync:     dedicated thread blocking in WAIT_FOR_VSYNC(213).
  *   blank():   FBIOBLANK on fb0 (mtkfb_blank -> primary_display_suspend/resume).
  *
- * Design note: everything version-specific to Android N lives in the thin
- * HWC1 facade at the bottom of this file; the engine (open/session/frame/
- * vsync/power) talks only to the kernel UAPI in disp_session_uapi.h and is
- * meant to be reused behind an HWC2 facade (or hwc2on1adapter) on the
- * LOS 15.1 -> 16 -> 18.1 ladder with this same 4.9 kernel.
+ * The engine (open/session/frame/vsync/power) talks only to the kernel UAPI
+ * in disp_session_uapi.h; everything Android-specific is the HWC1 facade at
+ * the bottom of this file.
  *
- * Buffer handles: ion fd and stride are queried through the vendor
- * libgralloc_extra.so (dlopen, plain C symbol, present in /system/lib{,64}).
- * Fallback when unavailable: fd = handle->data[0], stride = display width
- * (FACT p61: gralloc buffers for the 720-wide panel have pitch 2880 = 720*4).
+ * Buffer handles: ion fd, stride and format are queried through the vendor
+ * libgralloc_extra.so (dlopen, plain C symbol, /vendor/lib{,64}).  Without
+ * it: fd = handle->data[0], stride = display width (FACT p61: gralloc
+ * buffers for the 720-wide panel have pitch 2880 = 720*4), and no overlays.
+ *
+ * Diagnostic knobs; the defaults are the shipped behaviour and the probes
+ * cost nothing while off.  All are read per frame except fmt (at open):
+ *   debug.forgehwc.overlays   1     0 = GLES only (FBT on OVL 0)
+ *   debug.forgehwc.maxplanes  4     cap on concurrent planes (FIFO underflow)
+ *   debug.forgehwc.fmt        0     DISP_FORMAT of the FBT, 0 = RGBA8888
+ *   debug.forgehwc.acqdelay   0     A/B delay after the acquire fences, us
+ *   debug.forgehwc.crc        0     forge-crc tear probe (crcdelay 9000 us)
+ *   debug.forgehwc.shear      0     forge-shear tear probe, every Nth frame
  */
 
 #define LOG_TAG "forge-hwc"
@@ -113,18 +126,7 @@ struct forge_hwc {
 	unsigned int prepare_fail;
 	unsigned int trigger_fail;
 	unsigned int acquire_timeouts;
-	/*
-	 * forge fence-probe (2026-08-25, tear hunt).  Under a heavy scroll a
-	 * HEALTHY pipeline must regularly reach set() before the GPU has
-	 * finished the buffers (acq_waited > 0 for a visible share of
-	 * planes).  If essentially every acquire fence is already signaled
-	 * (acq_presignaled ~ 100%) on scenes the GPU cannot possibly finish
-	 * that fast, the mali fences are firing early - SurfaceFlinger then
-	 * latches half-rendered buffers and the glass shows a stationary
-	 * horizontal stitch between two moments of motion, identical with
-	 * overlays on and off (matches p80).  Counters are in dump() and a
-	 * summary goes to dmesg every 300 frames.
-	 */
+
 	unsigned int acq_presignaled;
 	unsigned int acq_waited;
 	unsigned int acq_nofence;	/* SF handed us NO fence (fd = -1):

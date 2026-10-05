@@ -1,14 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-     lineage-sdk device overlay for the Meizu M5c.
 
-     config_deviceHardwareKeys is a bit field:
-       1 Home, 2 Back, 4 Menu, 8 Assist, 16 AppSwitch, 32 Camera, 64 Volume.
-     The 14.1 tree used 71 = 1+2+4+64 (Home + Back + Menu + volume rocker),
-     which matches the three capacitive keys plus the rocker on the M710H
-     (FACT: keylayouts configs/keylayout/mtk-kpd.kl and mtk-tpd-kpd.kl from
-     the working 14.1 tree).
--->
 <resources>
-    <integer name="config_deviceHardwareKeys">71</integer>
+    <integer name="config_deviceHardwareKeys">65</integer>
+
+
+    <integer name="config_deviceHardwareWakeKeys">1</integer>
 </resources>

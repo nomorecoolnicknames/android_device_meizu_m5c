@@ -1,40 +1,11 @@
-# init.m5c.connectivity.rc — MTK CONSYS (WMT) bring-up for Wi-Fi on Android 13.
-# Lane flash-m5c, 2026-09-28.
-#
-# FACT (A13 boot of 2026-09-28 17:17): wifi.interface=wlan0 but no wlan0 in
-# `ip link`; /dev/wmtdetect exists, /dev/stpwmt and /dev/wmtWifi do not — the
-# combo chip was never probed, because nothing starts the WMT daemons.  Both
-# blobs are in /vendor/bin and NEED only libcutils/libc++/libdl/libc/libm.
-#
-# The services are the LOS 16 ones from this device's working 4.9 bring-up
-# (ramdisk init.mt6735.rc:1163-1173 of the LOS 16 boot image,
-# captures/m5c-backup-20260928/boot.bin): wmt_loader (oneshot, root) probes
-# the chip and makes the kernel create /dev/stpwmt and /dev/wmtWifi;
-# 6620_launcher stays resident and feeds WMT_SOC.cfg + WIFI_RAM_CODE_6735.
-# The firmware path stays /system/etc/firmware: the kernel driver itself reads
-# it there (wmt_conf.h:34, designs/TREBLE_M5C_20260924.md §3), and the files
-# are in the system image.
-#
-# The Wi-Fi HAL (android.hardware.wifi@1.0-service, user wifi, groups wifi
-# gps) powers the driver by writing "1" into WIFI_DRIVER_STATE_CTRL_PARAM =
-# /dev/wmtWifi.  That node only appears when wmt_loader has probed the chip,
-# after post-fs-data, so the chown hangs on the oneshot's exit — measured on
-# LOS 16 (M5C_LOS16_PERIPHERALS_MEASURE_20260903.md, forge-connectivity.rc of
-# the LOS 16 vendor image): a post-fs-data chown silently did nothing and the
-# HAL died with "Failed to access driver state control param Permission
-# denied"; the same chown at this point produced wlan0 and a scan.
 
 service wmtLoader /vendor/bin/wmt_loader
     class core
     user root
-    group root
+    group root system
     oneshot
 
 service conn_launcher /vendor/bin/6620_launcher -p /system/etc/firmware/
     class core
     user system
     group system
-
-on property:init.svc.wmtLoader=stopped
-    chown wifi system /dev/wmtWifi
-    chmod 0660 /dev/wmtWifi

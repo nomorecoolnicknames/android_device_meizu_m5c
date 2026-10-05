@@ -1,55 +1,18 @@
-# fstab.mt6735 — Meizu M5c (m5c, M710H), LineageOS 20.0 / Android 13.
-#
-# Derived from the 14.1 fstab that mounts this device today
-# (<private-workspace>/m5c/los14.1-m5c-patched/device/meizu/m5c/rootdir/root/
-#  fstab.mt6735) with three Android-13 changes:
-#
-#  1. first_stage_mount on /system and /vendor.  A13 init has no "mount /system
-#     later from init.rc" mode any more; DoFirstStageMount() must bring both up
-#     and then SwitchRoot() into /system.
-#  2. /vendor is a REAL partition.  FACT: `custom` = mmcblk0p17, exactly
-#     512 MiB ext4, unused by 14.1, already carrying /vendor on the live LOS 16
-#     install ("/dev/block/mmcblk0p17 on /vendor type ext4", measured
-#     2026-09-03, M5C_LOS16_BT_LANE.md:136).
-#  3. forceencrypt dropped from /data.  A13 uses file-based encryption; the
-#     Nougat-era forceencrypt= syntax is not accepted, and metadata-encryption
-#     on this kernel is untested.
-#     CORRECTION 2026-09-24: /data carries NO encryption flag at all.  The
-#     encryptable=footer this note used to keep is rejected by Android 13
-#     unless vold_managed is also set (system/core/fs_mgr/fs_mgr_fstab.cpp:
-#     317-322, "FDE is no longer supported"), and that rejection fails the
-#     WHOLE fstab, so first-stage init could not have mounted /system.
-#     Decision (team lead, 2026-09-24): /data unencrypted for now; FBE is a
-#     separate task.
-#
-# The by-name directory is resolved at runtime; partition NUMBERS are never
-# written here on purpose (project rule after the p10/expdb near-miss).
-#
-# <src>                                                                        <mnt_point>  <type>  <mnt_flags and options>                                               <fs_mgr_flags>
 
 /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/system                   /system      ext4    ro,barrier=1                                                          wait,first_stage_mount
 /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/custom                   /vendor      ext4    ro,barrier=1                                                          wait,first_stage_mount
 
 # /data: no encryption flag — see note 3 above (fs_mgr_fstab.cpp:317-322).
 /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/userdata                 /data        ext4    noatime,nosuid,nodev,noauto_da_alloc,discard                           wait,check
-# /cache удалён 2026-09-17: раздел слит в system (вариант B, переразметка)
+# /cache (p24, 400 MiB) is not mounted: Android 13 keeps OTA state in
+# /data/ota.
 /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/metadata                 /metadata    ext4    noatime,nosuid,nodev,discard                                          wait,formattable,first_stage_mount
 
-# /protect_f, /protect_s and /nvdata are nofail (lesson 11 of the m95 bring-up,
-# 2026-09-24; m95's own fstab carries the same flags).  Without nofail a failed
-# mount of any of them means a boot loop with no logs: one error makes
-# mount_all return FS_MGR_MNTALL_FAIL (system/core/fs_mgr/fs_mgr.cpp:1567,
-# 1580, branch meizu-legacy-kernel), init sets no ro.crypto.state and zygote
-# never starts.  With nofail the phone boots, and the log shows that NVRAM or
-# the IMEI is missing ("Ignoring failure to mount", fs_mgr.cpp:1557) instead
-# of hiding it.  `formattable` does not cover this case: it only formats a
-# partition that has no filesystem at all (fs_mgr.cpp:1496-1498).
 /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/protect1                 /protect_f   ext4    noatime,nosuid,nodev,noauto_da_alloc,commit=1,nodelalloc               wait,check,formattable,nofail
 /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/protect2                 /protect_s   ext4    noatime,nosuid,nodev,noauto_da_alloc,commit=1,nodelalloc               wait,check,formattable,nofail
 /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/nvdata                   /nvdata      ext4    noatime,nosuid,nodev,noauto_da_alloc,discard                           wait,check,formattable,nofail
 
-# Removable / OTG
-/devices/mtk-msdc.0/11240000.msdc1*                                            auto         auto    defaults                                                              voldmanaged=sdcard1:auto
+/devices/platform/mtk-msdc.0/11240000.msdc1*                                   auto         auto    defaults                                                              voldmanaged=sdcard1:auto
 /devices/platform/mt_usb*                                                      auto         vfat    defaults                                                              voldmanaged=usbotg:auto
 
 # Raw partitions the framework / recovery want to know about by name
@@ -57,12 +20,6 @@
 /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/nvram                    /nvram       emmc    defaults                                                              defaults
 /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/proinfo                  /proinfo     emmc    defaults                                                              defaults
 /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/lk                       /bootloader  emmc    defaults                                                              defaults
-# zram swap (flash-m5c, 2026-09-28).  FACT (A13 on the device): 1.9 GB RAM,
-# /proc/swaps empty, 155 MB free with 828 MB cached one hour after boot;
-# CONFIG_ZRAM=y + ZSMALLOC + LZ4 in the prebuilt kernel, /sys/block/zram0
-# present.  Same shape as m95 (device/meizu/m95/rootdir/fstab.mt6797:71-84):
-# max_comp_streams = the four A53 cores, set before disksize by fs_mgr.
-# 1 GiB = half of RAM.  swapon_all is in init/hw/init.mt6735.rc.
 /dev/block/zram0                                                               none         swap    defaults                                                              zramsize=1073741824,max_comp_streams=4
 /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/para                     /misc        emmc    defaults                                                              defaults
 /dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/boot                     /boot        emmc    defaults                                                              defaults

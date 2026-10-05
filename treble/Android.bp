@@ -1,7 +1,7 @@
-// Full Treble (2026-09-25): vendor-side answers to the sonames the N-era
+
 // blobs NEED but a Treble vendor namespace cannot reach.  Measured with
-// meizu-fleet/tools/m5c_treble_needed.py against the VNDK 33 lists
-// (designs/TREBLE_M5C_20260924.md §linkage).  Part of the m5c namespace
+
+
 // (../Android.bp), so no other product ever sees these modules.
 
 cc_defaults {
@@ -22,8 +22,8 @@ cc_defaults {
 // in its own search path; bionic then binds the consumers' symbols across the
 // whole local group, i.e. into libgui_vendor (bionic/linker/linker.cpp,
 // the m95 model check: one libgui instance per process).
-// It does NOT make every consumer load: the N blobs also import libgui
-// symbols Android 13 no longer exports — that is the shim lane.
+// The N-era libgui symbols Android 13 no longer exports come from
+// libm5cshim_camera (camera.cpp), wired to the consumers.
 cc_library_shared {
     name: "libgui_m5c_fwd",
     defaults: ["m5c_treble_defaults"],
@@ -47,7 +47,9 @@ cc_library_shared {
     name: "libnativehelper_m5c_stub",
     defaults: ["m5c_treble_defaults"],
     stem: "libnativehelper",
-    srcs: ["stub.cpp"],
+
+    // closure) imports — see nativehelper.cpp.
+    srcs: ["nativehelper.cpp"],
 }
 
 // android::Region with the N/M object layout for the Mali EGL driver
@@ -61,7 +63,8 @@ cc_library_shared {
     cflags: ["-fvisibility=hidden"],
 }
 
-// __xlog_buf_printf, android_memset16/32, PermissionCache — see legacy.cpp.
+// __xlog_buf_printf, android_memset16, __pthread_gettid, PermissionCache and
+// the RIL's netutils / jstring symbols - see legacy.cpp.
 // Added to the consumers' DT_NEEDED the same way.  Only liblog (LLNDK), so it
 // loads in sphal as well as in the vendor namespace.
 cc_library_shared {
@@ -73,7 +76,7 @@ cc_library_shared {
 }
 
 // Audio HAL closure (audio.primary.mt6737m, both ABIs).  FACT (A13 boot of
-// 2026-09-28): the HAL service registers audio@6.0 but the primary module
+
 // never opens — the blob NEEDs libmedia.so, libpowermanager.so and
 // libtinycompress.so, none of which a vendor process can load, and
 // `dumpsys media.audio_policy` lists no output device (system_server then
@@ -107,4 +110,76 @@ cc_library_shared {
     name: "libm5cshim_tinycompress",
     defaults: ["m5c_treble_defaults"],
     srcs: ["tinycompress.cpp"],
+}
+
+// SSLv3_{client,server}_method for libcurl (mnld); see ssl.cpp.  mtk_agpsd is
+// wired to it too but not started (init.m5c.gps.rc).
+// libssl is VNDK, so this loads in the vendor namespace.
+cc_library_shared {
+    name: "libm5cshim_ssl",
+    defaults: ["m5c_treble_defaults"],
+    srcs: ["ssl.cpp"],
+    shared_libs: ["libssl"],
+}
+
+// Camera HAL closure (camera.mt6737m.so, 32-bit provider; both ABIs built).
+
+// libmeizucamera and 31 symbols unresolved across libcam_utils,
+// libmtk_mmutils, libmmsdkservice.feature, libcam.utils.sensorlistener and
+// libmeizucamera.  Sources say which and why:
+//   android_runtime.cpp  AndroidRuntime::getJNIEnv / registerNativeMethods
+//                        (real name: the platform library is system-only)
+//   camera.cpp           PropertyMap, N GraphicBuffer ctors + lock, N
+//                        BufferQueue / BufferItemConsumer / Surface, N
+//                        SensorManager ctor, SensorEventQueue::getFd,
+//                        IPermissionController::asInterface
+//   newpad.cpp           operator new with slack for the N-sized
+//                        GraphicBuffer / BufferItemConsumer blocks, and
+//                        Thread::run with a default name (A13 aborts on NULL)
+// libm5cshim_camera and libm5cshim_newpad are wired to the consumers at
+// build time (vendor/meizu/m5c treble-elf-wiring.txt).
+cc_library_shared {
+    name: "libandroid_runtime_m5c_stub",
+    defaults: ["m5c_treble_defaults"],
+    stem: "libandroid_runtime",
+    srcs: ["android_runtime.cpp"],
+}
+
+// libcam.common.meizu and libmpbase (camera open-time closure, dlopen of
+// libcam_platform) NEED libandroid.so and libjnigraphics.so and import nothing
+
+// system-only; empty libraries with the real names cannot shadow anything in
+// a vendor process.
+cc_library_shared {
+    name: "libandroid_m5c_stub",
+    defaults: ["m5c_treble_defaults"],
+    stem: "libandroid",
+    srcs: ["stub.cpp"],
+}
+
+cc_library_shared {
+    name: "libjnigraphics_m5c_stub",
+    defaults: ["m5c_treble_defaults"],
+    stem: "libjnigraphics",
+    srcs: ["stub.cpp"],
+}
+
+cc_library_shared {
+    name: "libm5cshim_camera",
+    defaults: ["m5c_treble_defaults"],
+    srcs: ["camera.cpp"],
+    shared_libs: [
+        "libgui_vendor",
+        "liblog",
+        "libsensor_vendor",
+        "libui",
+        "libutils",
+    ],
+}
+
+cc_library_shared {
+    name: "libm5cshim_newpad",
+    defaults: ["m5c_treble_defaults"],
+    srcs: ["newpad.cpp"],
+    stl: "none",
 }
