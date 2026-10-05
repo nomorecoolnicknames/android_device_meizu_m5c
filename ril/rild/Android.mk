@@ -1,13 +1,4 @@
-# rild — MediaTek Oreo RIL daemon for the m5c on Android 13 (companion of
-# ../libril/Android.mk, same source and provenance: gunwest m6rom16
-# vendor/mediatek/ril 6dd7c54).  Loads rild.libpath
-# (/vendor/lib64/mtk-ril.so, vendor.prop) and calls RIL_InitSocket.
-# rild-prop-md1 (MediaTek's prebuilt property helper: mtkInit,
-# signal_treatment, isUserLoad) is defined in vendor/meizu/m5c/Android.mk:
-# the object is MediaTek-proprietary and lives with the blobs.
-# A13 deltas: this header, the TARGET_DEVICE guard, ../include first, and
-# librilutils_static -> librilutils (A13 builds it as one cc_library; same as
-# hardware/ril/rild/Android.mk).
+# MediaTek RIL daemon; vendor property helper is a separate restricted input.
 
 ifeq ($(TARGET_DEVICE),m5c)
 ifeq ($(ENABLE_VENDOR_RIL_SERVICE),true)
