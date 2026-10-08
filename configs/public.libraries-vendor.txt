@@ -1,0 +1,6 @@
+# Vendor libraries that applications may load.
+#
+# libwfo_jni.so: used by the IMS service to pass the SIM identity to the MAL,
+# without which the IMS control path stays shut. Apps must name it in
+# <uses-native-library>.
+libwfo_jni.so

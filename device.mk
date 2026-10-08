@@ -213,6 +213,25 @@ PRODUCT_PACKAGES += \
     android.hardware.gatekeeper@1.0-service.software \
     android.hardware.drm@1.4-service.clearkey
 
+# VoLTE
+# Stock mtkmal and volte_* daemons from vendor/meizu/m5c, plus shims for
+# setNetworkForSocket, the 64-bit librilmtk Parcel and libwfo_jni.
+PRODUCT_PACKAGES += \
+    libm5cshim_jnihelp \
+    libm5cshim_netd_client \
+    libm5cshim_nparcel
+
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/rootdir/etc/init/init.m5c.volte.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.m5c.volte.rc
+
+# IMS
+# The telephony.ims feature enables the ImsResolver, the privapp allowlist is
+# enforced, and libwfo_jni.so must be a public vendor library.
+PRODUCT_COPY_FILES += \
+    frameworks/native/data/etc/android.hardware.telephony.ims.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.telephony.ims.xml \
+    $(LOCAL_PATH)/configs/permissions/privapp-permissions-com.mediatek.ims.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/permissions/privapp-permissions-com.mediatek.ims.xml \
+    $(LOCAL_PATH)/configs/public.libraries-vendor.txt:$(TARGET_COPY_OUT_VENDOR)/etc/public.libraries.txt
+
 # Properties
 # Properties that vendor_init may not set go to the system build.prop.
 

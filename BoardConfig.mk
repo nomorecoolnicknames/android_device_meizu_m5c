@@ -126,6 +126,10 @@ BOARD_USES_METADATA_PARTITION := true
 BOARD_PROVIDES_LIBRIL := true
 ENABLE_VENDOR_RIL_SERVICE := true
 
+# The IMS service talks to the Marshmallow-era Flyme librilmtk / mtk-ril.so,
+# whose IMS request and URC numbers differ from the Nougat ones.
+FORGE_IMS_VENDOR_GEN := m
+
 # SELinux
 # Root-level directories need explicit labels, otherwise e2fsdroid fails
 # on system.img.
