@@ -128,6 +128,9 @@ TARGET_SCREEN_HEIGHT := 1280
 TARGET_SYSTEM_PROP := $(DEVICE_PATH)/system.prop
 TARGET_VENDOR_PROP := $(DEVICE_PATH)/vendor.prop
 
+# Bluetooth
+BOARD_HAVE_BLUETOOTH := true
+
 # VINTF
 # Wi-Fi HalDeviceManager only creates wlan0 if IWifi is declared in the
 # device manifest.

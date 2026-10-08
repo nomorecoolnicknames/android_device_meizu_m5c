@@ -173,6 +173,12 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     android.hardware.security.keymint-service
 
+# Bluetooth
+# 32-bit service: libbt-vendor.so exists only as ELF32.
+PRODUCT_PACKAGES += \
+    android.hardware.bluetooth@1.0-impl \
+    android.hardware.bluetooth@1.1-service.m5c
+
 # Sensors, lights, vibrator, memtrack
 PRODUCT_PACKAGES += \
     android.hardware.sensors@1.0-impl \

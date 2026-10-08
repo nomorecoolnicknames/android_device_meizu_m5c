@@ -1,0 +1,29 @@
+// Bluetooth HIDL service, built 32-bit from hardware/interfaces/bluetooth/1.1/default
+// (service.cpp, bluetooth_hci.cc/h, unchanged): libbt-vendor.so exists only
+// as a 32-bit library.
+cc_binary {
+    name: "android.hardware.bluetooth@1.1-service.m5c",
+    defaults: ["hidl_defaults"],
+    relative_install_path: "hw",
+    vendor: true,
+    compile_multilib: "32",
+    init_rc: ["android.hardware.bluetooth@1.1-service.m5c.rc"],
+    srcs: [
+        "service.cpp",
+        "bluetooth_hci.cc",
+    ],
+    shared_libs: [
+        "liblog",
+        "libcutils",
+        "libdl",
+        "libbase",
+        "libutils",
+        "libhardware",
+        "libhidlbase",
+        "android.hardware.bluetooth@1.0-impl",
+        "android.hardware.bluetooth@1.1",
+    ],
+    static_libs: [
+        "android.hardware.bluetooth-hci",
+    ],
+}
