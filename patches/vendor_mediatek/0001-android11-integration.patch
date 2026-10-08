@@ -1,0 +1,22 @@
+diff --git a/symbols/Android.mk b/symbols/Android.mk
+--- a/symbols/Android.mk
++++ b/symbols/Android.mk
+@@ -50,0 +51,4 @@
++
++
++
++
+@@ -54,2 +58 @@
+-LOCAL_SHARED_LIBRARIES := libicuuc
+-LOCAL_C_INCLUDES := external/icu/icu4c/source/common
++LOCAL_SHARED_LIBRARIES := libandroidicu
+diff --git a/symbols/icu.cpp b/symbols/icu.cpp
+--- a/symbols/icu.cpp
++++ b/symbols/icu.cpp
+@@ -17,2 +17,4 @@
+-// <unicode/ucnv.h> renames the unsuffixed calls below to their _58 exports
+-// via urename.h, so each wrapper forwards straight into libicuuc.so.
++// <unicode/ucnv.h> renames the unsuffixed calls below via urename.h, so each
++// wrapper forwards straight into the ICU library it is linked against: the
++// _58 exports of libicuuc.so on N/P, the _android exports of libandroidicu.so
++// on R (see Android.mk).

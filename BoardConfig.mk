@@ -5,6 +5,8 @@
 
 DEVICE_PATH := device/meizu/m5c
 
+include vendor/lineage/config/BoardConfigLineage.mk
+
 # Architecture
 TARGET_ARCH := arm64
 TARGET_ARCH_VARIANT := armv8-a
@@ -81,9 +83,8 @@ BOARD_USERDATAIMAGE_FILE_SYSTEM_TYPE := ext4
 # /vendor lives on the unused "custom" partition (mmcblk0p17, 512 MiB).
 # TARGET_COPY_OUT_VENDOR builds a vendor.img and drops the ramdisk
 # /vendor -> /system/vendor symlink.
-# PRODUCT_FULL_TREBLE_OVERRIDE stays false and the shipping API level stays 25
-# (lineage_m5c.mk): many vendor ELFs need framework libs, so VNDK is not
-# enabled. A vendor partition does not require it.
+# PRODUCT_FULL_TREBLE_OVERRIDE stays false and VNDK is not enabled: a real
+# vendor partition does not make the blob ABI Treble-compliant.
 TARGET_COPY_OUT_VENDOR := vendor
 BOARD_VENDORIMAGE_FILE_SYSTEM_TYPE := ext4
 BOARD_VENDORIMAGE_PARTITION_SIZE := 536870912
@@ -92,6 +93,16 @@ BOARD_VENDORIMAGE_PARTITION_SIZE := 536870912
 # device; flash from recovery.
 AB_OTA_UPDATER := false
 BOARD_PROPERTY_OVERRIDES_SPLIT_ENABLED := true
+
+# Keep the stock partition layout (1.5 GiB system, 400 MiB cache, custom as
+# vendor). The bootloader always loads the boot ramdisk; recovery-as-boot is
+# not used.
+BOARD_BUILD_SYSTEM_ROOT_IMAGE := false
+BOARD_USES_RECOVERY_AS_BOOT := false
+TARGET_COPY_OUT_PRODUCT := system/product
+TARGET_COPY_OUT_SYSTEM_EXT := system/system_ext
+BOARD_ROOT_EXTRA_FOLDERS := nvdata protect_f protect_s
+BOARD_VENDOR_SEPOLICY_DIRS += $(DEVICE_PATH)/sepolicy/vendor
 
 # Recovery
 TARGET_RECOVERY_FSTAB := $(DEVICE_PATH)/rootdir/fstab.mt6735
@@ -180,6 +191,6 @@ BOARD_PROVIDES_LIBRIL := true
 TARGET_SPECIFIC_HEADER_PATH := vendor/mediatek/include
 
 # VINTF
-# Without a device manifest hwservicemanager reports no transport for vendor
-# HALs, and the Wi-Fi vendor HAL is never started.
+# The software keymaster needs an explicit entry here; the Wi-Fi and
+# supplicant services ship their own manifest fragments.
 DEVICE_MANIFEST_FILE := device/meizu/m5c/manifest.xml

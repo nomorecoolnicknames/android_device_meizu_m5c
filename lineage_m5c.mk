@@ -21,9 +21,8 @@ PRODUCT_BUILD_PROP_OVERRIDES += \
 # vendor/lineage does not derive LINEAGE_BUILD from TARGET_DEVICE.
 LINEAGE_BUILD := m5c
 
-# Shipped with Android 7.1 blobs. Real vendor partition without VNDK, see
-# BoardConfig.mk.
-PRODUCT_SHIPPING_API_LEVEL := 25
+# Real vendor partition without VNDK, see BoardConfig.mk. Do not derive
+# PRODUCT_SHIPPING_API_LEVEL from the blob SDK level.
 PRODUCT_FULL_TREBLE_OVERRIDE := false
 
 # profman crashes with SIGBUS when compiling the boot image profile; the

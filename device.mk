@@ -21,24 +21,22 @@ PRODUCT_PROPERTY_OVERRIDES += \
     dalvik.vm.heapmaxfree=8m
 
 # Kernel
-# Copy the prebuilt kernel into the target-files "kernel" slot; avoid an empty
-# ":kernel" rule when no prebuilt is set.
-M5C_EFFECTIVE_KERNEL_PREBUILT := $(strip $(TARGET_PREBUILT_KERNEL))
-ifneq ($(M5C_EFFECTIVE_KERNEL_PREBUILT),)
+# Always copy the prebuilt kernel into the target-files "kernel" slot: product
+# makefiles are parsed before BoardConfig.mk. The kernel check covers this file.
 PRODUCT_COPY_FILES += \
-    $(M5C_EFFECTIVE_KERNEL_PREBUILT):kernel
-endif
+    $(LOCAL_PATH)/prebuilt-kernel/Image.gz-dtb:kernel
 
 # Ramdisk
 # Nougat-era MTK init scripts; fstab mounts /vendor from the custom partition.
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/rootdir/fstab.mt6735:root/fstab.mt6735 \
-    $(LOCAL_PATH)/rootdir/init.mt6735.rc:root/init.mt6735.rc \
-    $(LOCAL_PATH)/rootdir/init.mt6735.usb.rc:root/init.mt6735.usb.rc \
-    $(LOCAL_PATH)/rootdir/init.modem.rc:root/init.modem.rc \
-    $(LOCAL_PATH)/rootdir/init.project.rc:root/init.project.rc \
+    $(LOCAL_PATH)/rootdir/fstab.mt6735:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.mt6735 \
+    $(LOCAL_PATH)/rootdir/init.mt6735.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.mt6735.rc \
+    $(LOCAL_PATH)/rootdir/init.mt6735.usb.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.mt6735.usb.rc \
+    $(LOCAL_PATH)/rootdir/init.modem.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.modem.rc \
+    $(LOCAL_PATH)/rootdir/init.project.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.project.rc \
     $(LOCAL_PATH)/rootdir/init.recovery.mt6735.rc:root/init.recovery.mt6735.rc \
-    $(LOCAL_PATH)/rootdir/ueventd.mt6735.rc:root/ueventd.mt6735.rc \
+    $(LOCAL_PATH)/rootdir/ueventd.mt6735.rc:$(TARGET_COPY_OUT_VENDOR)/ueventd.rc \
     $(LOCAL_PATH)/rootdir/enableswap.sh:root/enableswap.sh
 
 # Recovery also needs the fstab at its own path.
@@ -86,12 +84,9 @@ PRODUCT_PACKAGES += \
     servicemanager
 
 # Graphics
-# hwcomposer.mt6737m (HWC 1.1, see hwcomposer/) is loaded by the composer@2.1
-# passthrough and wrapped by libhwc2on1adapter. Allocator and mapper wrap the
-# gralloc.mt6737m blob.
+# hwcomposer.mt6737m is HWC 1.1 (see hwcomposer/), wrapped by libhwc2on1adapter.
 PRODUCT_PACKAGES += \
     hwcomposer.mt6737m \
-    android.hardware.graphics.composer@2.1-impl \
     android.hardware.graphics.composer@2.1-service \
     android.hardware.graphics.allocator@2.0-impl \
     android.hardware.graphics.allocator@2.0-service \
@@ -99,16 +94,13 @@ PRODUCT_PACKAGES += \
     libhwc2on1adapter
 
 # Keymaster
-# Software keymaster; keystore aborts at boot without a keymaster HAL.
+# Software keymaster 4.0 (no TEE); keystore aborts at boot without one.
 PRODUCT_PACKAGES += \
-    android.hardware.keymaster@3.0-impl \
-    android.hardware.keymaster@3.0-service
+    android.hardware.keymaster@4.0-service
 
 # Properties
 # USB configfs props must be set from the start: the "on boot && property:"
-# triggers fire only once. Without first-stage mount only /system/build.prop
-# is loaded early, so these go into PRODUCT_PROPERTY_OVERRIDES. The zygote
-# services themselves are declared in rootdir/forge-zygote.rc.
+# triggers fire only once.
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.zygote=zygote64_32 \
     sys.usb.configfs=1 \
@@ -124,9 +116,9 @@ PRODUCT_PROPERTY_OVERRIDES += \
     pm.dexopt.shared=speed
 
 # Init
+# USB configfs gadget and cpusets. The zygote service comes from the platform.
 PRODUCT_COPY_FILES += \
     device/meizu/m5c/rootdir/forge-usb-gadget.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/forge-usb-gadget.rc \
-    device/meizu/m5c/rootdir/forge-zygote.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/forge-zygote.rc \
     device/meizu/m5c/rootdir/forge-cpuset.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/forge-cpuset.rc
 
 # Shims (see TARGET_LD_SHIM_LIBS in BoardConfig.mk)
