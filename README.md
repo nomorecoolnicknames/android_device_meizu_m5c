@@ -1,6 +1,6 @@
 # Meizu M5c (m5c)
 
-Device tree for the Meizu M5c for LineageOS 16.0 (Android 9).
+Device tree for the Meizu M5c for LineageOS 18.1 (Android 11).
 
 ## Specifications
 
@@ -21,7 +21,7 @@ Device tree for the Meizu M5c for LineageOS 16.0 (Android 9).
 
 ## Building
 
-Sync the LineageOS 16.0 sources, then add:
+Sync the LineageOS 18.1 sources, then add:
 
 - this tree as `device/meizu/m5c`;
 - the vendor trees `vendor/meizu/m5c` and `vendor/mediatek`, with the patches from [patches/](patches/README.md);
