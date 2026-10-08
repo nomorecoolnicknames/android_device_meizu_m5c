@@ -1,135 +1,28 @@
 #
-# system.prop for Meizu M5c
+# Properties for /system/build.prop.
 #
 
-# Mediatek Chip
-persist.mtk.wcn.combo.chipid=-1
-persist.mtk.wcn.fwlog.status=0
-service.wcn.driver.ready=no
-persist.mtk.combo.coredump=no
-ro.mediatek.chip_ver=S01
-ro.board.platform=mt6737m
-ro.mediatek.platform=MT6737M
-ro.mediatek.version.sdk=4
-ro.mediatek.version.release=ZAL856_999A_V0_0_5_BSP_20170605
-ro.product.brand=meizu
-ro.product.manufacturer=meizu
-ro.product.model=m5c
-ro.meizu.product.model=M5c
-ro.product.name=meizu_m5c
-ro.product.device=m5c
-ro.product.board=m5c
-ro.meizu.project.id=m1710-5
-ro.product.flyme.model=m1710
+# Display density for a 720x1280 panel
+ro.sf.lcd_density=320
 
-# Telephony
-rild.libpath=/vendor/lib64/mtk-ril.so
-rild.libargs=-d /dev/ttyC0
-ril.specific.sm_cause=0
-ro.telephony.default_network=20,20
-persist.radio.multisim.config=dsds
-persist.radio.default.sim=0
-ro.telephony.sim.count=2
-persist.radio.mobile.data=0,0
-ril.flightmode.poweroffMD=1
-# The MTK RIL blobs do not read the *.poweroffMD props; the flag mtk-ril.so
-# reads is ro.mtk_flight_mode_power_off_md, which is intentionally not set.
-ril.external.md=0
-ril.telephony.mode=0
-ril.radiooff.poweroffMD=0
-ro.mtk_enable_md1=1
-ro.mtk_lte_support=1
-ro.telephony.ril.config=fakeiccid
-ril.current.share_modem=2
-persist.radio.fd.counter=15
-persist.radio.fd.off.counter=5
-persist.radio.fd.r8.counter=15
-persist.radio.fd.off.r8.counter=5
-ro.mtk_gemini_support=1
-persist.gemini.sim_num=2
-ro.gemini.smart_sim_switch=false
+# On-screen navigation bar: the front key only provides Home and Back.
+qemu.hw.mainkeys=0
 
-# Wifi
-mediatek.wlan.chip=CONSYS_MT6735
-mediatek.wlan.module.postfix=_consys_mt6735
-ro.mediatek.wlan.wsc=1
-ro.mediatek.wlan.p2p=1
-mediatek.wlan.ctia=0
-wifi.tethering.interface=wlan0
-wifi.interface=wlan0
-wifi.direct.interface=p2p0
-wifi.supplicant_scan_interval=180
-
-# Bluetooth 
-ro.mtk_bt_support=1
+# GLES 3.0 (Mali-T720)
+ro.opengles.version=196608
 
 # Tethering
 net.tethering.noprovisioning=true
 
-# GLES
-ro.opengles.version=196608
-
-# USB MTP WHQL
-ro.sys.usb.mtp.whql.enable=0
-
-# Power off opt in IPO
-sys.ipo.pwrdncap=2
-
-# USB Storage
-ro.sys.usb.storage.type=mtp
-ro.vold.umsdirtyratio=20
-
-# USB BICR function
-ro.sys.usb.bicr=no
-
-# USB Charge only function
-ro.sys.usb.charging.only=yes
-
-# FM
-fmradio.driver.enable=0
-
-# Audio
-ro.camera.sound.forced=0
-ro.audio.silent=0
-ro.mtk_audio_ape_support=1
-ro.mtk_audio_tuning_tool_ver=V1
-
-# Disable hwui partial updates: the Mali blob accepts EGL_BUFFER_PRESERVED
-# but does not preserve the back buffer, which tears scrolling content.
-# Shortened name of debug.hwui.enable_partial_updates (property name limit).
-debug.hwui.partial_updates=false
-
-# GPS
-ro.mtk_gps_support=1
-ro.mtk_agps_app=1
-ro.mtk_gps_support=1
-ro.mtk_omacp_support=1
-
-# Kernel
-ro.zygote.preload.enable=0
-ro.kernel.zio=38,108,105,16
-
-# Display
-ro.sf.lcd_density=320
-qemu.hw.mainkeys=1
-
-# Media / DRM
+# Legacy drmserver, for the forward-lock DRM plugin.
 drm.service.enabled=true
-ro.mtk_oma_drm_support=1
-ro.mtk_cta_drm_support=1
-ro.mtk_widevine_drm_l3_support=1
 
-# Camera
-media.stagefright.legacyencoder=true
-media.stagefright.less-secure=true
-ro.camera.disable_zsl_mode=1
+# mtk-ril.so logs AT traffic and subscriber identifiers at DEBUG under the
+# tags AT and RIL. For debugging: setprop log.tag.AT D (and RIL).
+log.tag.AT=I
+log.tag.RIL=I
 
-# Performance
-ro.mtk_perf_simple_start_win=1
-ro.mtk_perf_fast_start_win=1
-ro.mtk_perf_response_time=1
-
-# The legacy audio HAL never sets audio_stream_in::get_capture_position, and
-# the capture thread crashes when it is called. Skip it; AudioRecord loses
-# capture timestamps.
-ro.audio.legacy_hal_no_capture_position=1
+# The same for the IMS tags that print subscriber data.
+log.tag.WifiOffloadService=I
+log.tag.MAL-IMSM=I
+log.tag.VoLTE_Auto_Testing=W

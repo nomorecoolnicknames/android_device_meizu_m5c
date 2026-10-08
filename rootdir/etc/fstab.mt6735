@@ -1,0 +1,40 @@
+# Android fstab file.
+# <src> <mnt_point> <type> <mnt_flags and options> <fs_mgr_flags>
+#
+# /data is not encrypted: Android 13 rejects the FDE flags and fails the
+# whole fstab.
+
+/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/system                   /system      ext4    ro,barrier=1                                                          wait,first_stage_mount
+/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/custom                   /vendor      ext4    ro,barrier=1                                                          wait,first_stage_mount
+
+/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/userdata                 /data        ext4    noatime,nosuid,nodev,noauto_da_alloc,discard                           wait,check
+# /cache is not mounted.
+/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/metadata                 /metadata    ext4    noatime,nosuid,nodev,discard                                          wait,formattable,first_stage_mount
+
+# nofail: a failed mount must not stop mount_all, otherwise zygote never
+# starts.
+/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/protect1                 /protect_f   ext4    noatime,nosuid,nodev,noauto_da_alloc,commit=1,nodelalloc               wait,check,formattable,nofail
+/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/protect2                 /protect_s   ext4    noatime,nosuid,nodev,noauto_da_alloc,commit=1,nodelalloc               wait,check,formattable,nofail
+/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/nvdata                   /nvdata      ext4    noatime,nosuid,nodev,noauto_da_alloc,discard                           wait,check,formattable,nofail
+
+# Removable storage
+/devices/platform/mtk-msdc.0/11240000.msdc1*                                   auto         auto    defaults                                                              voldmanaged=sdcard1:auto
+/devices/platform/mt_usb*                                                      auto         vfat    defaults                                                              voldmanaged=usbotg:auto
+
+# Raw partitions
+/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/frp                      /persistent  emmc    defaults                                                              defaults
+/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/nvram                    /nvram       emmc    defaults                                                              defaults
+/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/proinfo                  /proinfo     emmc    defaults                                                              defaults
+/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/lk                       /bootloader  emmc    defaults                                                              defaults
+# zram: 1 GiB, half of RAM.
+/dev/block/zram0                                                               none         swap    defaults                                                              zramsize=1073741824,max_comp_streams=4
+/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/para                     /misc        emmc    defaults                                                              defaults
+/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/boot                     /boot        emmc    defaults                                                              defaults
+/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/recovery                 /recovery    emmc    defaults                                                              defaults
+/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/logo                     /logo        emmc    defaults                                                              defaults
+# expdb is the MTK exception log, never write to it.
+/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/expdb                    /expdb       emmc    defaults                                                              defaults
+/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/secro                    /secro       emmc    defaults                                                              defaults
+/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/seccfg                   /seccfg      emmc    defaults                                                              defaults
+/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/tee1                     /tee1        emmc    defaults                                                              defaults
+/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/tee2                     /tee2        emmc    defaults                                                              defaults

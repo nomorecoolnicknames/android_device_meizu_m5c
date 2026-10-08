@@ -1,0 +1,104 @@
+# MTK modem and RIL chain.
+#
+#  - ril.muxreport is seeded to 0, otherwise the MTK libril resets the modem
+#    once after boot;
+#  - ccci_mdinit runs as root, after NVRAM is ready;
+#  - gsm0710muxd waits for the modem's second handshake (m5c-muxd.sh);
+#  - the RIL starts with the mux, muxreport only when the RIL asks for it.
+# The service keeps the name ril-daemon-mtk: ccci_mdinit starts and stops it
+# by that name.
+
+on post-fs-data
+    setprop ril.muxreport 0
+    # gsm0710muxd links its channel ptys under /dev/radio.
+    mkdir /dev/radio 0770 radio radio
+    mkdir /data/nvram/md 0770 root system
+    mkdir /data/ccci_cfg 0770 system radio
+    mkdir /data/mdlog 0775 shell system
+    chown radio radio /sys/kernel/ccci/boot
+    chown radio radio /sys/class/BOOT/BOOT/boot/md
+    chown radio radio /dev/ccci_fs
+    chown radio radio /dev/ccci_ioctl0
+    chown radio radio /dev/ccci_ioctl1
+    chown radio radio /dev/ccci_monitor
+    chown radio radio /dev/ttyC0
+    chown media audio /dev/ccci_aud
+    restorecon /data/ccci_cfg
+
+service ccci_fsd /vendor/bin/ccci_fsd 0
+    class main
+    user radio
+    group radio system
+    oneshot
+
+service ccci_mdinit /vendor/bin/ccci_mdinit 0
+    class main
+    user root
+    group radio system
+    disabled
+    oneshot
+
+on property:service.nvram_init=Ready
+    start ccci_mdinit
+
+# The HS2 wait is in m5c-muxd.sh (own exec label, gsm0710muxd domain).
+service gsm0710muxd /vendor/bin/m5c-muxd.sh
+    class main
+    user root
+    group radio cache inet misc
+    disabled
+    oneshot
+
+service muxreport-daemon /vendor/bin/muxreport
+    class main
+    user radio
+    group radio cache inet misc
+    disabled
+    oneshot
+
+service terservice /vendor/bin/terservice
+    class main
+    user radio
+    group radio system inet
+    disabled
+    oneshot
+
+# ril-daemon-mtk is started together with the mux; vendor_init may not use
+# init.svc.* of non-vendor services as a trigger. rild retries until the mux
+# channels exist.
+on property:mtk.md1.status=init_done
+    chown radio radio /dev/ttyC0
+    start terservice
+    start gsm0710muxd
+    start ril-daemon-mtk
+
+on property:mtk.md1.status=ready
+    chown radio radio /dev/ttyC0
+    start terservice
+    start gsm0710muxd
+    start ril-daemon-mtk
+
+on property:ril.muxreport=1
+    start muxreport-daemon
+
+service ril-daemon-mtk /vendor/bin/hw/rild
+    class main
+    socket rild stream 660 root radio
+    socket rild2 stream 660 root radio
+    socket rild3 stream 660 root radio
+    socket rild4 stream 660 root radio
+    socket rild-ims stream 660 root radio
+    socket rild-debug stream 660 radio system
+    socket rild-oem stream 660 radio system
+    socket rild-mtk-ut stream 660 radio net_bt
+    socket rild-mtk-ut-2 stream 660 radio net_bt
+    socket rild-mtk-modem stream 660 radio system
+    socket rild-atci stream 660 root radio
+    socket rild-mal stream 660 radio system
+    socket rild-mal-at stream 660 radio system
+    socket rild-vsim stream 660 root radio
+    socket sap_uim_socket1 stream 660 bluetooth bluetooth
+    user root
+    group radio cache inet misc audio sdcard_r sdcard_rw log system
+    disabled
+    oneshot

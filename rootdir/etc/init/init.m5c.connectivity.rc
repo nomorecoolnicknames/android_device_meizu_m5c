@@ -1,0 +1,19 @@
+# MTK CONSYS (WMT) start-up. wmt_loader probes the combo chip and makes the
+# kernel create /dev/stpwmt and /dev/wmtWifi; 6620_launcher stays resident
+# and feeds the firmware. The kernel driver reads the firmware from
+# /system/etc/firmware.
+
+service wmtLoader /vendor/bin/wmt_loader
+    class core
+    user root
+    # /dev/wmtdetect and /dev/stpwmt are system:system 0660.
+    group root system
+    oneshot
+
+service conn_launcher /vendor/bin/6620_launcher -p /system/etc/firmware/
+    class core
+    user system
+    group system
+
+# The /dev/wmtWifi ownership is set by ueventd: vendor_init may not read
+# init.svc.* of a non-vendor service.

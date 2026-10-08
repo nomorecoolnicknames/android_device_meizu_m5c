@@ -1,0 +1,92 @@
+# Modem, connectivity, GPS, sensors, Wi-Fi, NVRAM and power live in
+# init.m5c.*.rc. This file runs mount_all: first stage only mounts the
+# first_stage_mount entries.
+
+import /vendor/etc/init/hw/init.mt6735.usb.rc
+
+on early-init
+    # The 4.9 kernel only looks in /lib/firmware, otherwise every
+    # request_firmware() falls back to the ueventd user helper, which also
+    # aborts suspend attempts.
+    write /sys/module/firmware_class/parameters/path /vendor/firmware
+
+on init
+    # Restrict the kernel log to CAP_SYSLOG.
+    write /proc/sys/kernel/dmesg_restrict 1
+
+    # SkiaGL RenderEngine aborts in primeShaderCache on the Mali-T720 r7p0
+    # driver. A vendor build.prop entry is dropped, so set it here.
+    setprop debug.renderengine.backend gles
+
+    # RT budget for the cpu cgroups (CONFIG_RT_GROUP_SCHED=y). New groups start
+    # with rt_runtime_us 0, where SCHED_FIFO/RR fails with EPERM (e.g. Bluetooth
+    # aborts on enable). The sum must stay within the root's 950000.
+    write /dev/cpuctl/foreground/cpu.rt_runtime_us 400000
+    write /dev/cpuctl/top-app/cpu.rt_runtime_us 200000
+    write /dev/cpuctl/rt/cpu.rt_runtime_us 100000
+    write /dev/cpuctl/system/cpu.rt_runtime_us 50000
+    write /dev/cpuctl/system-background/cpu.rt_runtime_us 50000
+    write /dev/cpuctl/background/cpu.rt_runtime_us 50000
+    write /dev/cpuctl/camera-daemon/cpu.rt_runtime_us 50000
+
+on early-boot
+    # These SPM debug nodes dereference a NULL pcm descriptor when read and
+    # panic the kernel. Make them root-only.
+    chown root root /sys/power/spm/suspend_pcm
+    chmod 0400 /sys/power/spm/suspend_pcm
+    chown root root /sys/power/spm/dpidle_pcm
+    chmod 0400 /sys/power/spm/dpidle_pcm
+    chown root root /sys/power/spm/sodi_pcm
+    chmod 0400 /sys/power/spm/sodi_pcm
+
+on fs
+    # The ramdisk fstab is gone after switch_root, use the vendor copy.
+    # /nvdata, /protect_f and /protect_s entries are nofail.
+    mount_all /vendor/etc/fstab.mt6735
+
+on post-fs
+    chown system system /protect_f
+    chmod 0770 /protect_f
+    chown system system /protect_s
+    chmod 0770 /protect_s
+
+on post-fs-data
+    # zram swap from the fstab, with zram-friendly VM settings.
+    swapon_all /vendor/etc/fstab.mt6735
+    write /proc/sys/vm/swappiness 100
+    write /proc/sys/vm/page-cluster 0
+    # /data/nvram is a symlink to the nvdata partition.
+    chown root system /nvdata
+    chmod 0771 /nvdata
+    symlink /nvdata /data/nvram
+    mkdir /nvdata/media 0771 media audio
+    restorecon_recursive /nvdata
+    # thermal_manager runtime directory and the camera HAL memory bandwidth
+    # scenario switch.
+    mkdir /data/.tp 0775 system system
+    chown system camera /sys/bus/platform/drivers/mem_bw_ctrl/concurrency_scenario
+    chmod 0660 /sys/bus/platform/drivers/mem_bw_ctrl/concurrency_scenario
+
+# CPU DVFS: interactive governor, set explicitly after boot.
+on property:sys.boot_completed=1
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor interactive
+
+# Clear the kernel boot guard (CONFIG_FORGE_M5C_BOOTGUARD) once boot
+# completes, otherwise the kernel reboots into recovery after 900 s.
+on property:sys.boot_completed=1
+    write /proc/forge_bootguard 0
+
+# Thermal policy loader and display PQ daemon. fuelgauged is not needed:
+# the kernel computes the SOC (CONFIG_MTK_GAUGE_VERSION=10).
+service thermal_manager /vendor/bin/thermal_manager
+    class main
+    user root
+    # group system for /data/.tp/.settings, without CAP_DAC_OVERRIDE.
+    group root system
+    oneshot
+
+service pq /vendor/bin/pq
+    class main
+    user system
+    group system graphics
+    oneshot

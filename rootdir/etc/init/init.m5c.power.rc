@@ -1,0 +1,33 @@
+# Load the SPM firmware (see m5c-spm.sh) before the device can try to suspend.
+service m5c_spm /vendor/bin/m5c-spm.sh
+    class core
+    user root
+    group root
+    oneshot
+    disabled
+
+on post-fs
+    start m5c_spm
+
+# Nodes the Power HAL writes as user system (configs/power/fleet_power.json).
+# early-boot, not boot: class hal starts in `on boot`. The governor tunables
+# are recreated when the governor is set again, hence the repeat at
+# boot_completed.
+on early-boot
+    chown system system /sys/devices/system/cpu/cpufreq/interactive/boost
+    chmod 0660 /sys/devices/system/cpu/cpufreq/interactive/boost
+    chown system system /sys/devices/system/cpu/cpufreq/interactive/boostpulse
+    chmod 0220 /sys/devices/system/cpu/cpufreq/interactive/boostpulse
+    chown system system /sys/devices/system/cpu/cpufreq/interactive/boostpulse_duration
+    chmod 0660 /sys/devices/system/cpu/cpufreq/interactive/boostpulse_duration
+    # MTK hotplug base core count, held at 4 during an interaction
+    chown system system /proc/hps/num_base_perf_serv
+    chmod 0660 /proc/hps/num_base_perf_serv
+
+on property:sys.boot_completed=1
+    chown system system /sys/devices/system/cpu/cpufreq/interactive/boost
+    chmod 0660 /sys/devices/system/cpu/cpufreq/interactive/boost
+    chown system system /sys/devices/system/cpu/cpufreq/interactive/boostpulse
+    chmod 0220 /sys/devices/system/cpu/cpufreq/interactive/boostpulse
+    chown system system /sys/devices/system/cpu/cpufreq/interactive/boostpulse_duration
+    chmod 0660 /sys/devices/system/cpu/cpufreq/interactive/boostpulse_duration

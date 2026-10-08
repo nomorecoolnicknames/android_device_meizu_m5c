@@ -1,0 +1,34 @@
+# configfs USB gadget. init.usb.configfs.rc only drives an existing g1, so
+# the device creates g1, the functions and the functionfs mount.
+#
+# init.usb.rc resets sys.usb.configfs to 0 on init, so it is set in `on boot`.
+# The gadget is created on early-fs so that adb comes up even if mount_all
+# fails.
+
+on early-init
+    # musb FFS AIO wedges bulk-IN, force the legacy read/write path.
+    setprop sys.usb.ffs.aio_compat 1
+
+on early-fs
+    mkdir /config/usb_gadget/g1 0770 shell shell
+    write /config/usb_gadget/g1/idVendor 0x18d1
+    write /config/usb_gadget/g1/idProduct 0x4ee7
+    mkdir /config/usb_gadget/g1/strings/0x409 0770
+    write /config/usb_gadget/g1/strings/0x409/serialnumber ${ro.serialno}
+    write /config/usb_gadget/g1/strings/0x409/manufacturer meizu
+    write /config/usb_gadget/g1/strings/0x409/product m5c
+    mkdir /config/usb_gadget/g1/configs/b.1 0770
+    mkdir /config/usb_gadget/g1/configs/b.1/strings/0x409 0770
+    write /config/usb_gadget/g1/configs/b.1/MaxPower 500
+    mkdir /config/usb_gadget/g1/functions/ffs.adb
+    # MTP and PTP: init.usb.configfs.rc only links mtp.gs0 / ptp.gs1 into
+    # b.1, it never creates them.
+    mkdir /config/usb_gadget/g1/functions/mtp.gs0
+    mkdir /config/usb_gadget/g1/functions/ptp.gs1
+    mkdir /dev/usb-ffs 0770 shell shell
+    mkdir /dev/usb-ffs/adb 0770 shell shell
+    mount functionfs adb /dev/usb-ffs/adb uid=2000,gid=2000
+
+on boot
+    setprop sys.usb.controller musb-hdrc
+    setprop sys.usb.configfs 1

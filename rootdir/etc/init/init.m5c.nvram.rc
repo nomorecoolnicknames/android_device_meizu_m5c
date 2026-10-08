@@ -1,0 +1,35 @@
+# /data/nvram is a symlink to /nvdata (made in init.mt6735.rc), so do not
+# create it here. This file is parsed after the hw rc, so its post-fs-data
+# actions run after the symlink exists.
+
+on post-fs-data
+    # nvram_daemon copies fstab* from / into /data/nvram and libnvram parses
+    # /data/nvram/fstab.<ro.hardware>. On Android 13 / is the system image,
+    # so provide the vendor copy.
+    copy /vendor/etc/fstab.mt6735 /data/nvram/fstab.mt6735
+    chmod 0644 /data/nvram/fstab.mt6735
+
+# nvram_daemon restores the NVRAM records (IMEI, Wi-Fi/BT MAC, calibration)
+# from /nvdata, sets service.nvram_init=Ready and exits.
+service nvram_daemon /vendor/bin/nvram_daemon
+    class main
+    user root
+    group system
+    oneshot
+
+# Bluetooth address from NVRAM. The BT HAL aborts without one, and also reads
+# BT_Addr through libnvram. Wait for NVRAM to be ready.
+service m5c_bdaddr /vendor/bin/m5c-bdaddr.sh
+    class core
+    user root
+    group root bluetooth
+    oneshot
+    disabled
+
+on post-fs-data
+    mkdir /data/vendor/bluetooth 0770 bluetooth bluetooth
+
+on property:service.nvram_init=Ready
+    chown root bluetooth /data/nvram/APCFG/APRDEB/BT_Addr
+    chmod 0660 /data/nvram/APCFG/APRDEB/BT_Addr
+    start m5c_bdaddr

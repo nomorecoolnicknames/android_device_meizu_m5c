@@ -1,176 +1,114 @@
+#
+# Copyright (C) 2026 The LineageOS Project
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
 LOCAL_PATH := device/meizu/m5c
 
+# Soong namespaces
+PRODUCT_SOONG_NAMESPACES += \
+    device/meizu/m5c \
+    vendor/meizu/m5c
+
 # Vendor blobs
-# The md_ctrl and hwcomposer blobs are intentionally not shipped: they would
-# shadow the modules built from source here and break boot.
+# The md_ctrl and hwcomposer blobs must stay out of m5c-vendor-blobs.mk:
+# both break boot. The display runs on hwcomposer/.
 $(call inherit-product-if-exists, vendor/meizu/m5c/m5c-vendor.mk)
 
-PRODUCT_DEVICE := m5c
-
-# Screen density
-PRODUCT_AAPT_CONFIG := normal
-PRODUCT_AAPT_PREF_CONFIG := xhdpi
-
-# Dalvik heap (phone-xhdpi-2048 values)
-PRODUCT_PROPERTY_OVERRIDES += \
-    dalvik.vm.heapstartsize=8m \
-    dalvik.vm.heapgrowthlimit=192m \
-    dalvik.vm.heapsize=512m \
-    dalvik.vm.heaptargetutilization=0.75 \
-    dalvik.vm.heapminfree=512k \
-    dalvik.vm.heapmaxfree=8m
+# Dalvik heap
+$(call inherit-product, frameworks/native/build/phone-xhdpi-2048-dalvik-heap.mk)
 
 # Kernel
-# Always copy the prebuilt kernel into the target-files "kernel" slot: product
-# makefiles are parsed before BoardConfig.mk. The kernel check covers this file.
+M5C_EFFECTIVE_KERNEL_PREBUILT := $(strip $(TARGET_PREBUILT_KERNEL))
+ifneq ($(M5C_EFFECTIVE_KERNEL_PREBUILT),)
 PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/prebuilt-kernel/Image.gz-dtb:kernel
+    $(M5C_EFFECTIVE_KERNEL_PREBUILT):kernel
+endif
 
 # Ramdisk
-# Nougat-era MTK init scripts; fstab mounts /vendor from the custom partition.
+# First stage init reads /fstab.<androidboot.hardware> from the boot ramdisk.
 PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/rootdir/fstab.mt6735:root/fstab.mt6735 \
-    $(LOCAL_PATH)/rootdir/fstab.mt6735:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.mt6735 \
-    $(LOCAL_PATH)/rootdir/init.mt6735.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.mt6735.rc \
-    $(LOCAL_PATH)/rootdir/init.mt6735.usb.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.mt6735.usb.rc \
-    $(LOCAL_PATH)/rootdir/init.modem.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.modem.rc \
-    $(LOCAL_PATH)/rootdir/init.project.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.project.rc \
-    $(LOCAL_PATH)/rootdir/init.recovery.mt6735.rc:root/init.recovery.mt6735.rc \
-    $(LOCAL_PATH)/rootdir/ueventd.mt6735.rc:$(TARGET_COPY_OUT_VENDOR)/ueventd.rc \
-    $(LOCAL_PATH)/rootdir/enableswap.sh:root/enableswap.sh
+    $(LOCAL_PATH)/rootdir/etc/fstab.mt6735:$(TARGET_COPY_OUT_RAMDISK)/fstab.mt6735 \
+    $(LOCAL_PATH)/rootdir/etc/fstab.mt6735:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.mt6735
 
-# Recovery also needs the fstab at its own path.
+# NVRAM, helper scripts and SPM firmware loader
 PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/rootdir/fstab.mt6735:recovery/root/fstab.mt6735
+    $(LOCAL_PATH)/rootdir/etc/init/init.m5c.nvram.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.m5c.nvram.rc \
+    $(LOCAL_PATH)/rootdir/m5c-bdaddr.sh:$(TARGET_COPY_OUT_VENDOR)/bin/m5c-bdaddr.sh \
+    $(LOCAL_PATH)/rootdir/m5c-muxd.sh:$(TARGET_COPY_OUT_VENDOR)/bin/m5c-muxd.sh \
+    $(LOCAL_PATH)/rootdir/m5c-spm.sh:$(TARGET_COPY_OUT_VENDOR)/bin/m5c-spm.sh \
+    $(LOCAL_PATH)/rootdir/etc/init/init.m5c.power.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.m5c.power.rc
 
-# Keylayouts
-# Touchscreen GT917D (mtk-tpd, mtk-tpd-kpd), keys (mtk-kpd), headset (ACCDET).
+# Init
 PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/keylayout/mtk-kpd.kl:system/usr/keylayout/mtk-kpd.kl \
-    $(LOCAL_PATH)/keylayout/mtk-tpd.kl:system/usr/keylayout/mtk-tpd.kl \
-    $(LOCAL_PATH)/keylayout/mtk-tpd-kpd.kl:system/usr/keylayout/mtk-tpd-kpd.kl \
-    $(LOCAL_PATH)/keylayout/ACCDET.kl:system/usr/keylayout/ACCDET.kl
-
-# Seccomp
-# Required by the MTK OMX blobs; without it they die with SIGSYS.
-PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/seccomp/mediacodec.policy:$(TARGET_COPY_OUT_VENDOR)/etc/seccomp_policy/mediacodec.policy
+    $(LOCAL_PATH)/rootdir/etc/init/hw/init.mt6735.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.mt6735.rc \
+    $(LOCAL_PATH)/rootdir/etc/init/hw/init.mt6735.usb.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.mt6735.usb.rc \
+    $(LOCAL_PATH)/rootdir/etc/ueventd.mt6735.rc:$(TARGET_COPY_OUT_VENDOR)/etc/ueventd.rc
 
 # Permissions
-# The device has no fingerprint sensor, NFC or gyroscope.
+# No fingerprint, NFC or gyroscope hardware.
 PRODUCT_COPY_FILES += \
-    frameworks/native/data/etc/handheld_core_hardware.xml:system/etc/permissions/handheld_core_hardware.xml \
-    frameworks/native/data/etc/android.hardware.bluetooth.xml:system/etc/permissions/android.hardware.bluetooth.xml \
-    frameworks/native/data/etc/android.hardware.bluetooth_le.xml:system/etc/permissions/android.hardware.bluetooth_le.xml \
-    frameworks/native/data/etc/android.hardware.location.gps.xml:system/etc/permissions/android.hardware.location.gps.xml \
-    frameworks/native/data/etc/android.hardware.telephony.gsm.xml:system/etc/permissions/android.hardware.telephony.gsm.xml \
-    frameworks/native/data/etc/android.hardware.camera.xml:system/etc/permissions/android.hardware.camera.xml \
-    frameworks/native/data/etc/android.hardware.camera.autofocus.xml:system/etc/permissions/android.hardware.camera.autofocus.xml \
-    frameworks/native/data/etc/android.hardware.camera.flash-autofocus.xml:system/etc/permissions/android.hardware.camera.flash-autofocus.xml \
-    frameworks/native/data/etc/android.hardware.sensor.accelerometer.xml:system/etc/permissions/android.hardware.sensor.accelerometer.xml \
-    frameworks/native/data/etc/android.hardware.sensor.compass.xml:system/etc/permissions/android.hardware.sensor.compass.xml \
-    frameworks/native/data/etc/android.hardware.sensor.light.xml:system/etc/permissions/android.hardware.sensor.light.xml \
-    frameworks/native/data/etc/android.hardware.sensor.proximity.xml:system/etc/permissions/android.hardware.sensor.proximity.xml \
-    frameworks/native/data/etc/android.hardware.touchscreen.multitouch.jazzhand.xml:system/etc/permissions/android.hardware.touchscreen.multitouch.jazzhand.xml \
-    frameworks/native/data/etc/android.hardware.usb.accessory.xml:system/etc/permissions/android.hardware.usb.accessory.xml \
-    frameworks/native/data/etc/android.hardware.usb.host.xml:system/etc/permissions/android.hardware.usb.host.xml \
-    frameworks/native/data/etc/android.hardware.wifi.xml:system/etc/permissions/android.hardware.wifi.xml \
-    frameworks/native/data/etc/android.hardware.wifi.direct.xml:system/etc/permissions/android.hardware.wifi.direct.xml
+    frameworks/native/data/etc/handheld_core_hardware.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/handheld_core_hardware.xml \
+    frameworks/native/data/etc/android.hardware.bluetooth.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.bluetooth.xml \
+    frameworks/native/data/etc/android.hardware.bluetooth_le.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.bluetooth_le.xml \
+    frameworks/native/data/etc/android.hardware.location.gps.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.location.gps.xml \
+    frameworks/native/data/etc/android.hardware.telephony.gsm.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.telephony.gsm.xml \
+    frameworks/native/data/etc/android.hardware.camera.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.xml \
+    frameworks/native/data/etc/android.hardware.camera.autofocus.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.autofocus.xml \
+    frameworks/native/data/etc/android.hardware.camera.flash-autofocus.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.flash-autofocus.xml \
+    frameworks/native/data/etc/android.hardware.sensor.accelerometer.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.sensor.accelerometer.xml \
+    frameworks/native/data/etc/android.hardware.sensor.compass.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.sensor.compass.xml \
+    frameworks/native/data/etc/android.hardware.sensor.light.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.sensor.light.xml \
+    frameworks/native/data/etc/android.hardware.sensor.proximity.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.sensor.proximity.xml \
+    frameworks/native/data/etc/android.hardware.touchscreen.multitouch.jazzhand.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.touchscreen.multitouch.jazzhand.xml \
+    frameworks/native/data/etc/android.hardware.usb.accessory.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.usb.accessory.xml \
+    frameworks/native/data/etc/android.hardware.usb.host.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.usb.host.xml \
+    frameworks/native/data/etc/android.hardware.wifi.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.wifi.xml \
+    frameworks/native/data/etc/android.hardware.wifi.direct.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.wifi.direct.xml
 
 # HIDL
 PRODUCT_PACKAGES += \
     hwservicemanager \
-    vndservicemanager \
-    servicemanager
+    vndservicemanager
 
-# Graphics
-# hwcomposer.mt6737m is HWC 1.1 (see hwcomposer/), wrapped by libhwc2on1adapter.
+# KeyMint
+# Software KeyMint, there is no usable TEE.
 PRODUCT_PACKAGES += \
-    hwcomposer.mt6737m \
-    android.hardware.graphics.composer@2.1-service \
-    android.hardware.graphics.allocator@2.0-impl \
-    android.hardware.graphics.allocator@2.0-service \
-    android.hardware.graphics.mapper@2.0-impl \
-    libhwc2on1adapter
+    android.hardware.security.keymint-service
 
-# Keymaster
-# Software keymaster 4.0 (no TEE); keystore aborts at boot without one.
+# Sensors, lights, vibrator, memtrack
 PRODUCT_PACKAGES += \
-    android.hardware.keymaster@4.0-service
+    android.hardware.sensors@1.0-impl \
+    android.hardware.sensors@1.0-service \
+    android.hardware.light@2.0-impl \
+    android.hardware.light@2.0-service \
+    android.hardware.vibrator@1.0-impl \
+    android.hardware.vibrator@1.0-service \
+    android.hardware.memtrack@1.0-impl \
+    android.hardware.memtrack@1.0-service
+
+# Health
+# system_server cannot start without an IHealth service.
+PRODUCT_PACKAGES += \
+    android.hardware.health@2.1-impl \
+    android.hardware.health@2.1-service
 
 # Properties
-# USB configfs props must be set from the start: the "on boot && property:"
-# triggers fire only once.
-PRODUCT_PROPERTY_OVERRIDES += \
-    ro.zygote=zygote64_32 \
-    sys.usb.configfs=1 \
-    sys.usb.controller=musb-hdrc \
-    persist.sys.usb.config=adb \
-    sys.usb.ffs.aio_compat=1 \
+# Properties that vendor_init may not set go to the system build.prop.
+
+# adb on debuggable builds
+ifneq ($(TARGET_BUILD_VARIANT),user)
+PRODUCT_SYSTEM_PROPERTIES += \
+    persist.sys.usb.config=adb
+endif
+
+# Dexopt profile chosen for space, not speed.
+PRODUCT_SYSTEM_PROPERTIES += \
     pm.dexopt.first-boot=quicken \
-    pm.dexopt.boot=verify \
+    pm.dexopt.boot-after-ota=verify \
     pm.dexopt.install=speed-profile \
     pm.dexopt.bg-dexopt=speed-profile \
     pm.dexopt.ab-ota=speed-profile \
     pm.dexopt.inactive=verify \
     pm.dexopt.shared=speed
-
-# Init
-# USB configfs gadget and cpusets. The zygote service comes from the platform.
-PRODUCT_COPY_FILES += \
-    device/meizu/m5c/rootdir/forge-usb-gadget.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/forge-usb-gadget.rc \
-    device/meizu/m5c/rootdir/forge-cpuset.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/forge-cpuset.rc
-
-# Shims (see TARGET_LD_SHIM_LIBS in BoardConfig.mk)
-PRODUCT_PACKAGES += \
-    libshim_vcodec
-
-# Bluetooth
-# The default HAL wraps the vendor libbt-vendor.so.
-PRODUCT_PACKAGES += \
-    android.hardware.bluetooth@1.0-impl
-
-# libfs_mgr.so stub for nvram_daemon and mnld, and a net symbol for the MTK RIL.
-PRODUCT_PACKAGES += \
-    libfs_mgr_m5c_shim \
-    libmtkshim_net
-
-# GPS shims for mtk_agpsd and mnld. The TARGET_LD_SHIM_LIBS entries do
-# nothing unless these are built.
-PRODUCT_PACKAGES += \
-    libmtkshim_icu \
-    libmnld_shim
-
-# Modem
-PRODUCT_COPY_FILES += \
-    device/meizu/m5c/rootdir/forge-modem.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/forge-modem.rc
-
-# Operator names by MCC/MNC. The framework reads this from /system/etc.
-# The other configs/ files are installed by forge-peripherals.mk.
-PRODUCT_COPY_FILES += \
-    device/meizu/m5c/configs/spn-conf.xml:system/etc/spn-conf.xml
-
-# GNSS
-# Legacy gps.h HAL behind the gnss@1.0 passthrough service.
-PRODUCT_PACKAGES += \
-    gps.mt6737m \
-    android.hardware.gnss@1.0-impl \
-    android.hardware.gnss@1.0-service
-
-# Peripherals (Wi-Fi, sensors, lights, vibrator, camera, audio)
-$(call inherit-product, device/meizu/m5c/forge-peripherals.mk)
-
-# RIL
-# Use the MTK rild and libril from vendor/mediatek/ril instead of the AOSP
-# rild (see BoardConfig.mk). The stock librilmtk and mtk-ril blobs are
-# modules in the vendor tree because the MTK libril links them by name.
-ENABLE_VENDOR_RIL_SERVICE := true
-PRODUCT_PACKAGES += \
-    rild \
-    librilmtk \
-    mtk-ril
-
-# Firmware
-# /vendor/firmware -> etc/firmware symlink for the modem firmware.
-PRODUCT_PACKAGES += \
-    forge_vendor_firmware_link

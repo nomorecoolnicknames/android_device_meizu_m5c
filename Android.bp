@@ -1,0 +1,5 @@
+// Soong namespace for the m5c device tree. Soong has no TARGET_DEVICE guard,
+// so without a namespace the modules below would get install rules in every
+// product. Listed in PRODUCT_SOONG_NAMESPACES in device.mk.
+soong_namespace {
+}

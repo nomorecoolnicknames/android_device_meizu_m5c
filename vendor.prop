@@ -1,0 +1,92 @@
+#
+# Properties for /vendor/build.prop. Only types vendor_init may set: under
+# enforcing SELinux other lines are dropped silently.
+#
+
+# Platform
+ro.board.platform=mt6737m
+ro.mediatek.platform=MT6737M
+ro.mediatek.chip_ver=S01
+ro.mediatek.version.sdk=4
+ro.mediatek.version.release=ZAL856_999A_V0_0_5_BSP_20170605
+ro.meizu.product.model=M5c
+ro.meizu.project.id=m1710-5
+ro.product.flyme.model=m1710
+
+# Connectivity (Wi-Fi / BT / GPS / FM share one CONSYS combo chip)
+persist.mtk.wcn.combo.chipid=-1
+persist.mtk.wcn.fwlog.status=0
+service.wcn.driver.ready=no
+persist.mtk.combo.coredump=no
+
+# Wi-Fi
+mediatek.wlan.chip=CONSYS_MT6735
+mediatek.wlan.module.postfix=_consys_mt6735
+ro.mediatek.wlan.wsc=1
+ro.mediatek.wlan.p2p=1
+mediatek.wlan.ctia=0
+wifi.interface=wlan0
+wifi.direct.interface=p2p0
+
+# Bluetooth
+ro.mtk_bt_support=1
+# Factory address from NVRAM, written at boot by m5c-bdaddr.sh.
+ro.bt.bdaddr_path=/data/vendor/bluetooth/bdaddr
+
+# Telephony
+rild.libpath=/vendor/lib64/mtk-ril.so
+rild.libargs=-d /dev/ttyC0
+ril.specific.sm_cause=0
+ro.telephony.default_network=20,20
+persist.radio.multisim.config=dsds
+persist.radio.default.sim=0
+ro.telephony.sim.count=2
+persist.radio.mobile.data=0,0
+ril.external.md=0
+ril.telephony.mode=0
+ro.mtk_enable_md1=1
+ro.mtk_lte_support=1
+ril.current.share_modem=2
+persist.radio.fd.counter=15
+persist.radio.fd.off.counter=5
+persist.radio.fd.r8.counter=15
+persist.radio.fd.off.r8.counter=5
+ro.mtk_gemini_support=1
+persist.gemini.sim_num=2
+ro.gemini.smart_sim_switch=false
+
+# VoLTE
+# Disabled: with these set and the IMS stack not running, mtk-ril blocks
+# rild's binder thread in SETUP_DATA_CALL. Enable together with IMS.
+# ro.mtk_ims_support=1
+# ro.mtk_volte_support=1
+# persist.mtk.volte.enable=1
+# persist.vendor.mtk.volte.enable=1
+
+# GPS
+ro.mtk_gps_support=1
+ro.mtk_agps_app=1
+ro.mtk_omacp_support=1
+
+# Audio
+ro.mtk_audio_ape_support=1
+ro.mtk_audio_tuning_tool_ver=V1
+# The MTK audio HAL is built against the Android 7 audio.h, whose
+# audio_hw_device layout differs from Android 13 from dump() on.
+ro.vendor.audio.legacy_nougat_abi=1
+
+# Display
+# Partial updates give no measurable gain on the Mali-T720.
+debug.hwui.use_partial_updates=false
+
+# Camera
+# Expose the HAL1 module as a HAL3 device, Android 13 cameraservice only
+# accepts HIDL devices of major version 3.
+debug.camera.force_device=3
+
+# Logging
+ro.logd.size=1M
+
+# Power
+# Nodes come from configs/power/fleet_power.json. Boosts can be disabled with
+# debug.vendor.power.fleet.off (e.g. "interaction,launch").
