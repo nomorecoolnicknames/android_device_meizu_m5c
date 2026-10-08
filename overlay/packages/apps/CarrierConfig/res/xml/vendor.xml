@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<!--
+    Carrier config overrides, applied after the per-carrier asset.
+
+    carrier_volte_available_bool is the carrier half of
+    ImsManager.isVolteEnabledByPlatform(). ViLTE, Wi-Fi calling and SS over UT
+    stay at their defaults (unsupported).
+-->
+<carrier_config_list>
+    <!-- Beeline -->
+    <carrier_config mcc="250" mnc="99">
+        <boolean name="carrier_volte_available_bool" value="true" />
+    </carrier_config>
+    <!-- MTS -->
+    <carrier_config mcc="250" mnc="01">
+        <boolean name="carrier_volte_available_bool" value="true" />
+    </carrier_config>
+    <!-- MegaFon -->
+    <carrier_config mcc="250" mnc="02">
+        <boolean name="carrier_volte_available_bool" value="true" />
+    </carrier_config>
+</carrier_config_list>

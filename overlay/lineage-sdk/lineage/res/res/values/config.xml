@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     config_deviceHardwareKeys is a bit field:
+       1 Home, 2 Back, 4 Menu, 8 Assist, 16 AppSwitch, 32 Camera, 64 Volume.
+     65 = Home button + volume rocker.
+-->
+<resources>
+    <integer name="config_deviceHardwareKeys">65</integer>
+
+    <!-- Keys that may wake the screen: Home only. -->
+    <integer name="config_deviceHardwareWakeKeys">1</integer>
+</resources>

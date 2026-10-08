@@ -16,6 +16,14 @@ PRODUCT_SOONG_NAMESPACES += \
 # both break boot. The display runs on hwcomposer/.
 $(call inherit-product-if-exists, vendor/meizu/m5c/m5c-vendor.mk)
 
+# Screen density
+PRODUCT_AAPT_CONFIG := normal
+PRODUCT_AAPT_PREF_CONFIG := xhdpi
+
+PRODUCT_CHARACTERISTICS := nosdcard
+
+DEVICE_PACKAGE_OVERLAYS += $(LOCAL_PATH)/overlay
+
 # Dalvik heap
 $(call inherit-product, frameworks/native/build/phone-xhdpi-2048-dalvik-heap.mk)
 
