@@ -24,6 +24,10 @@ $(call inherit-product-if-exists, vendor/meizu/m5c/m5c-vendor.mk)
 PRODUCT_PACKAGES += \
     libstdc++.vendor
 
+# Thermal
+PRODUCT_PACKAGES += \
+    android.hardware.thermal@2.0-service.m5c
+
 # libgui.so is VNDK-private: forward it to libgui_vendor.
 # libnativehelper.so is provided as an empty stub.
 PRODUCT_PACKAGES += \
