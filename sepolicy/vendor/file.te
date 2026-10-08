@@ -1,9 +1,3 @@
-# Types for the m5c (MT6737M, 4.9 kernel, N-era MTK blobs) vendor policy.
-# Structure and most names follow m95 (device/meizu/m95/sepolicy/vendor,
-
-
-# Exec types of domains with a .te file of their own (msensord, akmd,
-# mtk_fusiond, pq, thermal_manager) are declared there.
 
 # Block devices (by-name, mtk-msdc.0/11230000.msdc0)
 type nvram_device, dev_type;
@@ -69,8 +63,6 @@ type sysfs_dev_info, fs_type, sysfs_type;
 type sysfs_mtk_sensor, fs_type, sysfs_type;
 type m5c_sysfs_mem_bw, fs_type, sysfs_type;
 type m5c_sysfs_virtualkeys, fs_type, sysfs_type;
-
-
 type sysfs_fw_class_path, fs_type, sysfs_type;
 
 # Executables of the vendor daemons and scripts

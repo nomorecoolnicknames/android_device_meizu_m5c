@@ -8,15 +8,15 @@
 # SoC MT6737M, quad Cortex-A53 arm64, 2 GB RAM, 720x1280 (xhdpi), 16 GB eMMC.
 # Runtime is the forge 4.9.188-m5c+ kernel (prebuilt, see BoardConfig.mk);
 # LineageOS 16.0 boots to the shell on that kernel with 31/40 tracks live
-
+# (FACT: /srv/forge/android/m5c/los14.1-m5c-patched/device/meizu/m5c/
 #  M5C_COMPONENT_MATRIX_20260903.md, edition 9).
 #
 # Launch API level: 23 (product_launched_with_m.mk, as m95 takes
-
+# product_launched_with_n_mr1.mk).  FACT: the last stock firmware, Flyme
 # 6.0.2.4G of 2019-04-03, is Android 6.0 (META-INF/build.prop of
-
+# meizu-fleet/captures/m5c-stock-flyme-6.0.2.4G/update.zip:
 # ro.build.version.sdk=23), and the vendor blobs are that Marshmallow
-
+# generation.  Up to 2026-10-06 it was left unset (no recorded launch level);
 # Android 13's OMXStore then took T and dropped every OMX component with a
 # video or audio codec role (frameworks/av/media/libstagefright/omx/
 # OMXStore.cpp:104-163): IOmx::listNodes came back empty on the phone ("omx

@@ -1,21 +1,3 @@
-#
-# vendor.prop for the Meizu M5c (m5c, M710H) — LineageOS 20.0
-#
-# These go to /vendor/build.prop.  Source of every line is the stock Flyme
-# system.prop as carried by the working 14.1 tree
-
-# with the LOS 16 corrections applied
-# (.../device/meizu/m5c/los16/system.prop).
-#
-# Every line here must have a type vendor_init may set: under enforcing the
-# others are dropped without a log line, because vendor/build.prop is loaded
-# before SELinux logs to the kernel (checked on the host:
-# tools/m5c-sepolicy/vprops_check.sh).  The stock lines that failed that check
-# (stagefright legacy encoder, IPO, UMS, ZSL, Flyme USB modes, the old RIL.java
-# fake ICCID, FM, wifi.tethering.interface, wifi.supplicant_scan_interval,
-# ro.audio.silent, ro.camera.sound.forced, ro.kernel.zio) were removed on
-
-# proprietary/{lib,lib64,bin,xbin}), and the rest equal platform defaults.
 
 # --- Platform identity (used by hw_get_module lookups) ---------------------
 ro.board.platform=mt6737m
@@ -44,11 +26,6 @@ wifi.direct.interface=p2p0
 
 # --- Bluetooth ------------------------------------------------------------
 ro.mtk_bt_support=1
-
-# (init.m5c.nvram.rc).  First source the AOSP HAL reads
-# (hardware/interfaces/bluetooth/1.0/default/bluetooth_address.cc:50);
-# exported_bluetooth_prop, so vendor_init may set it — unlike
-# persist.service.bdroid.bdaddr, which a vendor domain may not.
 ro.bt.bdaddr_path=/data/vendor/bluetooth/bdaddr
 
 # --- Telephony (dual SIM, LTE) --------------------------------------------
@@ -74,14 +51,6 @@ ro.mtk_gemini_support=1
 persist.gemini.sim_num=2
 ro.gemini.smart_sim_switch=false
 
-
-# The stock Flyme 6.0.2.4G build.prop lines.  librilmtk opens its rild-ims
-# listener, mtk-ril its IMS paths, mtkmal/libmdfx their IMS entities only
-# with ro.mtk_ims_support=1 (strings of the three blobs; the Nougat vendor of
-# the m95 reads persist.mtk_ims_support instead).  ePDG/Wi-Fi calling and
-# ViLTE stay unset, as in the stock.  persist.mtk.volte.enable is the switch
-# the native side reads (libmal, mtk-ril); persist.vendor.mtk.volte.enable is
-# the same switch under the name ForgeImsService reads.
 ro.mtk_ims_support=1
 ro.mtk_volte_support=1
 persist.mtk.volte.enable=1
@@ -95,47 +64,11 @@ ro.mtk_omacp_support=1
 # --- Audio ----------------------------------------------------------------
 ro.mtk_audio_ape_support=1
 ro.mtk_audio_tuning_tool_ver=V1
-# The MTK legacy audio HAL (audio.primary.mt6737m.so) is built against the
-# Android 7 audio.h: from dump() on, every
-# field of its audio_hw_device holds the function of the next one in the
-
-# service died every 5 s in AudioFlinger's startup getMasterMute(), backtrace
-# Device::getMasterMute -> AudioALSAHardware::createAudioPatch, and took
-# system_server with it (no boot_completed).  With this property set live
-# (setprop, 01:57) the loop stopped and boot completed.  Read by
-# hardware/interfaces branch meizu-legacy-kernel a0acaebde (PrimaryDevice.cpp),
-# same value as m95 (device/meizu/m95/vendor.prop).  With it set, input
-# streams also drop empty-valued routing keys the Nougat HAL rejects
-# (hardware/interfaces 7ea68c4db, microphone).  Its audio_stream_in ends at
-# get_capture_position, which the A13 impl still calls when not NULL
-# (StreamIn.cpp:473).  On LOS 16 that field crashed the audio service on every
-# capture; whether it does on A13 is open - before 7ea68c4db no recording got
-# past startInput.  Check with the first recording.
 ro.vendor.audio.legacy_nougat_abi=1
 
-# --- Display --------------------------------------------------------------
-
-# EGL_BUFFER_PRESERVED but does not honour it, which would explain a horizontal
-# stitch mid-fling; hwui reads this name (frameworks/base/libs/hwui/
-# Properties.h:124, default true).  Check on the phone with a fast fling; if
-# the stitch is absent either way, or the UI is visibly slower, drop the line.
 debug.hwui.use_partial_updates=false
 
-# --- Camera ---------------------------------------------------------------
-# TEMPORARY: HAL3 device over the stock HAL1 module.  Android 13
-# cameraservice takes HIDL devices of major version 3 only
-# (CameraProviderManager.cpp:1897-1905); camera.mt6737m.so reports 0x302 for
-# "3" (m5c 14.1 disassembly).  The Flyme blobs carry static metadata only for
-# MTK reference sensors, so treble/camera.cpp lends this unit's S5K4H8 the
-# IMX219 tables: crop, field of view and lens data are therefore not this
-
-# then the 4.9 kernel ISP/MDP path stalls (the same wall LOS 16 hit).  Kept at
-# "3" for the kernel lane to test against; set "1" (no camera, clean) for a
-# release until the kernel path and real S5K4H8 metadata exist.
 debug.camera.force_device=3
-
-# --- Bring-up diagnostics ---------------------------------------------------
-# TEMPORARY: 1 MiB log rings.  With the default 256 KiB the main buffer rolled
 
 ro.logd.size=1M
 

@@ -1,28 +1,5 @@
-# init.mt6735.usb.rc — Meizu M5c (m5c), configfs USB gadget for adb on the
-
-#
-# Device half of the configfs gadget: system/core init.usb.configfs.rc only
-# DRIVES an existing g1 (writes UDC, links functions), creating g1, ffs.adb
-# and the functionfs mount is the device's job.  Values are the ones that
-# gave a working adb on this device with LOS 16 on the same 4.9 kernel line
-
-
-# CONFIG_USB_CONFIGFS_F_FS=y).
-#
-# Two A13 details the LOS 16 file did not need:
-#  - system/core/rootdir/init.usb.rc:27-28 does `setprop sys.usb.configfs 0`
-#    on init, "overridden in `on boot` action of init.hardware.rc".  The value
-#    in vendor build.prop is therefore dead; without the setprop below init
-#    takes the legacy /sys/class/android_usb path, which this kernel has not.
-#  - the gadget is created on early-fs rather than post-fs: with
-#    first_stage_mount this file is parsed before early-init, so the LOS 16
-#    reason for post-fs ("vendor rc files are parsed during mount_all") is
-#    gone, and adb should come up even if mount_all fails.
 
 on early-init
-
-    # deaf to every OPEN until a host-side reset; force the legacy r/w path.
-    # adbd reads it once in usb_ffs_init(), long before it is started.
     setprop sys.usb.ffs.aio_compat 1
 
 on early-fs
@@ -37,13 +14,6 @@ on early-fs
     mkdir /config/usb_gadget/g1/configs/b.1/strings/0x409 0770
     write /config/usb_gadget/g1/configs/b.1/MaxPower 500
     mkdir /config/usb_gadget/g1/functions/ffs.adb
-    # MTP and PTP: system/core init.usb.configfs.rc only links mtp.gs0 /
-    # ptp.gs1 into b.1, it never creates them.  Without these the f_mtp
-    # misc device /dev/mtp_usb is never registered, MtpServer logs "Failed
-
-    # live, kernel CONFIG_USB_CONFIGFS_F_MTP=y): mkdir of mtp.gs0 brought up
-
-    # listed the M5c with its 11.5 GB internal storage, adb kept alive.
     mkdir /config/usb_gadget/g1/functions/mtp.gs0
     mkdir /config/usb_gadget/g1/functions/ptp.gs1
     mkdir /dev/usb-ffs 0770 shell shell

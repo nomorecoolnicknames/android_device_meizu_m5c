@@ -1,11 +1,3 @@
-# ForgeImsService (com.mediatek.ims, /system/priv-app, sharedUserId
-# android.uid.phone: domain radio) on the m5c — the client of rild-ims and of
-
-#
-# NOT MEASURED ON THE M5C YET.  The grants are those the same app needed on
-# the m95 (device/meizu/m95 sepolicy/vendor forge_ims_app.te, each a logged
-# denial there), with the m5c's types; the first permissive run
-# (tools/m5c-sepolicy/census.sh) confirms or drops them.
 
 # ImsRILAdapter: rild-ims, a socket of rild (init.m5c.modem.rc).
 unix_socket_connect(radio, rild_ims, rild)

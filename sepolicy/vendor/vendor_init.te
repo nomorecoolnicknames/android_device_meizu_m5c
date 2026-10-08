@@ -35,9 +35,6 @@ allow vendor_init m5c_proc_swappiness:file w_file_perms;
 # write /proc/sys/kernel/dmesg_restrict 1 (init.mt6735.rc, on init).
 # public/domain.te:456 leaves proc_security to init and vendor_init.
 allow vendor_init proc_security:file w_file_perms;
-# init.mt6735.rc `on early-init`: write /sys/module/firmware_class/parameters/path
-# (kernel direct firmware loading from /vendor/firmware; without it each suspend
-
 allow vendor_init sysfs_fw_class_path:file w_file_perms;
 allow vendor_init m5c_proc_bootguard:file w_file_perms;
 allow vendor_init m5c_proc_perf_boost:file { getattr setattr };

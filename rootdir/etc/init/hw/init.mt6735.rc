@@ -1,64 +1,14 @@
-# init.mt6735.rc — Meizu M5c (m5c), LOS 20 full Treble: the hardware rc
-# (mounts, NVRAM symlink, zram, graphics and sensor node setup, thermal and
-
-#
-# Imported by init.rc as /vendor/etc/init/hw/init.${ro.hardware}.rc
-# (androidboot.hardware=mt6735).  The LOS 16 rc set is NOT pasted: each line
-# carries its source.  Modem, connectivity, GPS, sensors, Wi-Fi, NVRAM and
-# power have their own files in /vendor/etc/init (init.m5c.*.rc).
-#
-
-# it nothing runs mount_all, so /data, /metadata, /protect_f, /protect_s and
-# /nvdata are never mounted — first-stage init mounts only the three
-# first_stage_mount entries.
 
 import /vendor/etc/init/hw/init.mt6735.usb.rc
 
 on early-init
-    # Direct kernel firmware loading from /vendor/firmware (as m95 8209adb).  The
-    # 4.9 kernel looks only in /lib/firmware* (firmware_class.c:291-297; the path
-
-    # fails with -2 and falls back to the user helper
-    # (CONFIG_FW_LOADER_USER_HELPER_FALLBACK=y), a uevent that ueventd answers.
-    # That includes the firmware cache taken on EVERY suspend attempt
-
-    # 114.14 s modem_1_lwg_n.img and dsp_1_lwg_n.bin went through ueventd and the
-    # attempt ended "PM: Wakeup pending, aborting suspend / last active wakeup
-
-    # in /vendor/etc/firmware; vendor/meizu/m5c links them into /vendor/firmware
-    # (the parameter takes one path).  pcm_*_2.bin are in /vendor/firmware.
     write /sys/module/firmware_class/parameters/path /vendor/firmware
 
 on init
-
-    # CONFIG_SECURITY_DMESG_RESTRICT unset (IKCONFIG of the boot 61e3f822 kernel) and
-    # the A13 init.rc does not set the sysctl (only kptr_restrict), so any
-    # process could read dmesg; with SELinux permissive nothing else stops an
-    # app.  For the bench: `adb root` or `su 0 dmesg` (userdebug).
     write /proc/sys/kernel/dmesg_restrict 1
 
-
-    # RenderEngine aborts in primeShaderCache with "Unable to generate SkImage.
-    # isTextureValid:1 dataspace:513" on this Mali-T720 r7p0 (N-era DDK), SF
-    # restarts and takes zygote with it.  With the legacy GLES RenderEngine
-    # (set live with setprop) SF stays up and system_server boots.  Same wall
-    # and same fix as m95 (device/meizu/m95/rootdir/init.mt6797.rc, "on init":
-    # a vendor build.prop entry is dropped, an rc setprop is honoured).
     setprop debug.renderengine.backend gles
 
-    # RT budget for the cpu cgroups init.rc creates above.  This 4.9 kernel
-    # has CONFIG_RT_GROUP_SCHED=y (/proc/config.gz), and a new group starts
-    # with cpu.rt_runtime_us 0, where the kernel refuses SCHED_FIFO/RR with
-    # EPERM even to CAP_SYS_NICE (__sched_setscheduler).  Pie kept every task
-    # in the root group (950000); Android 13 moves them into the groups.
-
-    # rt_runtime_us 0; surfaceflinger, audioserver, the audio HAL,
-    # system_server and com.android.bluetooth sat in cpu:/foreground; BT
-    # (CapEff 0x1800803400, CAP_SYS_NICE set) died on each enable with
-    #   pthread_create sched_setscheduler(1, {1}) call failed: Operation not permitted
-    #   alarm.cc:683 timer_create_internal ... clock 7: Operation not permitted
-    #   FATAL:alarm.cc(170) Check failed: false.
-    # The children's sum must stay within the root's 950000 (per 1 s period).
     write /dev/cpuctl/foreground/cpu.rt_runtime_us 400000
     write /dev/cpuctl/top-app/cpu.rt_runtime_us 200000
     write /dev/cpuctl/rt/cpu.rt_runtime_us 100000
@@ -68,15 +18,6 @@ on init
     write /dev/cpuctl/camera-daemon/cpu.rt_runtime_us 50000
 
 on early-boot
-
-
-    # "PC is at show_pcm_desc+0x20/0x170" -> PANIC_ON_OOPS reboot.  On MT6735M
-    # __spm_{suspend,dpidle,sodi}.pcmdesc stay NULL (spm_v1/mt_spm_sleep.c:652-657,
-    # the suspend path uses dyna_load_pcm[].desc) and show_pcm_desc() dereferences
-    # it (mt_spm_fs.c:51-77).  The nodes are 0444 and SELinux is permissive, so
-    # any process could reboot the phone.  Root-only until the kernel checks for
-    # NULL; vcorefs_pcm has a static desc (mt6735/mt_spm_vcore_dvfs_2.c:131) and
-    # stays readable.
     chown root root /sys/power/spm/suspend_pcm
     chmod 0400 /sys/power/spm/suspend_pcm
     chown root root /sys/power/spm/dpidle_pcm
@@ -117,22 +58,10 @@ on post-fs-data
     symlink /nvdata /data/nvram
     mkdir /nvdata/media 0771 media audio
     restorecon_recursive /nvdata
-    # [LOS 16 init.mt6735.rc:532 and its mem_bw_ctrl lines] thermal_manager's
-    # runtime directory and the memory-bandwidth scenario switch of the camera
-
-
     mkdir /data/.tp 0775 system system
     chown system camera /sys/bus/platform/drivers/mem_bw_ctrl/concurrency_scenario
     chmod 0660 /sys/bus/platform/drivers/mem_bw_ctrl/concurrency_scenario
 
-# CPU DVFS.  interactive, the kernel default, works on this arm64 kernel again
-# since 9985d21f6 (forge/m5c-49-a13-interactive): the scheduler update_util
-# hook is back, before it the governor never re-evaluated and the CPU stayed
-
-# The same kernel drops the invented 1352 MHz OPP (0bf78ca2c), so 1248 MHz is
-# the top of the table and needs no scaling_max_freq cap.  Written explicitly
-# so that a governor set elsewhere before boot_completed does not stick.
-# Needs that kernel: with an older prebuilt this pins the CPU at 793 MHz again.
 on property:sys.boot_completed=1
     write /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor interactive
 
@@ -144,13 +73,6 @@ on property:sys.boot_completed=1
 on property:sys.boot_completed=1
     write /proc/forge_bootguard 0
 
-# Thermal policy loader and display PQ daemon, as on LOS 16 (los16-ct07
-
-# set 12): neither was defined, although both blobs are installed —
-# thermal_manager path-patched to /odm/etc/thermal.conf and pq wired to
-# libm5cshim_legacy (vendor/meizu/m5c Android.mk, treble-elf-wiring.txt).
-# fuelgauged stays undefined: this kernel computes the SOC itself
-# (CONFIG_MTK_GAUGE_VERSION=10, LOS 16 note at :1153).
 service thermal_manager /vendor/bin/thermal_manager
     class main
     user root

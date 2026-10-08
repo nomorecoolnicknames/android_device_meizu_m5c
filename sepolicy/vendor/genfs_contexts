@@ -1,5 +1,3 @@
-
-# set 20: ls /proc, /proc/driver, /sys/kernel/ccci, /sys/class/misc).
 genfscon proc /m4u u:object_r:mtk_m4u_proc:s0
 genfscon proc /driver/wmt_dbg u:object_r:mtk_wmt_proc:s0
 genfscon proc /driver/wmt_aee u:object_r:mtk_wmt_proc:s0
@@ -33,9 +31,6 @@ genfscon sysfs /devices/platform/mtk-msdc.0/11230000.msdc0/mmc_host/mmc0/mmc0:00
 # firmware_class search path, written at early-init (init.mt6735.rc).
 genfscon sysfs /module/firmware_class/parameters/path u:object_r:sysfs_fw_class_path:s0
 genfscon proc /forge_bootguard u:object_r:m5c_proc_bootguard:s0
-
-# /sys/devices/virtual/thermal/thermal_zone*, cooling_device*), read by the
-# thermal HAL; thermal_manager keeps write access (thermal.te).
 genfscon sysfs /devices/virtual/thermal u:object_r:sysfs_thermal:s0
 # Power HAL experiment boosts (power/Power.cpp): MTK hotplug base core count and
 # GPU fixed-frequency switch.
