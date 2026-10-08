@@ -53,3 +53,5 @@ Based on Android, CyanogenMod / LineageOS and MediaTek device support, with cont
 ## Android 11 platform integration
 
 The current source adapts board-preserving M5c configuration to Android 11, removes obsolete HIDL transport dependencies, updates the manifest/fstab, and enables the ICU-56 compatibility shim through the platform `libandroidicu` API. Source patches under `patches/` avoid duplicate ownership of the legacy power HAL and WebRTC preprocessing library, and adapt ICU forwarding for Android 11. The proprietary libraries themselves are external inputs and are not included. Build-graph validation is in progress; a complete Android 11 ROM and physical operation are not yet accepted.
+
+Apply the source-only vendor integration patches from each matching vendor source root with `git apply --unidiff-zero path/to/0001-android11-integration.patch`. The patch inputs are the matching predecessor source selections, not arbitrary vendor revisions.
