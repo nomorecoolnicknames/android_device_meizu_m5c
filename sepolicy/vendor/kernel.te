@@ -5,6 +5,12 @@ allow kernel nvdata_file:file r_file_perms;
 allow kernel nvdata_file:lnk_file read;
 # From the m95 template (kernel threads opening files they do not own).
 dontaudit kernel self:capability dac_override;
+
+# kernel S: 63 denials from mtk_wmtd while Wi-Fi was toggled).  The NVRAM it
+# reads is root-owned (/nvdata/APCFG/APRDEB/WIFI 0660 uid 0, dirs 0771), Wi-Fi
+# came up, scanned and kept its NVRAM MAC under enforcing, so the capability
+# check is not what gates the read.
+dontaudit kernel self:capability dac_read_search;
 # Direct firmware loading (firmware_class.path=/vendor/firmware, init.mt6735.rc
 # early-init): the firmware cache of each suspend attempt re-reads
 # /vendor/firmware/pcm_*_2.bin from a kworker, i.e. in the kernel domain.

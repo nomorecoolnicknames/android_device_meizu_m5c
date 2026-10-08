@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<apns version="8">
+    <apn carrier="Beeline IMS"
+         mcc="250"
+         mnc="99"
+         apn="ims"
+         type="ims"
+         protocol="IP"
+         roaming_protocol="IP"
+         carrier_enabled="true" />
+    <apn carrier="MTS IMS"
+         mcc="250"
+         mnc="01"
+         apn="ims"
+         type="ims"
+         protocol="IP"
+         roaming_protocol="IP"
+         carrier_enabled="true" />
+    <apn carrier="MegaFon IMS"
+         mcc="250"
+         mnc="02"
+         apn="ims"
+         type="ims"
+         protocol="IP"
+         roaming_protocol="IP"
+         carrier_enabled="true" />
+</apns>

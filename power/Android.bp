@@ -1,0 +1,21 @@
+// Power HAL (AIDL V3) for the m5c: turns the framework's INTERACTION boost
+// and LAUNCH mode into the boost knobs of the kernel's interactive governor.
+
+// and app launches got no boost besides the kernel's own HPS/GPU input boost.
+// Based on hardware/interfaces/power/aidl/default (the AOSP example).
+cc_binary {
+    name: "android.hardware.power-service.m5c",
+    relative_install_path: "hw",
+    init_rc: ["android.hardware.power-service.m5c.rc"],
+    vintf_fragments: ["android.hardware.power-service.m5c.xml"],
+    vendor: true,
+    shared_libs: [
+        "libbase",
+        "libbinder_ndk",
+        "android.hardware.power-V3-ndk",
+    ],
+    srcs: [
+        "main.cpp",
+        "Power.cpp",
+    ],
+}

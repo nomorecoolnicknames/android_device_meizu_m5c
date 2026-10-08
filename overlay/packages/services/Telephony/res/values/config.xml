@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The IMS package for the ImsResolver: ForgeImsService (lineage_m5c.mk).
+    com.android.phone reads it from its own resources (PhoneGlobals builds the
+    ImsResolver only when android.hardware.telephony.ims is declared,
+    device.mk).  The package is bound for every slot; ForgeImsService itself
+    declares MMTEL only on the main capability slot (device/meizu/m95 overlay,
+    same value).  No RCS package: the port has no RcsFeature.
+-->
+<resources>
+    <string name="config_ims_mmtel_package" translatable="false">com.mediatek.ims</string>
+</resources>

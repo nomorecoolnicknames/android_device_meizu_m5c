@@ -1,0 +1,81 @@
+# VoLTE AP stack: mtkmal and the three volte_* daemons of the stock Flyme
+# 6.0.2.4G (init.m5c.volte.rc; meizu-fleet designs/M5C_VOLTE_LOS20_20260930.md).
+#
+# NOT MEASURED ON THE M5C YET.  The rules come from the census of the same
+# MediaTek daemons on the m95 (device/meizu/m95 sepolicy/vendor mtkmal.te and
+
+# same-named libraries and sockets are checked here by strings/readelf of the
+# m5c blobs where noted.  The first permissive run on the m5c
+# (tools/m5c-sepolicy/census.sh) confirms or drops them.  Loading /vendor/lib*
+# (mtkmal opendir()s /vendor/lib and dlopen()s its libmal_* entities) needs no
+# rule: public/domain.te:223-224.
+
+# ---- mtkmal (service mal-daemon) ------------------------------------------
+type mtkmal, domain;
+init_daemon_domain(mtkmal)
+# ForgeImsService (radio) connects to its sockets: violators.te, forge_ims.te.
+typeattribute mtkmal socket_between_core_and_vendor_violators;
+
+# Its own listeners (mal-mfi, volte_imsm) arrive from init; the MAL entities
+# connect back into them as clients (m95 census #2).
+allow mtkmal self:unix_stream_socket create_stream_socket_perms;
+allow mtkmal self:unix_dgram_socket create_socket_perms;
+unix_socket_connect(mtkmal, mtkmal, mtkmal)
+
+# rild is a MAL client: mtk-ril.so NEEDs libmdfx.so, the only library that
+# names "mal-mfi" (readelf/strings, m5c blobs).  On the m95 the missing grant
+# showed as "retrying to connect to mal-mfi error 13" once a second.
+unix_socket_connect(rild, mtkmal, mtkmal)
+
+# libmal_rilproxy sends AT commands through rild's rild-mal socket.
+unix_socket_connect(mtkmal, rild_mal, rild)
+
+# volte_imsm.so starts and stops the three daemons and polls their state.
+set_prop(mtkmal, m5c_ctl_volte_prop)
+get_prop(mtkmal, m5c_volte_svc_prop)
+# ril.mal.flag (libmdfx), ril.muxreport (modem-reset path); both in
+# m5c_mtk_ril_prop.  net.handover.rat (libmal_rds).
+set_prop(mtkmal, m5c_mtk_ril_prop)
+set_prop(mtkmal, m5c_mal_prop)
+
+# MAL timers fire from suspend (CLOCK_*_ALARM), m95 census #2.
+allow mtkmal self:capability2 wake_alarm;
+
+# mtkmal is a client of volte_imcb's sockets (m95 census #3/#4).
+unix_socket_connect(mtkmal, volte_imcb, volte_imcb)
+
+# ---- volte_ua / volte_stack / volte_imcb -----------------------------------
+type volte_ua, domain;
+init_daemon_domain(volte_ua)
+type volte_stack, domain;
+init_daemon_domain(volte_stack)
+type volte_imcb, domain;
+init_daemon_domain(volte_imcb)
+
+allow { volte_ua volte_stack volte_imcb } self:unix_stream_socket create_stream_socket_perms;
+allow { volte_ua volte_stack volte_imcb } self:unix_dgram_socket create_socket_perms;
+
+# The rendezvous: imcb connects to ua, ua and stack itself to stack.
+unix_socket_connect(volte_imcb, volte_ua, volte_ua)
+unix_socket_connect(volte_ua, volte_stack, volte_stack)
+unix_socket_connect(volte_stack, volte_stack, volte_stack)
+
+# volte_stack starts as root and drops to system; volte_ua only regroups.
+allow volte_stack self:capability { setuid setgid };
+allow volte_ua self:capability setgid;
+
+# IPsec SAs for IMS signalling, over netlink xfrm (volte_stack).
+allow volte_stack self:capability net_admin;
+allow volte_stack self:netlink_xfrm_socket { create bind read write nlmsg_read };
+
+# SIP over the IMS bearer (volte_stack) and RTP (volte_ua): network daemons.
+# Also what lets volte_stack's setNetworkForSocket reach fwmarkd through
+# libandroid_net (public/net.te).
+net_domain(volte_stack)
+net_domain(volte_ua)
+
+# The modem's IMS channels, /dev/ccci_ims* (0660 radio radio, ueventd), and the
+# ccci sysfs node volte_imcb reads first.
+allow volte_imcb ccci_device:chr_file rw_file_perms;
+allow volte_imcb sysfs_ccci:dir search;
+allow volte_imcb sysfs_ccci:file r_file_perms;

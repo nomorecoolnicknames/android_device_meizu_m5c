@@ -81,6 +81,24 @@ init.svc.akmd09912      u:object_r:m5c_sensor_svc_prop:s0 exact string
 init.svc.geomagneticd   u:object_r:m5c_sensor_svc_prop:s0 exact string
 init.svc.orientationd   u:object_r:m5c_sensor_svc_prop:s0 exact string
 
+# VoLTE (volte.te).  mtkmal's volte_imsm.so ctl.start's the three daemons and
+# polls init.svc.<name> (strings of the blob); the init.svc names would fall
+# on init_service_status_private_prop, which a vendor domain may not read.
+ctl.start$volte_ua      u:object_r:m5c_ctl_volte_prop:s0
+ctl.stop$volte_ua       u:object_r:m5c_ctl_volte_prop:s0
+ctl.start$volte_stack   u:object_r:m5c_ctl_volte_prop:s0
+ctl.stop$volte_stack    u:object_r:m5c_ctl_volte_prop:s0
+ctl.start$volte_imcb    u:object_r:m5c_ctl_volte_prop:s0
+ctl.stop$volte_imcb     u:object_r:m5c_ctl_volte_prop:s0
+init.svc.volte_ua       u:object_r:m5c_volte_svc_prop:s0 exact string
+init.svc.volte_stack    u:object_r:m5c_volte_svc_prop:s0 exact string
+init.svc.volte_imcb     u:object_r:m5c_volte_svc_prop:s0 exact string
+# ril.mal.flag: set by mtkmal (libmdfx).  net.handover.rat: set by the MAL
+# entity libmal_rds inside mtkmal ("update net.handover.rat to %s"); falls on
+# the platform "net." (system_prop) otherwise.
+ril.mal.                u:object_r:m5c_mtk_ril_prop:s0
+net.handover.           u:object_r:m5c_mal_prop:s0
+
 # Identifiers mtk-ril.so publishes as properties (strings of the blob).  On
 # the platform "ril."/"gsm."/"persist.radio" they are radio_prop, which every
 # app may read (checkpolicy on the compiled policy: untrusted_app radio_prop
@@ -92,3 +110,14 @@ persist.radio.data.iccid        u:object_r:m5c_iccid_prop:s0 exact string
 persist.radio.simswitch.iccid   u:object_r:m5c_iccid_prop:s0 exact string
 persist.radio.capability.iccid  u:object_r:m5c_iccid_prop:s0 exact string
 gsm.serial              u:object_r:m5c_iccid_prop:s0 exact string
+
+# ForgeImsService (forge_ims.te): its knobs, and the P-era vendor IMS names it
+# reads (donor ImsConfigUtils / ImsCommonUtil; persist.vendor.mtk.volte.enable
+# is set by vendor.prop).  Same prefixes as device/meizu/m95 property_contexts.
+persist.forge.                  u:object_r:m5c_forge_prop:s0
+persist.vendor.mtk              u:object_r:m5c_ims_vendor_prop:s0
+persist.vendor.ims              u:object_r:m5c_ims_vendor_prop:s0
+persist.vendor.mims_support     u:object_r:m5c_ims_vendor_prop:s0
+persist.vendor.vilte_support    u:object_r:m5c_ims_vendor_prop:s0
+persist.vendor.volte_support    u:object_r:m5c_ims_vendor_prop:s0
+persist.vendor.radio.simswitch  u:object_r:m5c_ims_vendor_prop:s0

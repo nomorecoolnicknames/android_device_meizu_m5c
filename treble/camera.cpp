@@ -25,7 +25,7 @@
 // m95); the targets live in libui / libgui_vendor / libsensor_vendor, which
 // this library NEEDs.
 //
-// Object sizes (FACT, 32-bit): the blobs allocate the N sizes themselves —
+
 // GraphicBuffer 136 B (A13: 160), BufferItemConsumer 1064 B (A13: 1080),
 // Surface 1776 B (A13: several KiB).  The first two are covered by
 // libm5cshim_newpad (newpad.cpp), the camera HAL's operator new with slack;
@@ -286,7 +286,7 @@ extern "C" void m5c_sm_ctor(void*) __asm__("_ZN7android13SensorManagerC1Ev");
 extern "C" {
 
 // N: SensorManager(String16 const& opPackageName).  The blob allocates 40
-// bytes (FACT, libcam.utils.sensorlistener: _Znwj(40)); the compat object is
+
 // four words, no vtable.
 void _ZN7android13SensorManagerC1ERKNS_8String16E(void* self, const void* /*opPackageName*/) {
     m5c_sm_ctor(self);
@@ -327,14 +327,14 @@ extern "C" M5cSpRet _ZN7android21IPermissionController11asInterfaceERKNS_2spINS_
 #pragma clang diagnostic pop
 
 // ---- HAL3 static metadata for the S5K4H8 main sensor ------------------------
-// FACT (set 15, provider log): libcam.halsensor / libcam.metadataprovider look
+
 // the per-sensor configuration up by symbol name —
 //   "constructCustStaticMetadata_DEVICE_<CATEGORY>_SENSOR_DRVNAME_S5K4H8_ST_MIPI_RAW
 //    not found" (HalSensorList, impConstructStaticMetadata_by_SymbolName)
 // — and the Flyme blobs define these only for MTK's reference sensors
 // (IMX135/219, GC0310/2145/2355): Flyme ran this HAL as HAL1, which needs no
 // static metadata.  Android 13 only takes HAL3.  TEMPORARY: the S5K4H8 gets
-// MTK's IMX219 reference configuration (8 Mpix Bayer RAW, same class).  FACT
+
 // (set 20): with it the HAL3 device opens and the preview produces frames
 // before the 4.9 kernel ISP/MDP path stalls.  Risk: crop, field of view and
 // lens data are the IMX219's, not this sensor's; real S5K4H8 tables are needed
@@ -350,10 +350,10 @@ int m5cForwardStatic(const char* target, void* metadata, void* info) {
     using Fn = int (*)(void*, void*);
     Fn fn = reinterpret_cast<Fn>(dlsym(RTLD_DEFAULT, target));
     if (fn == nullptr) {
-        ALOGE("m5c: %s not found for the S5K4H8 static metadata", target);
+        ALOGE("m5c: %s not found for the forwarded static metadata", target);
         return 0;
     }
-    ALOGI("m5c: S5K4H8 static metadata from %s", target);
+    ALOGI("m5c: forwarded static metadata from %s", target);
     return fn(metadata, info);
 }
 }  // namespace
@@ -375,8 +375,174 @@ M5C_S5K4H8_FROM_IMX219(SCALER)
 M5C_S5K4H8_FROM_IMX219(FEATURE)
 M5C_S5K4H8_FROM_IMX219(REQUEST)
 
+// The front S5K5E8 (5 Mpix Bayer RAW) is looked up the same way, under the name
+// of whichever of the four Flyme module variants the kernel matched
+// (libcameracustom.so: SENSOR_DRVNAME_S5K5E8_{ST,QH,HOLITECH,SUNWIN}_MIPI_RAW).
+// TEMPORARY, like the S5K4H8 above: it gets MTK's GC2355 reference
+// configuration, the only RAW sub-sensor the blobs carry (GC0310/GC2145 are
+// YUV, IMX135/IMX219 main sensors), so the lens facing is the front one but the
+// lens data are the GC2355's; the SENSOR table gets this sensor's geometry
+// (below).
+// Kernel side: c2c7849f4 (the module answers at i2c write id 0x30).
+#define M5C_S5K5E8_FROM_GC2355(VARIANT, CATEGORY)                                             \
+    extern "C" int                                                                            \
+            constructCustStaticMetadata_DEVICE_##CATEGORY##_SENSOR_DRVNAME_S5K5E8_##VARIANT##_MIPI_RAW( \
+                    void* metadata, void* info) {                                             \
+        return m5cForwardStatic(                                                              \
+                "constructCustStaticMetadata_DEVICE_" #CATEGORY "_SENSOR_DRVNAME_GC2355_MIPI_RAW", \
+                metadata, info);                                                              \
+    }
+// SENSOR: the GC2355 table, then this sensor's own geometry on top.  The
+// IMetadata API is exported by libcam.metadata.so (both ABIs); an IMetadata or
+// an IEntry is a vtable pointer plus an Implementor pointer (constructor
+// disassembly), and the tag numbers mirror the Android ones (0xf0000 active
+// array as MRect, 0xf0005 physical size, 0xf0006 pixel array).  0xf000c is
+// MTK's per-mode table: one IMetadata per sensor scenario with 0xf000e id
+// (1 preview, 2 capture, 3 video - the IMX219 table has 1632x1224 for id 1 and
+// 3264x2448 for 2 and 3), 0xf000f fps, 0xf0011 crop in the active array,
+// 0xf0010 output size and 0xe001a frame duration (ns).  S5K5E8 values: the
+// kernel driver's modes (s5k5e8yxmipiraw_Sensor.c: pre 1296x972, cap and
+// normal_video 2592x1944, all 30 fps); 1.12 um pixels (Samsung's S5K5E8
+// spec) give 2.903 x 2.177 mm.  The LENS table stays the GC2355's.
+namespace {
+struct M5cMSize { int w, h; };
+struct M5cMRect { int x, y, w, h; };
+template <typename T> struct M5cT2T {};
+struct M5cObj { void* vptr; void* imp; void* spare[2]; };
+
+struct M5cMetaApi {
+    void (*entryCtor)(M5cObj*, unsigned);
+    void (*entryDtor)(M5cObj*);
+    void (*metaCtor)(M5cObj*);
+    void (*metaDtor)(M5cObj*);
+    int (*update)(void*, unsigned, const M5cObj*);
+    void (*pushInt)(M5cObj*, const int&, M5cT2T<int>);
+    void (*pushFloat)(M5cObj*, const float&, M5cT2T<float>);
+    void (*pushI64)(M5cObj*, const int64_t&, M5cT2T<int64_t>);
+    void (*pushRect)(M5cObj*, const M5cMRect&, M5cT2T<M5cMRect>);
+    void (*pushSize)(M5cObj*, const M5cMSize&, M5cT2T<M5cMSize>);
+    void (*pushMeta)(M5cObj*, const M5cObj&, M5cT2T<M5cObj>);
+};
+
+template <typename F> bool m5cSym(F& f, const char* name) {
+    f = reinterpret_cast<F>(dlsym(RTLD_DEFAULT, name));
+    if (f == nullptr) ALOGE("m5c: %s not found", name);
+    return f != nullptr;
+}
+
+bool m5cMetaApi(M5cMetaApi& a) {
+    return m5cSym(a.entryCtor, "_ZN5NSCam9IMetadata6IEntryC1Ej") &&
+           m5cSym(a.entryDtor, "_ZN5NSCam9IMetadata6IEntryD1Ev") &&
+           m5cSym(a.metaCtor, "_ZN5NSCam9IMetadataC1Ev") &&
+           m5cSym(a.metaDtor, "_ZN5NSCam9IMetadataD1Ev") &&
+           m5cSym(a.update, "_ZN5NSCam9IMetadata6updateEjRKNS0_6IEntryE") &&
+           m5cSym(a.pushInt, "_ZN5NSCam9IMetadata6IEntry9push_backERKiNS_9Type2TypeIiEE") &&
+           m5cSym(a.pushFloat, "_ZN5NSCam9IMetadata6IEntry9push_backERKfNS_9Type2TypeIfEE") &&
+#ifdef __LP64__
+           m5cSym(a.pushI64, "_ZN5NSCam9IMetadata6IEntry9push_backERKlNS_9Type2TypeIlEE") &&
+#else
+           m5cSym(a.pushI64, "_ZN5NSCam9IMetadata6IEntry9push_backERKxNS_9Type2TypeIxEE") &&
+#endif
+           m5cSym(a.pushRect, "_ZN5NSCam9IMetadata6IEntry9push_backERKNS_5MRectENS_9Type2TypeIS2_EE") &&
+           m5cSym(a.pushSize, "_ZN5NSCam9IMetadata6IEntry9push_backERKNS_5MSizeENS_9Type2TypeIS2_EE") &&
+           m5cSym(a.pushMeta, "_ZN5NSCam9IMetadata6IEntry9push_backERKS0_NS_9Type2TypeIS0_EE");
+}
+
+void m5cPutRect(const M5cMetaApi& a, void* meta, unsigned tag, M5cMRect v) {
+    M5cObj e{};
+    a.entryCtor(&e, tag);
+    a.pushRect(&e, v, {});
+    a.update(meta, tag, &e);
+    a.entryDtor(&e);
+}
+
+void m5cPutSize(const M5cMetaApi& a, void* meta, unsigned tag, M5cMSize v) {
+    M5cObj e{};
+    a.entryCtor(&e, tag);
+    a.pushSize(&e, v, {});
+    a.update(meta, tag, &e);
+    a.entryDtor(&e);
+}
+
+void m5cPutInt(const M5cMetaApi& a, void* meta, unsigned tag, int v) {
+    M5cObj e{};
+    a.entryCtor(&e, tag);
+    a.pushInt(&e, v, {});
+    a.update(meta, tag, &e);
+    a.entryDtor(&e);
+}
+
+void m5cPutI64(const M5cMetaApi& a, void* meta, unsigned tag, int64_t v) {
+    M5cObj e{};
+    a.entryCtor(&e, tag);
+    a.pushI64(&e, v, {});
+    a.update(meta, tag, &e);
+    a.entryDtor(&e);
+}
+
+int m5cS5K5E8Sensor(void* metadata, void* info) {
+    int ret = m5cForwardStatic(
+            "constructCustStaticMetadata_DEVICE_SENSOR_SENSOR_DRVNAME_GC2355_MIPI_RAW", metadata,
+            info);
+    M5cMetaApi a;
+    if (!m5cMetaApi(a)) return ret;
+
+    m5cPutRect(a, metadata, 0xf0000, {0, 0, 2592, 1944});   // active array
+    m5cPutSize(a, metadata, 0xf0006, {2592, 1944});         // pixel array
+    {
+        M5cObj e{};
+        a.entryCtor(&e, 0xf0005);                            // physical size, mm
+        a.pushFloat(&e, 2.903f, {});
+        a.pushFloat(&e, 2.177f, {});
+        a.update(metadata, 0xf0005, &e);
+        a.entryDtor(&e);
+    }
+
+    static const struct { int id; M5cMSize out; } kModes[] = {
+            {1, {1296, 972}}, {2, {2592, 1944}}, {3, {2592, 1944}}};
+    M5cObj modes{};
+    a.entryCtor(&modes, 0xf000c);
+    for (const auto& m : kModes) {
+        M5cObj mode{};
+        a.metaCtor(&mode);
+        m5cPutInt(a, &mode, 0xf000e, m.id);
+        m5cPutInt(a, &mode, 0xf000f, 30);
+        m5cPutRect(a, &mode, 0xf0011, {0, 0, 2592, 1944});
+        m5cPutSize(a, &mode, 0xf0010, m.out);
+        m5cPutI64(a, &mode, 0xe001a, 33000000);
+        a.pushMeta(&modes, mode, {});
+        a.metaDtor(&mode);
+    }
+    a.update(metadata, 0xf000c, &modes);
+    a.entryDtor(&modes);
+    ALOGI("m5c: S5K5E8 sensor geometry 2592x1944 over the GC2355 table");
+    return ret;
+}
+}  // namespace
+
+#define M5C_S5K5E8_SENSOR(VARIANT)                                                                   \
+    extern "C" int constructCustStaticMetadata_DEVICE_SENSOR_SENSOR_DRVNAME_S5K5E8_##VARIANT##_MIPI_RAW( \
+            void* metadata, void* info) {                                                            \
+        return m5cS5K5E8Sensor(metadata, info);                                                      \
+    }
+
+#define M5C_S5K5E8_VARIANT(VARIANT)                    \
+    M5C_S5K5E8_FROM_GC2355(VARIANT, CAMERA)            \
+    M5C_S5K5E8_FROM_GC2355(VARIANT, LENS)              \
+    M5C_S5K5E8_SENSOR(VARIANT)                         \
+    M5C_S5K5E8_FROM_GC2355(VARIANT, TUNING_3A)         \
+    M5C_S5K5E8_FROM_GC2355(VARIANT, FLASHLIGHT)        \
+    M5C_S5K5E8_FROM_GC2355(VARIANT, SCALER)            \
+    M5C_S5K5E8_FROM_GC2355(VARIANT, FEATURE)           \
+    M5C_S5K5E8_FROM_GC2355(VARIANT, REQUEST)
+
+M5C_S5K5E8_VARIANT(ST)
+M5C_S5K5E8_VARIANT(QH)
+M5C_S5K5E8_VARIANT(HOLITECH)
+M5C_S5K5E8_VARIANT(SUNWIN)
+
 // ---- Open-time closure (libcam_platform.so, dlopen()ed by the devicemgr) ---
-// FACT (set 17, provider log): "getPlatform dlopen: libcam_platform.so
+
 // error=... library "libjnigraphics.so" not found: needed by
 // libcam.common.meizu.so" -> "No Platform", open() -38.  m5c_linkaudit with
 
@@ -432,7 +598,7 @@ extern "C" M5cSpRet _ZNK7android10GLConsumer16getCurrentBufferEv(const android::
 }
 #pragma clang diagnostic pop
 
-// Request templates, same scheme.  FACT (set 19, first open in Aperture):
+
 // "TemplateRequest: constructCustRequestMetadata_SENSOR_DRVNAME_S5K4H8_ST_MIPI_RAW
 // not found" then "Fail to get constructCustRequestMetadata_COMMON" ->
 // createDefaultRequest: "Template ID 1 is invalid or not supported" (-22).
@@ -449,3 +615,40 @@ extern "C" int constructCustRequestMetadata_COMMON(void* metadata, void* request
     return m5cForwardStatic("constructCustRequestMetadata_SENSOR_DRVNAME_IMX219_MIPI_RAW", metadata,
                             requestType);
 }
+
+// ---- Camera provider: Nougat pthread semantics ------------------------------
+
+// owner's "switching cameras hangs"): android.hardware.camera.provider@2.4
+// aborts with "invalid pthread_t ... passed to pthread_join" on every flush,
+// i.e. on closing or switching a camera:
+//   CameraDeviceSession::flush -> DefaultPipelineModel::beginFlush ->
+//   NormalPipe_FrmB::stop -> NormalPipe_FrmB_Thread::Stop -> pthread_join
+//   (libcam.iopipe_FrmB.so, Nougat blob).
+// The blob joins a thread that has already been joined or detached.  Nougat's
+// bionic answered ESRCH; Android 13's bionic aborts when the target SDK is 26
+// or higher and still returns ESRCH below it (bionic/libc/bionic/
+// pthread_internal.cpp:106-119).  A vendor process runs at the platform SDK,
+// so give this one process the SDK its blobs were written for.  The setter is
+// the linker's export (linker/dlfcn.cpp:204; libdl_android, its public name,
+// is APEX-only).  Other effects below 26/30 in this process only: fdsan warns
+// once instead of aborting, pre-28 mutex and pre-24 semaphore checks - all
+// what the blobs expect.  Only in the camera provider: this library is also
+// loaded by media.codec and others through the OMX closure.
+#include <unistd.h>
+namespace {
+__attribute__((constructor)) void m5cCameraProviderSdk() {
+    const char* name = getprogname();
+    if (name == nullptr || strstr(name, "camera.provider") == nullptr) return;
+    using SetSdk = void (*)(int);
+    SetSdk set = reinterpret_cast<SetSdk>(
+            dlsym(RTLD_DEFAULT, "__loader_android_set_application_target_sdk_version"));
+    if (set == nullptr) {
+        ALOGE("m5c: %s: no __loader_android_set_application_target_sdk_version (%s)", name,
+              dlerror());
+        return;
+    }
+    set(25);
+    ALOGW("m5c: %s: target SDK 25 for the Nougat camera blobs (pthread_join ESRCH, not abort)",
+          name);
+}
+}  // namespace

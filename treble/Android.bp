@@ -12,7 +12,7 @@ cc_defaults {
 
 // libgui.so -> libgui_vendor.so (lesson 6 of the m95 port, same mechanism as
 // libgui_m95 in device/meizu/m95/shims/Android.bp).
-// FACT: 16 blobs (8 per ABI; camera.mt6737m's closure, libfilterfw,
+
 // libcam.utils.sensorlistener, libcamalgo, ...) NEED libgui.so, and libgui is
 // VNDK-PRIVATE in Android 13 (vndkprivate.libraries.33.txt), i.e. not linked
 // into the vendor namespace at all.  The m5c blobs were never rewired to a
@@ -33,7 +33,7 @@ cc_library_shared {
 }
 
 // libnativehelper.so as an EMPTY vendor library.
-// FACT: 39 blobs NEED libnativehelper.so, which Android 13 ships only inside
+
 // the ART apex, out of the vendor namespace's reach.  Of those 39, only
 // libem_bt_jni and libmeizucamera (both ABIs) import anything from it
 // (jniThrowException, jniThrowRuntimeException, jniGetFDFromFileDescriptor);
@@ -75,7 +75,7 @@ cc_library_shared {
     cflags: ["-fvisibility=hidden"],
 }
 
-// Audio HAL closure (audio.primary.mt6737m, both ABIs).  FACT (A13 boot of
+
 
 // never opens — the blob NEEDs libmedia.so, libpowermanager.so and
 // libtinycompress.so, none of which a vendor process can load, and
@@ -182,4 +182,44 @@ cc_library_shared {
     defaults: ["m5c_treble_defaults"],
     srcs: ["newpad.cpp"],
     stl: "none",
+}
+
+// libnetd_client.so for volte_stack (netd_client.c): setNetworkForSocket
+// forwarded to the LLNDK android_setsocknetwork.  ELF32 only: the one consumer,
+// the stock volte_stack, is 32-bit.
+cc_library_shared {
+    name: "libm5cshim_netd_client",
+    defaults: ["m5c_treble_defaults"],
+    stem: "libnetd_client",
+    srcs: ["netd_client.c"],
+    shared_libs: ["libandroid_net"],
+    compile_multilib: "32",
+}
+
+// android::Pbrcel for the boxed 64-bit librilmtk (nparcel.cpp;
+// vendor/meizu/m5c blob-parcel-box.py adds this library to its DT_NEEDED).
+// 64-bit only: rild and its librilmtk are 64-bit (rild.libpath, vendor.prop).
+cc_library_shared {
+    name: "libm5cshim_nparcel",
+    defaults: ["m5c_treble_defaults"],
+    srcs: ["nparcel.cpp"],
+    cflags: ["-fvisibility=hidden"],
+    shared_libs: [
+        "libbinder",
+        "libutils",
+    ],
+    compile_multilib: "64",
+}
+
+// jniRegisterNativeMethods for the stock M libwfo_jni (jnihelp.cpp; vendor/
+// meizu/m5c blob-elf-wire.py swaps its libnativehelper.so NEEDED for this).
+// 64-bit only: its one loader, ForgeImsService, runs in the 64-bit phone uid.
+cc_library_shared {
+    name: "libm5cshim_jnihelp",
+    defaults: ["m5c_treble_defaults"],
+    srcs: ["jnihelp.cpp"],
+    cflags: ["-fvisibility=hidden"],
+    header_libs: ["jni_headers"],
+    shared_libs: ["liblog"],
+    compile_multilib: "64",
 }

@@ -4,3 +4,9 @@ type m5c_spm, domain;
 init_daemon_domain(m5c_spm)
 allow m5c_spm vendor_shell_exec:file rx_file_perms;
 allow m5c_spm m5c_spm_device:chr_file r_file_perms;
+
+# android.hardware.power-service.m5c (power/): INTERACTION and LAUNCH write the
+# boost tunables of the interactive governor under /sys/devices/system/cpu/cpufreq.
+allow hal_power_default sysfs_devices_system_cpu:dir r_dir_perms;
+allow hal_power_default sysfs_devices_system_cpu:file rw_file_perms;
+allow hal_power_default m5c_proc_perf_boost:file rw_file_perms;

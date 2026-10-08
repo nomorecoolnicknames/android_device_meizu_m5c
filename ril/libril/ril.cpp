@@ -350,21 +350,21 @@ static void forgeSetDispatchChannel(int cid)
     pthread_setspecific(s_dispatchChannelKey, (void *)(intptr_t)(cid + 1));
 }
 
-/* forge m681 (2026-08-03): the fallback below is only safe once the modem has
- * finished bring-up. Shipped un-gated at t0 it put MD1 into an exception loop
- * (78/50 exceptions on two kernels; same kernels clean with the old libril --
- * four-flash isolation, variable = libril). Every proof of the fallback was
- * taken after mtk.md1.status=ready, so the code now matches the evidence: the
- * fallback stays inert (stock behaviour, ids propagate unchanged) until
- * mtk.md1.status first reads "ready", then latches armed for the life of the
- * process. ccci_mdinit restarts rild across MD cycles, so per-process latching
- * follows the modem state machine naturally.
- *
- * Debug override: persist.m681.ril.ctxfix = "force" arms from t0 (reproduces
- * the un-gated build without a rebuild); "off" latches disarmed (stock
- * behaviour). Property reads happen only while unarmed; after the latch the
- * hot path costs one int load. The latch is racy by design: worst case is a
- * duplicate RLOGI, never a wrong id. */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 static int s_ctxfixArmed; /* 0 = unarmed, 1 = armed, -1 = disarmed for good */
 
 static int forgeCtxfixArmed(void)
@@ -654,7 +654,7 @@ addRequestToList(int serial, int slotId, int request) {
     if (serial == -1)
 	pRI->local = 1;
     pRI->token = serial;
-    ret = (request < RIL_REQUEST_VENDOR_BASE) ? 
+    ret = (request < RIL_REQUEST_VENDOR_BASE) ?
 	ret = request :
  	ret = request - RIL_REQUEST_VENDOR_BASE + mtk_command_start;
     pRI->pCI = &(s_commands[ret]);
@@ -783,7 +783,7 @@ void onNewCommandConnect(RIL_SOCKET_ID socket_id) {
 #endif
 }
 
-//static 
+//static
 void userTimerCallback (int fd, short flags, void *param) {
     UserCallbackInfo *p_info;
 
@@ -1052,7 +1052,7 @@ void my_enqueue(int request, void *buf, size_t buflen, BUF_FMTS bf, RequestInfo 
     }
 #if VDBG
     RLOGD("my_enqueue:request=%s,RIL_CMD%s_%s,buflen:%d,bf=%u,pending=%s",requestToString(request),
-		(socket_id == RIL_SOCKET_1) ? "" : "2",	proxyString(proxyId), 
+		(socket_id == RIL_SOCKET_1) ? "" : "2",	proxyString(proxyId),
 		buflen, bf, (pending)?"true":"false");
 #endif
     if (pending) {
@@ -1100,14 +1100,17 @@ void my_enqueue(int request, void *buf, size_t buflen, BUF_FMTS bf, RequestInfo 
 }
 // daniel added end
 
-extern "C" bool
-IMS_isRilRequestFromIms(RIL_Token t)
-{ return false; }
 
-extern "C"
-void IMS_RIL_onUnsolicitedResponseSocket(int unsolResponse, const void *data,
-				size_t datalen, RIL_SOCKET_ID socket_id)
-{}
+
+
+
+
+
+
+
+
+
+
 
 extern "C" void
 RIL_startEventLoop(void) {
@@ -1176,32 +1179,32 @@ done:
 #define MAL_SOCKET_NAME     "rild-mal"
 #define MAL_HEADER_BYTES    16      /* header_size + sim_id + request_id + serial */
 #define MAL_MAX_FRAME       (64 * 1024)
-/* ---------------------------------------------------------------------
- * Per-channel serialization for the MediaTek vendor RIL.
- *
- * mtk-ril.so keeps one context per AT channel (6 per SIM: URC, CMD_1..4,
- * ATCI) and marks a context "in use by thread T" for the duration of one
- * AT exchange (at_send_command_full, mtk-ril.so 0x5f138).  A second thread
- * that reaches the same context while the flag is set does NOT wait: it logs
- * "Occupied Thread: <cmd> send on <channel>" and fails the command on the
- * spot.  MediaTek's own libril never hit that because it ran every request
- * for channel k -- and every proxy timed callback for proxy k -- on the one
- * dispatch thread of channel k.  This libril dispatches HIDL requests on the
- * binder thread, proxy timed callbacks on the event loop and MAL requests on
- * the rild-mal server thread, so three threads share channel 0 (URC) and the
- * blob refuses whichever one arrives second.  Seen live 2026-08-26: MAL's
- * AT+CPIN? at SIM-detect time failed "Occupied" three times against the
- * blob's own init sequence, simmngr cached "modem off / SIM not inserted"
- * and IMS never got SIM-ready; the framework's AT+COPS?/CREG?/CGREG? on a
- * radio-power cycle failed the same way.
- *
- * Fix: one mutex per channel, taken around every vendor onRequest (by the
- * request's cid), around every proxy timed callback (run on a per-channel
- * worker so the event loop is never blocked and FIFO order per proxy is
- * kept, as in the stock libril) and around MAL's 2106 dispatch.  The blob's
- * own boot-time init thread is outside our reach, so MAL requests are also
- * retried for a few seconds when the blob fails them immediately.
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #define MTK_CHANNEL_COUNT 24
 static pthread_mutex_t s_chMutex[MTK_CHANNEL_COUNT];
 static pthread_once_t  s_chOnce = PTHREAD_ONCE_INIT;
@@ -2489,7 +2492,7 @@ static void send_unsolResponse(int unsolResponse, const void *data,
 
     pthread_rwlock_t *radioServiceRwlockPtr = radio::getRadioServiceRwlock((int) soc_id);
     int rwlockRet = pthread_rwlock_rdlock(radioServiceRwlockPtr);
-    assert(rwlockRet == 0); 
+    assert(rwlockRet == 0);
 #if VDBG
     RLOGI("%s UNSOLICITED: %s data:%p,length:%zu,pthread=%lu", rilSocketIdToString(soc_id),
 	    requestToString(unsolResponse), data, datalen, pthread_self());
@@ -2629,7 +2632,7 @@ void RIL_onUnsolicitedResponseSocket(int unsolResponse, const void *data,
 	// cached if data != NULL
 	if (data == NULL || datalen == 0 ||
 	    unsolResponse == RIL_UNSOL_RESPONSE_VOICE_NETWORK_STATE_CHANGED)  {
-	    RLOGW("service not started, ignored %d (%s) on socket %d", 
+	    RLOGW("service not started, ignored %d (%s) on socket %d",
 		unsolResponse, requestToString(unsolResponse), (int)socket_id);
 	}
 	else {
@@ -2643,7 +2646,7 @@ void RIL_onUnsolicitedResponseSocket(int unsolResponse, const void *data,
 		memcpy (pendingUSR[pendingUSRcnt].data, data, datalen);
 		pendingUSR[pendingUSRcnt].datalen = datalen;
 		pendingUSR[pendingUSRcnt++].socket_id = socket_id;
-		RLOGW("wait for service, cached %d (%s) on socket %d, cache size=%d", 
+		RLOGW("wait for service, cached %d (%s) on socket %d, cache size=%d",
 		    unsolResponse, requestToString(unsolResponse), (int)socket_id, pendingUSRcnt);
 	    }
 	    else RLOGE("service not started, USR cache full!");

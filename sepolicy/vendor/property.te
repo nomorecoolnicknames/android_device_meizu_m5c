@@ -15,7 +15,17 @@ vendor_restricted_prop(m5c_mtk_ril_prop)
 vendor_internal_prop(m5c_audio_hal_prop)
 vendor_restricted_prop(m5c_camera_prop)
 vendor_internal_prop(m5c_wlan_prop)
+vendor_internal_prop(m5c_ctl_volte_prop)
+# Restricted, not internal: ForgeImsService (domain radio, a core domain)
+# polls init.svc.volte_imcb before it kicks the modem (forge_ims.te).
+vendor_restricted_prop(m5c_volte_svc_prop)
+vendor_internal_prop(m5c_mal_prop)
 vendor_internal_prop(m5c_iccid_prop)
+# ForgeImsService's bring-up knobs (persist.forge.*) and the vendor IMS
+# switches it reads (persist.vendor.mtk*, persist.vendor.ims* ...); read by
+# radio, a core domain, hence restricted (forge_ims.te, m95 property.te).
+vendor_restricted_prop(m5c_forge_prop)
+vendor_restricted_prop(m5c_ims_vendor_prop)
 
 # Platform-identity MTK flags (ro.mtk_*): read by every vendor process.
 get_prop({ domain -coredomain -appdomain }, m5c_mtk_config_prop)

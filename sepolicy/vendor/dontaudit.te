@@ -1,3 +1,8 @@
+# Denials that are silenced, not granted.  Each one is a lookup that returns
+# the same result whether it is allowed or denied, or a platform access that
+# the neverallows forbid and that has no function on this device.  Evidence:
+
+# not in git) and getprop -Z of the same boot.
 
 # Core processes looking up vendor.* / ro.vendor.* / persist.vendor.* names
 # (prefix -> vendor_default_prop).  A core read of vendor_default_prop is
@@ -25,7 +30,7 @@ dontaudit rild system_prop:file r_file_perms;
 dontaudit mnld { radio_prop system_prop }:file r_file_perms;
 
 # terservice asks for persist.ter.service.current, which does not exist here
-# (FACT: getprop on set 21); a denied read returns the same default.
+
 dontaudit terservice default_prop:file r_file_perms;
 
 # nvram_daemon runs `cp fstab* -f /data/nvram/` (strings of the blob), which
@@ -45,3 +50,10 @@ dontaudit network_stack fs_bpf:file { read write };
 
 # ueventd searches /metadata/gsi (DSU state); no DSU on this device.
 dontaudit ueventd gsi_metadata_file:dir search;
+
+
+# 43 denials of block_device:dir search).  Under enforcing Bluetooth reached
+# ON with its NVRAM address and the camera produced frames (Aperture, 586
+# frames on device 0), so the lookup has no function here; granting it would
+# hand both HALs the block device directory.
+dontaudit { hal_bluetooth_default hal_camera_default } block_device:dir search;

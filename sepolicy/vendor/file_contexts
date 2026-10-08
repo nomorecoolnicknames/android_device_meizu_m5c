@@ -1,9 +1,27 @@
+# Mount points of the MTK partitions (fstab.mt6735: protect1, protect2,
+# nvdata).  BoardConfig.mk BOARD_ROOT_EXTRA_FOLDERS creates them in the
+# read-only system root, and every root-level directory needs an explicit
+
+# 'set_selinux_xattr: ... searching for label "/nvdata"').  The same path
+# names the root of the mounted partition, so the data type is used for
+# both (init.mt6735.rc runs `restorecon_recursive /nvdata`); /nvdata itself
+# is covered by /nvdata(/.*)? below.
 /protect_f          u:object_r:protect_f_data_file:s0
 /protect_s          u:object_r:protect_s_data_file:s0
 
+# ---------------------------------------------------------------------------
+
+# partitions, device nodes, vendor daemons and their data.  Taken from m95
+# (device/meizu/m95/sepolicy/vendor/file_contexts) and cut to what exists on
+
+# a block node through its by-name link (selabel_lookup_best_match).
+# ---------------------------------------------------------------------------
 /dev/block/platform/mtk-msdc\.0/11230000\.msdc0/by-name/boot      u:object_r:boot_block_device:s0
 /dev/block/platform/mtk-msdc\.0/11230000\.msdc0/by-name/recovery  u:object_r:recovery_block_device:s0
 /dev/block/platform/mtk-msdc\.0/11230000\.msdc0/by-name/system    u:object_r:system_block_device:s0
+# custom holds /vendor (first_stage_mount).  A13 public policy has no
+
+# devices with a separate vendor partition it shares system's label.
 /dev/block/platform/mtk-msdc\.0/11230000\.msdc0/by-name/custom    u:object_r:system_block_device:s0
 /dev/block/platform/mtk-msdc\.0/11230000\.msdc0/by-name/cache     u:object_r:cache_block_device:s0
 /dev/block/platform/mtk-msdc\.0/11230000\.msdc0/by-name/userdata  u:object_r:userdata_block_device:s0
@@ -101,6 +119,11 @@
 /(vendor|system/vendor)/bin/geomagneticd        u:object_r:mtk_fusiond_exec:s0
 /(vendor|system/vendor)/bin/orientationd        u:object_r:mtk_fusiond_exec:s0
 /(vendor|system/vendor)/bin/hw/android\.hardware\.bluetooth@1\.1-service\.m5c  u:object_r:hal_bluetooth_default_exec:s0
+/(vendor|system/vendor)/bin/hw/android\.hardware\.power-service\.m5c  u:object_r:hal_power_default_exec:s0
+/(vendor|system/vendor)/bin/hw/android\.hardware\.thermal@2\.0-service\.m5c  u:object_r:hal_thermal_default_exec:s0
+# AOSP services this product ships without a label of their own in A13
+# system/sepolicy (static check of every vendor rc service against
+
 /(vendor|system/vendor)/bin/hw/android\.hardware\.gatekeeper@1\.0-service\.software  u:object_r:hal_gatekeeper_default_exec:s0
 /(vendor|system/vendor)/bin/hw/android\.hardware\.drm@1\.4-service\.clearkey  u:object_r:hal_drm_default_exec:s0
 
@@ -108,6 +131,11 @@
 /dev/socket/rild-ims        u:object_r:rild_ims_socket:s0
 /dev/socket/rild-mal        u:object_r:rild_mal_socket:s0
 
+# SP-HAL: the DT_NEEDED closure of libGLES_mali.so and gralloc.mt6737m.so
+
+
+# bootanimation through the sphal namespace; the kernel reports only the first
+# library per (domain, type) — m95 lesson, a13-sepolicy-hidden-denials.
 /(vendor|system/vendor)/lib(64)?/egl/libGLES_mali\.so          u:object_r:same_process_hal_file:s0
 /(vendor|system/vendor)/lib(64)?/hw/gralloc\.mt6737m\.so        u:object_r:same_process_hal_file:s0
 /(vendor|system/vendor)/lib(64)?/libbwc\.so                     u:object_r:same_process_hal_file:s0
@@ -128,6 +156,13 @@
 /(vendor|system/vendor)/lib(64)?/libvcodecdrv\.so               u:object_r:same_process_hal_file:s0
 /(vendor|system/vendor)/lib(64)?/libmp4enc_sa\.ca7\.so          u:object_r:same_process_hal_file:s0
 /(vendor|system/vendor)/lib(64)?/libvc1dec_sa\.ca7\.so          u:object_r:same_process_hal_file:s0
+# Loaded into ForgeImsService (domain radio) from sphal as a vendor public
+# library, with the two MAL libraries it NEEDs (forge_ims.te); 64-bit only,
+# mtkmal keeps /vendor/lib's copies as vendor_file.
+/(vendor|system/vendor)/lib64/libwfo_jni\.so                    u:object_r:same_process_hal_file:s0
+/(vendor|system/vendor)/lib64/libm5cshim_jnihelp\.so            u:object_r:same_process_hal_file:s0
+/(vendor|system/vendor)/lib64/libmal\.so                        u:object_r:same_process_hal_file:s0
+/(vendor|system/vendor)/lib64/libmdfx\.so                       u:object_r:same_process_hal_file:s0
 /(vendor|system/vendor)/lib(64)?/libvp8dec_sa\.ca7\.so          u:object_r:same_process_hal_file:s0
 /data/vendor/bluetooth(/.*)?  u:object_r:m5c_bt_data_file:s0
 
@@ -150,3 +185,15 @@
 # SPM: the node whose open() makes the 4.9 kernel load /vendor/firmware/pcm_*_2.bin.
 /dev/spm                  u:object_r:m5c_spm_device:s0
 /(vendor|system/vendor)/bin/m5c-spm\.sh          u:object_r:m5c_spm_exec:s0
+
+# VoLTE AP stack (init.m5c.volte.rc, volte.te).
+/(vendor|system/vendor)/bin/mtkmal          u:object_r:mtkmal_exec:s0
+/(vendor|system/vendor)/bin/volte_ua        u:object_r:volte_ua_exec:s0
+/(vendor|system/vendor)/bin/volte_stack     u:object_r:volte_stack_exec:s0
+/(vendor|system/vendor)/bin/volte_imcb      u:object_r:volte_imcb_exec:s0
+/dev/socket/mal-mfi             u:object_r:mtkmal_socket:s0
+/dev/socket/volte_imsm          u:object_r:mtkmal_socket:s0
+/dev/socket/volte_ua            u:object_r:volte_ua_socket:s0
+/dev/socket/volte_stack         u:object_r:volte_stack_socket:s0
+/dev/socket/volte_ims(a|vt)[12] u:object_r:volte_imcb_socket:s0
+/dev/socket/volte_ut            u:object_r:volte_imcb_socket:s0

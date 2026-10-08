@@ -1,3 +1,21 @@
+#
+# system.prop for the Meizu M5c (m5c, M710H) — LineageOS 20.0
+#
+# Only framework-side / system-partition properties belong here.  MTK hardware
+# knobs live in vendor.prop (TARGET_VENDOR_PROP).
+#
+# Deliberately NOT carried from the 14.1/16 system.prop:
+
+#     -> these are generated from PRODUCT_* by build/make/core/sysprop.mk:40-50
+#        as ro.product.system.*; repeating them here is a duplicate-sysprop
+#        error in Android 13 unless BUILD_BROKEN_DUP_SYSPROP is set, and there
+#        is no reason to set it.
+#   ro.telephony.ril_class=MT6735
+#     -> BOARD_RIL_CLASS / ril_class has been dead since Android 9
+
+#   debug.hwui.render_dirty_regions
+#     -> no such knob in modern hwui; debug.hwui.use_partial_updates in
+#        vendor.prop is the live one.
 
 # Display density for a 720x1280 panel
 ro.sf.lcd_density=320
@@ -26,3 +44,15 @@ drm.service.enabled=true
 # For a debugging session: setprop log.tag.AT D (and RIL), back to I after.
 log.tag.AT=I
 log.tag.RIL=I
+
+# VoLTE (ForgeImsService, the stock M MAL, volte_* and libwfo_jni): the same
+# rule for tags that print subscriber data.  WifiOffloadService: libwfo_jni
+# logs "setSimInfo: imei=%s", imsi, impi at DEBUG (strings of the blob).
+# MAL-IMSM (IMEI at DEBUG) and VoLTE_Auto_Testing (numbers at INFO) were
+# measured on the m95's N blobs (device/meizu/m95 vendor.prop); the m5c's M
+# blobs carry the same tag strings.  NOT covered: volte_stack / volte_ua log
+# whole SIP messages under tags with a space ("VoLTE REG", "VoLTE SIPTX",
+# "VoLTE SMS"), which no log.tag.* property can name.
+log.tag.WifiOffloadService=I
+log.tag.MAL-IMSM=I
+log.tag.VoLTE_Auto_Testing=W

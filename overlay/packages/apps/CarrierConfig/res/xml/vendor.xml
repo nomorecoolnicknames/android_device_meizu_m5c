@@ -1,0 +1,31 @@
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<!--
+    Meizu M5c (m5c) - carrier config overrides.  CarrierConfig applies this
+    file after the per-carrier asset ("Treat vendor.xml as if it were appended
+    to the carrier config file we read", DefaultCarrierConfigService), filtered
+    on the SIM's MCC/MNC.
+
+    carrier_volte_available_bool: the carrier half of
+    ImsManager.isVolteEnabledByPlatform() (the device half is
+    config_device_volte_available); the platform default is false, and on the
+    m95 it was measured false for 250/01 (build 23) while IMS registered only
+    through a debug override.  The m5c carries no persist.dbg.volte_avail_ovr.
+
+    Kept at their defaults: carrier_vt_available_bool (no ViLTE),
+    carrier_wfc_ims_available_bool (no ePDG), carrier_supports_ss_over_ut_bool
+    (no UT/XCAP in the port).  Same set as device/meizu/m95.
+-->
+<carrier_config_list>
+    <!-- Beeline: the m5c's SIM. -->
+    <carrier_config mcc="250" mnc="99">
+        <boolean name="carrier_volte_available_bool" value="true" />
+    </carrier_config>
+    <!-- MTS. -->
+    <carrier_config mcc="250" mnc="01">
+        <boolean name="carrier_volte_available_bool" value="true" />
+    </carrier_config>
+    <!-- MegaFon. -->
+    <carrier_config mcc="250" mnc="02">
+        <boolean name="carrier_volte_available_bool" value="true" />
+    </carrier_config>
+</carrier_config_list>

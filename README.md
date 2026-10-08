@@ -58,3 +58,7 @@ Based on Android, CyanogenMod / LineageOS and MediaTek device support, with cont
 The tree selects the source-built 4.9.188 kernel with CIRQ initialization fixes and guarded SPM low-power entry. Kernel identity is pinned in `prebuilt-kernel/EXPECTED.txt`; the binary remains an external input. Init uses ondemand with a 1248 MHz cap because interactive frequency scaling is not qualified on this kernel. Firmware loads from `/vendor/firmware`; SPM debug PCM nodes are restricted to root because reading them can panic the kernel. These are source changes, not evidence that suspend, charging, thermals or performance are complete.
 
 The matching vendor tree also supplies restricted MediaTek GPS/RIL inputs and vendor libraries. Files marked confidential/proprietary remain separate; the public RIL and compatibility sources retain their original Android/MediaTek copyright and licensing notices.
+
+## Current integration
+
+The source now contains the Nougat camera pthread compatibility correction, USB MTP/PTP gadget functions, source power and thermal services, FM policy and IMS integration. The SELinux configuration is enforcing. These are integration changes: calls, VoLTE, camera switching, suspend and thermal behavior require validation on the exact installed kernel/userspace pair. A newer system/vendor candidate was rejected after radio testing and the previous pair restored; publication does not mark that candidate accepted. Restricted vendor libraries, firmware, IMS inputs and kernel images remain separate.

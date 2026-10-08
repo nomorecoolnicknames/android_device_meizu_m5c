@@ -87,4 +87,10 @@
     <color name="config_defaultNotificationColor">#ff0000ff</color>
 
     <bool name="config_enableWifiDisplay">false</bool>
+
+    <!-- VoLTE (ForgeImsService, lineage_m5c.mk): the platform half of
+         ImsManager.isVolteEnabledByPlatform(); the carrier half is
+         carrier_volte_available_bool (packages/apps/CarrierConfig overlay).
+         AOSP default false.  Same value as device/meizu/m95. -->
+    <bool name="config_device_volte_available">true</bool>
 </resources>

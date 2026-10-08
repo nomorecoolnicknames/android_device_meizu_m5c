@@ -1,0 +1,21 @@
+service vendor.power-m5c /vendor/bin/hw/android.hardware.power-service.m5c
+    class hal
+    user system
+    group system
+
+# The interactive tunables are created root 0644 by the governor; the HAL
+# runs as system.  Global path: the MTK cpufreq driver has no
+# CPUFREQ_HAVE_GOVERNOR_PER_POLICY.
+on boot
+    chown system system /sys/devices/system/cpu/cpufreq/interactive/boost
+    chmod 0660 /sys/devices/system/cpu/cpufreq/interactive/boost
+    chown system system /sys/devices/system/cpu/cpufreq/interactive/boostpulse
+    chmod 0220 /sys/devices/system/cpu/cpufreq/interactive/boostpulse
+    chown system system /sys/devices/system/cpu/cpufreq/interactive/boostpulse_duration
+    chmod 0660 /sys/devices/system/cpu/cpufreq/interactive/boostpulse_duration
+    # Experiment boosts (ro./debug.vendor.m5c.power_boost, power/Power.cpp):
+    # MTK hotplug base core count and the GPU fixed-frequency switch.
+    chown system system /proc/hps/num_base_perf_serv
+    chmod 0660 /proc/hps/num_base_perf_serv
+    chown system system /proc/gpufreq/gpufreq_opp_freq
+    chmod 0660 /proc/gpufreq/gpufreq_opp_freq

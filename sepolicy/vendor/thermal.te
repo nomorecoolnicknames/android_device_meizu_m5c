@@ -14,3 +14,19 @@ allow thermal_manager self:capability { chown fowner fsetid };
 # recorded - candidate for a label of its own).
 allow thermal_manager sysfs:dir r_dir_perms;
 allow thermal_manager sysfs:file rw_file_perms;
+
+# android.hardware.thermal@2.0-service.m5c (thermal/): reads the MTK thermal
+# zones (/sys/class/thermal -> /sys/devices/virtual/thermal), /proc/stat and the
+# cpu online files for getCpuUsages.
+allow hal_thermal_default sysfs_thermal:dir r_dir_perms;
+allow hal_thermal_default sysfs_thermal:file r_file_perms;
+allow hal_thermal_default sysfs_thermal:lnk_file r_file_perms;
+allow hal_thermal_default proc_stat:file r_file_perms;
+allow hal_thermal_default sysfs_devices_system_cpu:dir r_dir_perms;
+allow hal_thermal_default sysfs_devices_system_cpu:file r_file_perms;
+allow hal_thermal_default sysfs:dir r_dir_perms;
+allow hal_thermal_default sysfs:lnk_file r_file_perms;
+# The zones moved from sysfs to sysfs_thermal (genfs_contexts); thermal_manager
+# configures them.
+allow thermal_manager sysfs_thermal:dir r_dir_perms;
+allow thermal_manager sysfs_thermal:file rw_file_perms;

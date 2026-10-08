@@ -1,0 +1,54 @@
+# VoLTE AP stack of the stock Flyme 6.0.2.4G (vendor/meizu/m5c: mtkmal,
+# volte_imcb, volte_stack, volte_ua; meizu-fleet
+# designs/M5C_VOLTE_LOS20_20260930.md).  Services as in the stock ramdisk
+# init.mal.rc / init.volte.rc, paths moved to /vendor.
+#
+# One deliberate difference: mal-daemon is off by default.  The stock runs it
+# from boot (class core, not disabled; ril.mal=0/1 stop and restart it); here
+# it waits for an explicit vendor switch until its first run on the m5c has
+# been checked:  setprop persist.vendor.m5c.volte 1  (0 stops it).
+# mtkmal then starts the three volte_* daemons itself when the IMS client
+# enables IMS (volte_imsm.so: ctl.start$volte_*, then polls init.svc.volte_*),
+# so they stay disabled here, oneshot as in the stock.
+
+service mal-daemon /vendor/bin/mtkmal
+    class core
+    socket mal-mfi stream 660 root radio
+    socket volte_imsm stream 660 root radio
+    user root
+    group radio cache inet misc log system wifi
+    disabled
+
+on property:persist.vendor.m5c.volte=1
+    start mal-daemon
+
+on property:persist.vendor.m5c.volte=0
+    stop mal-daemon
+
+service volte_ua /vendor/bin/volte_ua
+    class core
+    socket volte_ua stream 660 root system
+    user root
+    group system log inet radio net_admin root
+    oneshot
+    disabled
+
+service volte_stack /vendor/bin/volte_stack
+    class core
+    socket volte_stack stream 660 root system
+    user root
+    group system log inet radio
+    oneshot
+    disabled
+
+service volte_imcb /vendor/bin/volte_imcb
+    class core
+    socket volte_imsa1 stream 660 root radio
+    socket volte_imsa2 stream 660 root radio
+    socket volte_imsvt1 stream 660 root radio
+    socket volte_imsvt2 stream 660 root radio
+    socket volte_ut stream 660 root radio
+    user system
+    group system log inet radio
+    oneshot
+    disabled

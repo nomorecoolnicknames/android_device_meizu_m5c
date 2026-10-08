@@ -1,0 +1,13 @@
+# /vendor/etc/public.libraries.txt -- vendor libraries that applications may
+# load.  The stock m5c vendor has none; the one entry is for ForgeImsService.
+#
+# libwfo_jni.so (the stock M JNI of WifiOffloadService, vendor/meizu/m5c):
+# tells the MAL's ePDG entity the SIM identity, without which RDS keeps the
+# IMS control path shut even on LTE (forge_ims forge-src-m WifiOffloadService).
+# An app loads a vendor public library in "sphal", where its NEEDED resolve:
+# libmal.so and libmdfx.so from /vendor/lib64, libm5cshim_jnihelp.so (in place
+# of libnativehelper.so, treble-elf-wiring.txt) from /vendor/lib64,
+# libcutils/libutils/libc++ as VNDK-SP, liblog/libc/libm/libdl as LLNDK.
+# Nothing here is preloaded, and for targetSdkVersion > 30 only apps naming it
+# in <uses-native-library> get it (the ForgeImsService manifest does).
+libwfo_jni.so
