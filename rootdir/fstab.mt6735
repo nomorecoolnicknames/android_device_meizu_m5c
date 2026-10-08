@@ -20,7 +20,7 @@
 /devices/mtk-msdc.0/11240000.msdc1*  auto  auto  defaults  voldmanaged=sdcard1:auto
 /devices/platform/mt_usb*            auto  vfat  defaults  voldmanaged=usbotg:auto
 
-# zram — mandatory on 2 GB RAM under Pie (plan §3); 512 MiB.
+
 /dev/block/zram0  none  swap  defaults  zramsize=536870912
 
 # Raw emmc slots (recovery/OTA tooling)

@@ -65,9 +65,9 @@ PRODUCT_COPY_FILES += \
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/seccomp/mediacodec.policy:$(TARGET_COPY_OUT_VENDOR)/etc/seccomp_policy/mediacodec.policy
 
-# Permission xmls — only hardware that exists AND works on this unit
-# (component matrix 2026-08-28).  No fingerprint/NFC/gyroscope: the hardware
-# is physically absent on this device.
+
+
+
 PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/handheld_core_hardware.xml:system/etc/permissions/handheld_core_hardware.xml \
     frameworks/native/data/etc/android.hardware.bluetooth.xml:system/etc/permissions/android.hardware.bluetooth.xml \
@@ -87,21 +87,21 @@ PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.wifi.xml:system/etc/permissions/android.hardware.wifi.xml \
     frameworks/native/data/etc/android.hardware.wifi.direct.xml:system/etc/permissions/android.hardware.wifi.direct.xml
 
-# Treble HAL backbone — core plumbing only.  Per-HAL services (composer,
-# audio, camera provider, wifi, bt, gnss, ...) arrive with their bring-up
-# stages (plan §5) so each failure is attributable to one change.
+
+
+
 PRODUCT_PACKAGES += \
     hwservicemanager \
     vndservicemanager \
     servicemanager
 
-# Stage 3 (plan §4): graphics lane. surfaceflinger aborts with
-# "failed to get hwcomposer service" without these (tombstone 2026-08-29).
-# forge_hwc (HWC1.1, device/meizu/m5c/hwcomposer) is loaded by the
-# composer@2.1 passthrough via hw_get_module(ro.board.platform=mt6737m)
-# and wrapped by libhwc2on1adapter automatically (HWC1 -> HWC2).
-# gralloc.mt6737m.so blob is already in /vendor/lib*/hw (blobs.mk);
-# allocator/mapper are the standard passthrough wrappers over it.
+
+
+
+
+
+
+
 PRODUCT_PACKAGES += \
     hwcomposer.mt6737m \
     android.hardware.graphics.composer@2.1-service \
@@ -118,18 +118,18 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     android.hardware.keymaster@4.0-service
 
-# USB/adb under Pie: nobody in the N-era usb rc sets the configfs knobs, and
-# a late setprop misses the "on boot && property:" combined triggers (they
-# fire once, at boot). Static props arm the AOSP init.usb.configfs.rc path
-# from the start. UDC name is a FACT from the live 4.9 kernel (/sys/class/udc).
-# 2026-08-29 hard-won fact: on this no-first-stage-mount device the ONLY prop
-# file early init actually loads is /system/build.prop (PRODUCT_PROPERTY_
-# OVERRIDES). /system/etc/prop.default and /vendor/default.prop are NEVER read
-# (property_load_boot_defaults runs before /system and /vendor are mounted),
-# so PRODUCT_(SYSTEM_)DEFAULT_PROPERTY_OVERRIDES values silently vanish.
-# ro.zygote additionally cannot come from ANY prop file (import resolves
-# during early init.rc parsing) - the zygote services are therefore declared
-# in rootdir/forge-zygote.rc (vendor rc, parsed inside mount_all).
+
+
+
+
+
+
+
+
+
+
+
+
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.zygote=zygote64_32 \
     sys.usb.configfs=1 \
@@ -174,23 +174,23 @@ PRODUCT_PACKAGES += \
     libmtkshim_icu \
     libmnld_shim
 
-# Modem bring-up chain as a vendor rc. Placed on the live device by hand on
-# 2026-08-29 (/vendor/etc/init/forge-modem.rc); this makes the build carry it.
+
+
 PRODUCT_COPY_FILES += \
     device/meizu/m5c/rootdir/forge-modem.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/forge-modem.rc
 
-# Operator names by MCC/MNC for the status bar. Lost together with the whole
-# configs/ directory when the tree was ported from 14.1; without it the shade
-# shows the raw PLMN or nothing where "Beeline" belongs. Read by the framework
-# from /system/etc, not from vendor. Restored 2026-09-03 from the 14.1 tree,
-# md5 481b9ce7148a9b62d2fc0cbad8f6db03, byte-identical to what is running on
-# the device.
-#
-# NB: configs/ was lost WHOLESALE when the tree was ported, and it is being
-# restored by TWO lanes, on purpose: this line (sim/RIL) and the media_codecs*/
-# media_profiles/hostapd block in forge-peripherals.mk (peripherals). Neither
-# is redundant - the directory is shared, the lines are not. Do not "tidy up"
-# one of them into the other without asking both lanes.
+
+
+
+
+
+
+
+
+
+
+
+
 PRODUCT_COPY_FILES += \
     device/meizu/m5c/configs/spn-conf.xml:system/etc/spn-conf.xml
 

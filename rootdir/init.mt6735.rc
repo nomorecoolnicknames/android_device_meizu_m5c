@@ -266,7 +266,7 @@ on post-fs-data
     chown system system /sys/class/misc/m_batch_misc/batchbatch
     chown system system /sys/class/misc/m_batch_misc/batchflush
 
-	chmod 0660 /sys/class/misc/m_gyro_misc/gyroenablenodata
+        chmod 0660 /sys/class/misc/m_gyro_misc/gyroenablenodata
     chmod 0660 /sys/class/misc/m_gyro_misc/gyroactive
     chmod 0660 /sys/class/misc/m_gyro_misc/gyrodelay
     chmod 0660 /sys/class/misc/m_gyro_misc/gyrobatch
@@ -366,25 +366,25 @@ on post-fs-data
 
     # device apc settings
 
-    # device info /proc interface
-    #
-    # 0440 root:system is the stock Nougat form and it worked there because the
-    # MTK camera HAL lived inside mediaserver.  On Pie the HAL runs in
-    # /vendor/bin/hw/android.hardware.camera.provider@2.4-service, whose user is
-    # cameraserver with groups audio camera input drmrpc sdcard_rw media_rw and
-    # NO system (read from /proc/<pid>/status), so MtkCam/HalSensor logs
-    #   [powerOn] /dev/devmap kernel open fail, errno(13):Permission denied
-    # on every camera open (peripherals lane, measured 2026-09-03).
-    #
-    # 0444 removes that warning without moving the node out of group system,
-    # which other MTK consumers still rely on.  The node only exposes read-only
-    # device-mapping info.
-    #
-    # NOT a fix for the preview crash: with 0444 applied live the devmap line
-    # disappeared from logcat entirely (grep -c devmap = 0) and
-    # NSMtkDefaultCamAdapter::PreviewCmdQueThread::delay still took SIGSEGV
-    # with the identical fault address.  Kept because a permission denial on
-    # every camera open is wrong on its own terms.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     exec -- /system/bin/toybox mknod /dev/devmap c 196 0
     chmod 0444 /dev/devmap
     chown root system /dev/devmap
@@ -525,12 +525,12 @@ on post-fs-data
 
     # Recycle stuffs
     exec /system/bin/rm -f /cache/.ipoh.img
-    
+
     chmod 0666 /dev/exm0
-	
-    #Thermal	
-    mkdir /data/.tp/ 0775 system system 
-	
+
+    #Thermal
+    mkdir /data/.tp/ 0775 system system
+
     #create directory /data/subt for subtitle
     mkdir /mnt/subt/ 0770 media media
 # End of adding by MTK drivers
@@ -650,7 +650,7 @@ on boot
 # define device for EMCSMDLOGGER
     chown system radio /dev/ttyGS3
     chmod 0660 /dev/ttyGS3
-	
+
 #liuyang add begin
     chmod 0777 /sys/class/leds/red/brightness
     chmod 0777 /sys/class/leds/green/brightness
@@ -676,7 +676,7 @@ on boot
 
     chmod 0777 /sys/class/leds/breathing-light/brightness
     chown root radio  /sys/class/leds/breathing-light/brightness
-#liuyang add end	
+#liuyang add end
 
 #Define device for ATCID
     chmod 660 /dev/ttyGS0
@@ -838,29 +838,29 @@ service dhcpcd_bt-pan /system/bin/dhcpcd -BK -dd
 
 service dhcpcd_wlan0 /system/bin/dhcpcd -ABKLG -dd
     class main
-	user root
-	group net_admin net_raw
+        user root
+        group net_admin net_raw
     disabled
     oneshot
 
 service dhcpcd_p2p /system/bin/dhcpcd -BK -dd
     class main
-	user root
-	group net_admin net_raw
+        user root
+        group net_admin net_raw
     disabled
     oneshot
 
 service iprenew_wlan0 /system/bin/dhcpcd -n
     class main
-	user dhcp
-	group net_admin net_raw
+        user dhcp
+        group net_admin net_raw
     disabled
     oneshot
 
 service iprenew_p2p /system/bin/dhcpcd -n
     class main
-	user dhcp
-	group net_admin net_raw
+        user dhcp
+        group net_admin net_raw
     disabled
     oneshot
 
@@ -879,8 +879,8 @@ service dhcpv6_inform /system/bin/dhcp6c -c "/etc/wide-dhcpv6/dhcp6cSIP.conf" -D
     oneshot
 
 service dhcp6cDNS_wlan0 /system/bin/dhcp6c -c "/etc/wide-dhcpv6/dhcp6cDNS.conf" -Df wlan0
-	disabled
-	oneshot
+        disabled
+        oneshot
 
 service dhcp6c_wlan0 /system/bin/dhcp6c -c "/etc/wide-dhcpv6/dhcp6c.conf" -Df wlan0
     disabled
@@ -893,8 +893,8 @@ on property:service.dhcp6c_wlan0.enable=1
     start dhcp6c_wlan0
 
 service dhcp6c_PD /system/bin/dhcp6c -c "/etc/wide-dhcpv6/dhcp6cPD.conf" -Df
-	disabled
-	oneshot
+        disabled
+        oneshot
 
 service pppoe_wlan0 /system/bin/launchpppoe
     user root
@@ -983,12 +983,12 @@ service bluetoothd /system/bin/bluetoothd -n
 
 service mtkbt /system/bin/mtkbt
     class late_start
-	socket bt.int.adp dgram 660 bluetooth net_bt
-	socket bt.a2dp.stream dgram 660 bluetooth net_bt
-	user bluetooth
+        socket bt.int.adp dgram 660 bluetooth net_bt
+        socket bt.a2dp.stream dgram 660 bluetooth net_bt
+        user bluetooth
     # Preserve stock net_bt_stack GID (3008); R no longer defines its name.
-	group system vpn net_admin inet net_raw net_bt bluetooth net_bt_admin 3008 sdcard_r
-	oneshot
+        group system vpn net_admin inet net_raw net_bt bluetooth net_bt_admin 3008 sdcard_r
+        oneshot
 
 service pppd_gprs /system/bin/pppd_dt /dev/ttyACM0 debug noauth refuse-eap usepeerdns nodetach
     user root
@@ -1050,7 +1050,7 @@ service memsicp /system/bin/memsicp
 
 service memsicd3416x /vendor/bin/memsicd3416x
      disabled
-	 user system
+         user system
     group system
     class main
 
@@ -1088,7 +1088,7 @@ service qmcX983d   /vendor/bin/qmcX983d
     group system
     class main
     oneshot
-	
+
 service mc6470d   /system/bin/mc6470d
     disabled
     user system
@@ -1173,10 +1173,10 @@ service conn_launcher /vendor/bin/6620_launcher -p /system/etc/firmware/
     class core
 
 
-# forge LOS16 (2026-08-29): the vendor partition IS the former Flyme custom
-# partition (mmcblk0p17). The M-era ccci_mdinit probes /custom/etc/firmware/
-# FIRST for modem images (strings-verified; it knows nothing of
-# /vendor/firmware), so give it the stock path back. early-init runs before
-# any class core service, i.e. before the modem chain.
+
+
+
+
+
 on early-init
     symlink /vendor /custom

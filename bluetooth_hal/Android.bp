@@ -8,7 +8,7 @@
 // copies at all — unlike the m95, where lib64/libbluetooth_mtk.so existed and
 // a 64-bit forwarding shim was enough).  So the first BT enable would die with
 // "Open unable to open libbt-vendor.so ... not found" and drag
-// com.android.bluetooth into a CHECK-abort loop (m95 BLOB_SHIMS.md, 2026-08-09).
+
 //
 // Same nine-line service.cpp, compile_multilib 32, unique name — the shared
 // hardware/interfaces tree stays untouched (m95 needs it 64-bit), exactly the
@@ -29,7 +29,6 @@ cc_binary {
         "libutils",
         "libhardware",
         "libhidlbase",
-        "libhidltransport",
         "android.hardware.bluetooth@1.0",
     ],
 }

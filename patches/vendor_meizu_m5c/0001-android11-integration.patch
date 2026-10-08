@@ -1,0 +1,24 @@
+diff --git a/m5c-vendor-blobs.mk b/m5c-vendor-blobs.mk
+--- a/m5c-vendor-blobs.mk
++++ b/m5c-vendor-blobs.mk
+@@ -15,0 +16,12 @@
++
++
++
++
++
++
++
++
++
++
++
++
+@@ -215,2 +227,2 @@
+-    vendor/meizu/m5c/proprietary/lib/hw/power.default.so:$(TARGET_COPY_OUT_VENDOR)/lib/hw/power.default.so \
+-    vendor/meizu/m5c/proprietary/lib64/hw/power.default.so:$(TARGET_COPY_OUT_VENDOR)/lib64/hw/power.default.so \
++    vendor/meizu/m5c/proprietary/lib/hw/power.default.so:$(TARGET_COPY_OUT_VENDOR)/lib/hw/power.mt6737m.so \
++    vendor/meizu/m5c/proprietary/lib64/hw/power.default.so:$(TARGET_COPY_OUT_VENDOR)/lib64/hw/power.mt6737m.so \
+@@ -549,2 +560,0 @@
+-    vendor/meizu/m5c/proprietary/lib/libwebrtc_audio_preprocessing.so:$(TARGET_COPY_OUT_VENDOR)/lib/libwebrtc_audio_preprocessing.so \
+-    vendor/meizu/m5c/proprietary/lib64/libwebrtc_audio_preprocessing.so:$(TARGET_COPY_OUT_VENDOR)/lib64/libwebrtc_audio_preprocessing.so \

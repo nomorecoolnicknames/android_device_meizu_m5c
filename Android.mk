@@ -10,10 +10,10 @@ MTK_SYMBOLS_GUI_ONLY := true
 include vendor/mediatek/symbols/Android.mk
 MTK_SYMBOLS_GUI_ONLY :=
 include vendor/mediatek/wlan/wifi_hal/Android.mk
-# Stage 4 (2026-09-03): the MTK Oreo HIDL rild + libril. vendor/mediatek/
-# Android.mk only pulls symbols/ and wlan/ for the meizu_m6-family products,
-# so vendor/mediatek/ril must be included explicitly (m681/meizu_m6 do the
-# same). Its makefiles are themselves gated on BOARD_PROVIDES_LIBRIL /
-# ENABLE_VENDOR_RIL_SERVICE, both set for m5c.
+
+
+
+
+
 include vendor/mediatek/ril/Android.mk
 endif
