@@ -1,19 +1,33 @@
 /*
- * hwcomposer.mt6737m: HWC 1.1 for the Meizu M5c on the 4.9 kernel.
+ * hwcomposer.mt6737m: HWC 1.1 over the native mtk_disp_mgr session ABI of
+ * the MT6737M 4.9 kernel, loaded through composer@2.1 and HWC2On1Adapter.
  *
- * Talks to the native 4.9 mtk_disp_mgr session ABI (disp_session_uapi.h);
- * the stock HWC blob, built for 3.18, stalls frames on this kernel.
+ *   prepare(): layers go to hardware overlays (OVL, up to 4 planes) only as
+ *              a contiguous run from the top of the z-order and only if
+ *              unscaled, unrotated, on-screen and of a mapped format
+ *              (layer_fits_overlay); the rest is HWC_FRAMEBUFFER, composed
+ *              by SurfaceFlinger with GLES into the FBT, which then takes
+ *              OVL 0.  All layers fit -> no FBT at all.
+ *   set():     wait every plane's acquire fence (the kernel does not consume
+ *              src_fence_fd)
+ *              -> PREPARE_INPUT_BUFFER(204)  ion_fd -> buff idx + release fence
+ *              -> GET_PRESENT_FENCE(217)     -> retire fence + idx
+ *              -> SET_INPUT_BUFFER(206)      native 12-layer struct, <= 4 used
+ *              -> TRIGGER_SESSION(203)       with present_fence_idx
+ *   vsync:     dedicated thread blocking in WAIT_FOR_VSYNC(213).
+ *   blank():   FBIOBLANK on fb0 (mtkfb_blank -> primary_display_suspend/resume).
  *
- *   prepare(): promote the top layers that fit an overlay, the rest goes to
- *              GLES through the framebuffer target.
- *   set():     wait for acquire fences (the kernel does not wait on
- *              src_fence_fd), then PREPARE_INPUT_BUFFER, GET_PRESENT_FENCE,
- *              SET_INPUT_BUFFER and TRIGGER_SESSION.
- *   vsync:     a thread blocking in WAIT_FOR_VSYNC.
- *   blank():   FBIOBLANK on fb0.
+ * Buffer handles: ion fd, stride and format are queried through the vendor
+ * libgralloc_extra.so. Without it: fd = handle->data[0], stride = display
+ * width, and no overlays.
  *
- * The ion fd and stride of a buffer come from the vendor libgralloc_extra.so
- * (dlopen). Without it: fd = handle->data[0], stride = display width.
+ * Debug properties (all read per frame except fmt):
+ *   debug.forgehwc.overlays   1     0 = GLES only (FBT on OVL 0)
+ *   debug.forgehwc.maxplanes  4     cap on concurrent planes (FIFO underflow)
+ *   debug.forgehwc.fmt        0     DISP_FORMAT of the FBT, 0 = RGBA8888
+ *   debug.forgehwc.acqdelay   0     delay after the acquire fences, us
+ *   debug.forgehwc.crc        0     buffer CRC tear probe (crcdelay 9000 us)
+ *   debug.forgehwc.shear      0     shear tear probe, every Nth frame
  */
 
 #define LOG_TAG "forge-hwc"
@@ -38,8 +52,8 @@
 #include <linux/fb.h>
 
 /*
- * dma-buf sync ioctl, declared locally because not every sysroot has
- * linux/dma-buf.h. Only used by the CRC debug probe.
+ * dma-buf sync ioctl, declared locally. Used only by the CRC probe to
+ * invalidate the CPU view before reading.
  */
 struct forge_dma_buf_sync {
 	uint64_t flags;
@@ -63,7 +77,7 @@ int __android_log_print(int prio, const char *tag, const char *fmt, ...);
 #define DISP_DEV_PATH "/dev/mtk_disp_mgr"
 #define FB_DEV_PATH "/dev/graphics/fb0"
 
-/* gralloc_extra_query attribute ids (gralloc_extra.h) */
+/* gralloc_extra_query attribute ids (device/meizu/m5c/libgem/inc/gralloc_extra.h) */
 #define GE_GET_ION_FD 1
 #define GE_GET_WIDTH 10
 #define GE_GET_HEIGHT 11
@@ -98,18 +112,19 @@ struct forge_hwc {
 	unsigned int trigger_fail;
 	unsigned int acquire_timeouts;
 	/*
-	 * Acquire fence statistics: already signaled at set() vs. waited for.
-	 * Shown in dump(); a summary goes to dmesg every 300 frames.
+	 * Fence probe: how many acquire fences were already signaled at set()
+	 * versus actually waited for. Counters are in dump(), a summary goes
+	 * to dmesg every 300 frames.
 	 */
 	unsigned int acq_presignaled;
 	unsigned int acq_waited;
-	unsigned int acq_nofence;	/* no acquire fence (fd = -1) */
+	unsigned int acq_nofence;	/* SF handed us no acquire fence */
 	unsigned int acq_wait_us_max;
 	unsigned long long acq_wait_us_total;
-	/* CRC probe results (see engine_crc_probe) */
+	/* forge-crc probe results (see engine_crc_probe) */
 	unsigned int crc_runs;
 	unsigned int crc_dirty_runs;
-	/* shear probe results (see engine_shear_probe) */
+	/* forge-shear probe results (see engine_shear_probe) */
 	unsigned int shear_frames;
 	unsigned int shear_motion;
 	unsigned int shear_zoned;
@@ -147,7 +162,7 @@ static int prop_int(const char *name, int def)
 }
 
 /*
- * Copy important messages to dmesg, which survives framework restarts.
+ * Duplicate important markers into dmesg, which survives framework restarts.
  */
 static void kmsg_log(const char *fmt, ...)
 {
@@ -214,8 +229,9 @@ static int engine_open_session(struct forge_hwc *hwc)
 	hwc->width = info.displayWidth;
 	hwc->height = info.displayHeight;
 	/*
-	 * vsyncFPS is fps * 100 (e.g. 5850 = 58.50 Hz). Values <= 1000 are
-	 * treated as plain Hz.
+	 * MTK convention: vsyncFPS comes
+	 * back as fps*100 — 5850 here, i.e. 58.50 Hz.  Values <= 1000 are
+	 * treated as plain Hz just in case another kernel returns those.
 	 */
 	if (info.vsyncFPS > 1000)
 		hwc->vsync_period_ns =
@@ -234,7 +250,7 @@ static int engine_open_session(struct forge_hwc *hwc)
 		hwc->xdpi_1000 = hwc->ydpi_1000 =
 		    (unsigned int)prop_int("ro.sf.lcd_density", 320) * 1000u;
 
-	/* set the session mode explicitly, as the vendor HAL does */
+	/* be explicit about the mode; the vendor HAL did the same (12x mode=1) */
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.type = DISP_SESSION_PRIMARY;
 	cfg.mode = DISP_SESSION_DIRECT_LINK_MODE;
@@ -300,11 +316,12 @@ static void fill_blending(struct disp_input_config *c, int32_t blending)
 }
 
 /*
- * CRC debug probe (debug.forgehwc.crc=1): checksum 10 rows of each submitted
- * buffer right after TRIGGER and again ~half a frame later. A change means
- * the producer is still writing to a buffer owned by the display. Samples
- * every 16th frame and stalls set() by debug.forgehwc.crcdelay us. Results
- * go to dmesg and dump().
+ * CRC probe: a submitted buffer belongs to the display until its release
+ * fence signals. Signature 10 rows of every submitted buffer after TRIGGER,
+ * wait about half a frame and compare again; any difference means the
+ * producer is still writing into it. Enabled with debug.forgehwc.crc=1,
+ * samples every 16th frame and stalls set() on sampled frames.
+ * dmesg: "forge-crc: ... dirty=..." lines; totals in dump().
  */
 static void engine_crc_probe(struct forge_hwc *hwc, struct fhwc_plane *planes,
 			     int n)
@@ -400,16 +417,16 @@ static void engine_crc_probe(struct forge_hwc *hwc, struct fhwc_plane *planes,
 }
 
 /*
- * Shear debug probe (debug.forgehwc.shear=N, every Nth submit): detects
- * frames that are already torn inside the submitted buffer.
+ * Shear probe: detects content that is already torn inside the submitted
+ * buffer. Every row of plane 0 is matched against the previous submitted
+ * frame at vertical offsets -SHEAR_D..+SHEAR_D. During a scroll a healthy
+ * frame moves as one block; a torn frame shows a boundary at the tear row.
+ * Rows matching more than one offset are discarded, and a zone counts only
+ * when it spans at least 2 adjacent probed rows (single rows are aliasing of
+ * repeating list items).
  *
- * Every row of plane 0 is checksummed and matched against the previous
- * frame at vertical offsets -SHEAR_D..+SHEAR_D. A scrolled frame moves as
- * one block; a torn frame has rows matching two different offsets. Rows
- * that match more than one offset are ambiguous and skipped, and only runs
- * of at least two adjacent rows count as a zone (single rows are usually
- * repeating list items). Use N=1 for exact offsets. Results go to dmesg
- * and dump().
+ * Enabled with debug.forgehwc.shear=N (probe every Nth submit, use 1).
+ * dmesg: "forge-shear:" zone maps + totals; counters in dump().
  */
 #define SHEAR_MAX_ROWS 2048
 #define SHEAR_D 160
@@ -509,8 +526,8 @@ static void engine_shear_probe(struct forge_hwc *hwc, struct fhwc_plane *planes,
 		for (i = 0; i < (unsigned int)nrun; i++) {
 			int d = run_d[i], j, seen = 0;
 
-			/* single-row runs are list-item aliasing: keep them in
-			 * the map but never count them as a zone */
+			/* single-row runs are list-item aliasing,
+			 * they stay in the map but never make a zone */
 			if (run_e[i] == run_s[i])
 				continue;
 			if (d)
@@ -579,7 +596,8 @@ static int engine_submit(struct forge_hwc *hwc, struct fhwc_plane *planes,
 	/* the kernel does not wait src_fence_fd: wait here, then submit */
 	for (k = 0; k < n; k++) {
 		if (planes[k].acquire >= 0) {
-			/* fence statistics: already signaled vs. waited */
+			/* fence probe: distinguish "producer was
+			 * already done" from "we actually had to wait" */
 			struct pollfd fp;
 			int pr;
 
@@ -615,8 +633,8 @@ static int engine_submit(struct forge_hwc *hwc, struct fhwc_plane *planes,
 		planes[k].release_fd = -1;
 	}
 
-	/* debug.forgehwc.acqdelay: extra delay before submit, in us
-	 * (default 0). Debug aid for early-signaling acquire fences. */
+	/* debug.forgehwc.acqdelay: extra delay after the acquire fences,
+	 * in microseconds, default 0 (off). */
 	{
 		int d = prop_int("debug.forgehwc.acqdelay", 0);
 
@@ -651,9 +669,9 @@ static int engine_submit(struct forge_hwc *hwc, struct fhwc_plane *planes,
 					       &stride_px) == 0);
 		}
 		/*
-		 * Log the pitch each plane gets about once a second: the
-		 * fallback uses the panel width when the gralloc query fails,
-		 * which is wrong for padded buffers.
+		 * Log the pitch each plane is given once per plane per second:
+		 * the fallback uses the panel width, which is wrong for padded
+		 * buffers.
 		 */
 		{
 			static unsigned int fseq;
@@ -898,10 +916,9 @@ static int fhwc_prepare(hwc_composer_device_1_t *dev, size_t numDisplays,
 		budget = top_run < 3 ? top_run : 3;	/* OVL 0 = FBT */
 
 	/*
-	 * Limit the number of concurrently fetched planes
-	 * (debug.forgehwc.maxplanes, default 4). With three full-screen
-	 * planes the per-layer RDMA FIFOs underflow and the bottom of the
-	 * frame breaks up.
+	 * Cap the number of planes fetched concurrently: with three
+	 * full-screen planes the per-layer RDMA FIFOs underflow and the
+	 * picture breaks up toward the bottom of the frame.
 	 */
 	{
 		int maxp = prop_int("debug.forgehwc.maxplanes", 4);

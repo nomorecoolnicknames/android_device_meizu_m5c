@@ -1,0 +1,25 @@
+// hwcomposer.mt6737m: HWC 1.1 over the native mtk_disp_mgr session ABI of
+// the 4.9 kernel, wrapped by composer@2.1 through HWC2On1Adapter.
+//
+// disp_session_uapi.h must stay a byte-for-byte copy of the kernel's
+// drivers/misc/mediatek/video/include/disp_session.h (the _IOW numbers encode
+// struct sizes).
+//
+// The only other dependency is dlopen("libgralloc_extra.so"), a vendor blob.
+cc_library_shared {
+    name: "hwcomposer.mt6737m",
+    vendor: true,
+    relative_install_path: "hw",
+    compile_multilib: "both",
+    srcs: ["forge_hwc.c"],
+    local_include_dirs: ["."],
+    header_libs: ["libhardware_headers"],
+    shared_libs: [
+        "liblog",
+        "libdl",
+    ],
+    cflags: [
+        "-Wall",
+        "-Wno-unused-parameter",
+    ],
+}

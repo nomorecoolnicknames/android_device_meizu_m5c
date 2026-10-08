@@ -157,6 +157,17 @@ PRODUCT_PACKAGES += \
     hwservicemanager \
     vndservicemanager
 
+# Graphics
+# composer@2.1 wraps the HWC 1.1 hwcomposer.mt6737m (hwcomposer/) through
+# libhwc2on1adapter.
+PRODUCT_PACKAGES += \
+    android.hardware.graphics.composer@2.1-service \
+    android.hardware.graphics.allocator@2.0-impl \
+    android.hardware.graphics.allocator@2.0-service \
+    android.hardware.graphics.mapper@2.0-impl \
+    libhwc2on1adapter \
+    hwcomposer.mt6737m
+
 # KeyMint
 # Software KeyMint, there is no usable TEE.
 PRODUCT_PACKAGES += \

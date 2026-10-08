@@ -580,14 +580,27 @@ enum DISP_SELF_REFRESH_TYPE {
 	DISP_IOW(219, struct disp_caps_info)
 
 /*
- * Legacy 3.18 ABI used by the vendor userspace.
+ * forge the ABI this device's userspace actually speaks.
  *
- * In 3.18 GET_DISPLAY_CAPS is nr 218 with a six-word disp_caps_info; 4.9
- * moved it and grew the struct. The sizes differ, so the legacy number does
- * not collide with GET_IS_DRIVER_SUSPEND.
+ * The MTK hwcomposer blob shipped for m5c was built against the 3.18 MTK
+ * display driver, where GET_DISPLAY_CAPS is ioctl nr 218 and disp_caps_info
+ * is six words. The Q0 tree inserted GET_IS_DRIVER_SUSPEND at 218 and grew
+ * disp_caps_info (rsz lists, lcm_degree, ...), so both the number and the
+ * size encoded in _IOW changed — the blob's call landed in the default
+ * case and it reported "! Failed to get display device cap", which is where
+ * SurfaceFlinger stopped. The sizes differ, so the legacy number does not
+ * collide with GET_IS_DRIVER_SUSPEND and both can be served.
+ */
+/*
+ * forge the session-info layout the m5c userspace actually speaks.
  *
- * GET_SESSION_INFO (nr 208) uses the 18-word 3.18 layout; 4.9 added the
- * physical size and density fields, which changed the ioctl number.
+ * Proven by the in-kernel ioctl spy: hwcomposer calls nr=208 with a
+ * 72-byte payload — the 18-word 3.18 struct. The Q0 tree inserted
+ * physicalWidthUm/physicalHeightUm/density in the middle, so the size (and
+ * therefore the _IOW-encoded number) changed and the call reached no
+ * handler at all. Without it the HAL had no display size: it reported
+ * garbage attributes, SurfaceFlinger installed a fallback config and
+ * composed at the wrong geometry (the diagonal smear on screen).
  */
 struct disp_session_info_legacy {
 	unsigned int session_id;
@@ -626,9 +639,20 @@ struct disp_caps_info_legacy {
 	DISP_IOW(218, struct disp_caps_info_legacy)
 
 /*
- * SET_INPUT_BUFFER in the 3.18 layout: 8 layers, 32-bit geometry fields.
- * 4.9 changed the struct size and therefore the ioctl number. Field order
- * matches 3.18.
+ * forge the per-frame layer list, in the 3.18 layout.
+ *
+ * This is the ioctl that actually puts pixels on the panel. Between 3.18
+ * and 4.9 disp_input_config grew fence/dirty-ROI/compression members, the
+ * geometry fields shrank from u32 to u16, the small flags became u8 and
+ * the array went from 8 to 12 layers. Size therefore moved 1168 -> 1648,
+ * the _IOW number moved with it, and every frame the vendor HAL sent was
+ * rejected as an unknown ioctl. The pixel path stayed dark in the most
+ * literal way: no layer was ever enabled, OVL_SRC_CON read back 0, and
+ * the overlay emitted its background colour (opaque black) over a
+ * perfectly configured ROI, address and pitch.
+ *
+ * Field order below is the 3.18 one verbatim, so the struct the HAL
+ * writes maps onto this one member for member.
  */
 struct disp_input_config_legacy {
 	unsigned int layer_id;
@@ -676,9 +700,11 @@ struct disp_session_input_config_legacy {
 	DISP_IOW(206, struct disp_session_input_config_legacy)
 
 /*
- * From nr 215 up, 4.9 is shifted by one against 3.18 (GET_VSYNC_FPS was
- * inserted at 215). The legacy 216 is GET_PRESENT_FENCE, with its two output
- * members in the opposite order.
+ * forge from 215 upwards the whole table is shifted by one against
+ * 3.18 (4.9 inserted DISP_IOCTL_GET_VSYNC_FPS at 215). What the HAL calls
+ * 216 is GET_PRESENT_FENCE, not SET_VSYNC_FPS, and its two output members
+ * are in the opposite order, so the number and the layout both need
+ * translating.
  */
 struct disp_present_fence_legacy {
 	unsigned int session_id;
