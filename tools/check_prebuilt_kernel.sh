@@ -1,16 +1,21 @@
 #!/bin/sh
-# Verify the prebuilt against the supplied MD5/VERSION expectations.
-# Success is silent; stdout on mismatch makes BoardConfig reject the input.
-# Usage: check_prebuilt_kernel.sh IMAGE EXPECTATIONS
-
+# Called from BoardConfig.mk: verify that the prebuilt kernel matches
+# EXPECTED.txt. Prints nothing on success; on a mismatch prints a short
+# marker on stdout (BoardConfig.mk fails the build on it) and details on
+# stderr.
+#
+# This only checks that the image matches what the tree expects, not that
+# the expected kernel is the latest one.
+#
+#   $1 - path to Image.gz-dtb
+#   $2 - path to the expectations file (MD5 / VERSION)
 set -u
 IMG=$1
 EXP=$2
 
-# Details go to stderr so they show up in the build log unchanged; stdout
-# gets a short marker that BoardConfig turns into $(error).
-[ -f "$IMG" ] || { echo "ЯДРО НЕ НАЙДЕНО: $IMG" >&2; echo "prebuilt-kernel: ЯДРА НЕТ, см. подробности выше"; exit 0; }
-[ -f "$EXP" ] || { echo "НЕТ ФАЙЛА ОЖИДАНИЙ: $EXP" >&2; echo "prebuilt-kernel: НЕТ ФАЙЛА ОЖИДАНИЙ, см. подробности выше"; exit 0; }
+# Details go to stderr so make prints them as is; stdout gets a short marker.
+[ -f "$IMG" ] || { echo "kernel not found: $IMG" >&2; echo "prebuilt-kernel: kernel missing, see details above"; exit 0; }
+[ -f "$EXP" ] || { echo "expectations file not found: $EXP" >&2; echo "prebuilt-kernel: expectations file missing, see details above"; exit 0; }
 
 want_md5=$(awk '$1=="MD5"{print $2}' "$EXP")
 have_md5=$(md5sum "$IMG" | cut -d' ' -f1)
@@ -28,21 +33,15 @@ if i >= 0:
     except Exception:
         pass
 m = re.search(rb'Linux version [0-9][^\x00]{0,120}', raw)
-print(m.group(0).decode('utf-8', 'replace') if m else 'версию извлечь не удалось')
+print(m.group(0).decode('utf-8', 'replace') if m else 'version not found')
 PY
 )
 
 cat >&2 <<MSG
-ЯДРО В prebuilt-lane УСТАРЕЛО ИЛИ ПОДМЕНЕНО.
-  файл:    $IMG
-  ожидаем: $want_md5
-           $want_ver
-  найдено: $have_md5
-           $have_ver
-Что делать: собрать ядро из worktree k49-worktrees/piedisp (ветка pie-disp;
-из pie-config собирать НЕЛЬЗЯ — там потерян SMI-фикс smi_legacy.c/mmsys_config),
-затем сложить gzip -n -9 от arch/arm64/boot/Image с байт-в-байт стоковым DTB
-captures/20260817-los-first-boot/dtb_stock.dtb (69427 Б) и положить сюда,
-обновив $EXP.  Готовый помощник: tools/los16_repack_boot_kernel.sh.
+Prebuilt kernel does not match $EXP.
+  file:     $IMG
+  expected: $want_md5 $want_ver
+  found:    $have_md5 $have_ver
+Update EXPECTED.txt in the same commit as the kernel.
 MSG
-echo "prebuilt-kernel: ядро не совпадает с ожидаемым ($have_md5 вместо $want_md5), см. подробности выше"
+echo "prebuilt-kernel: kernel mismatch ($have_md5 instead of $want_md5), see details above"

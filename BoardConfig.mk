@@ -50,6 +50,13 @@ TARGET_KERNEL_CONFIG :=
 TARGET_PREBUILT_KERNEL := $(DEVICE_PATH)/prebuilt-kernel/Image.gz-dtb
 BOARD_KERNEL_IMAGE_NAME := Image.gz-dtb
 
+# Fail the build if the prebuilt does not match EXPECTED.txt.
+forge_kernel_check := $(shell $(DEVICE_PATH)/tools/check_prebuilt_kernel.sh \
+        $(TARGET_PREBUILT_KERNEL) $(DEVICE_PATH)/prebuilt-kernel/EXPECTED.txt)
+ifneq ($(strip $(forge_kernel_check)),)
+$(error $(forge_kernel_check))
+endif
+
 # The MTK LK jumps to the addresses from the boot image header:
 # kernel 0x40080000, ramdisk 0x44000000, tags 0x4e000000.
 BOARD_KERNEL_BASE := 0x40000000
