@@ -4,6 +4,6 @@ sched_getscheduler: 1
 sched_setaffinity: 1
 sched_getparam: 1 
 
-# The MTK OMX blobs call pselect(2); without it media.codec aborts while
-# enumerating components and no codecs are available.
+# The MTK OMX blobs call pselect(2); without it media.codec dies with SIGSYS
+# while enumerating the OMX components.
 pselect6: 1
