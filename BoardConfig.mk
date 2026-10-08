@@ -123,6 +123,11 @@ TARGET_SCREEN_HEIGHT := 1280
 TARGET_SYSTEM_PROP := $(DEVICE_PATH)/system.prop
 TARGET_VENDOR_PROP := $(DEVICE_PATH)/vendor.prop
 
+# VINTF
+# Wi-Fi HalDeviceManager only creates wlan0 if IWifi is declared in the
+# device manifest.
+DEVICE_MANIFEST_FILE := $(DEVICE_PATH)/manifest.xml
+
 # Build workarounds
 # The Nougat-era blobs do not resolve against Android 13 libraries by name,
 # so the prebuilt ELF checker must not gate the build.

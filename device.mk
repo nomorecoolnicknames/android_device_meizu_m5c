@@ -154,6 +154,15 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     android.hardware.audio@2.0-service
 
+# HALs required by the FCM level 3 compatibility matrix: audio, audio.effect,
+# gatekeeper and drm. The legacy audio.primary.mt6737m is loaded through the
+# 6.0 impl. LockSettingsService needs an IGatekeeper.
+PRODUCT_PACKAGES += \
+    android.hardware.audio@6.0-impl \
+    android.hardware.audio.effect@6.0-impl \
+    android.hardware.gatekeeper@1.0-service.software \
+    android.hardware.drm@1.4-service.clearkey
+
 # Properties
 # Properties that vendor_init may not set go to the system build.prop.
 
