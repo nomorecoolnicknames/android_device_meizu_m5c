@@ -16,6 +16,12 @@ PRODUCT_SOONG_NAMESPACES += \
 # both break boot. The display runs on hwcomposer/.
 $(call inherit-product-if-exists, vendor/meizu/m5c/m5c-vendor.mk)
 
+# Audio HAL dependencies
+PRODUCT_PACKAGES += \
+    libmedia_m5c_stub \
+    libpowermanager_m5c_stub \
+    libm5cshim_tinycompress
+
 # Screen density
 PRODUCT_AAPT_CONFIG := normal
 PRODUCT_AAPT_PREF_CONFIG := xhdpi
@@ -53,6 +59,24 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/rootdir/etc/init/hw/init.mt6735.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.mt6735.rc \
     $(LOCAL_PATH)/rootdir/etc/init/hw/init.mt6735.usb.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.mt6735.usb.rc \
     $(LOCAL_PATH)/rootdir/etc/ueventd.mt6735.rc:$(TARGET_COPY_OUT_VENDOR)/etc/ueventd.rc
+
+# Audio policy
+# Android 13 reads only the XML policy. The xi:include targets are copied,
+# not packaged: their prebuilt_etc modules are dropped silently.
+AUDIO_POLICY_CFG_DIR := frameworks/av/services/audiopolicy/config
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/configs/audio/audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_configuration.xml \
+    $(AUDIO_POLICY_CFG_DIR)/usb_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/usb_audio_policy_configuration.xml \
+    $(AUDIO_POLICY_CFG_DIR)/r_submix_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/r_submix_audio_policy_configuration.xml \
+    $(AUDIO_POLICY_CFG_DIR)/audio_policy_volumes.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_volumes.xml \
+    $(AUDIO_POLICY_CFG_DIR)/default_volume_tables.xml:$(TARGET_COPY_OUT_VENDOR)/etc/default_volume_tables.xml \
+    $(AUDIO_POLICY_CFG_DIR)/surround_sound_configuration_5_0.xml:$(TARGET_COPY_OUT_VENDOR)/etc/surround_sound_configuration_5_0.xml
+
+# Audio effects
+# Without audio_effects.xml the effects factory falls back to
+# /system/etc/audio_effects.conf, which a vendor domain may not read.
+PRODUCT_COPY_FILES += \
+    frameworks/av/media/libeffects/data/audio_effects.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_effects.xml
 
 # Permissions
 # No fingerprint, NFC or gyroscope hardware.
@@ -101,6 +125,10 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     android.hardware.health@2.1-impl \
     android.hardware.health@2.1-service
+
+# Audio
+PRODUCT_PACKAGES += \
+    android.hardware.audio@2.0-service
 
 # Properties
 # Properties that vendor_init may not set go to the system build.prop.
