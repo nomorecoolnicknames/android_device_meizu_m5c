@@ -1,0 +1,3 @@
+# mediaserver (MediaRecorder) resolves the caller's package through
+# package_native when a recording starts.
+allow mediaserver package_native_service:service_manager find;

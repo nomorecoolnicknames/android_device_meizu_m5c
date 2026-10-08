@@ -1,0 +1,13 @@
+# m5c-spm.sh (init.m5c.power.rc): opens /dev/spm once so that the kernel loads
+# the SPM PCM code (vendor/meizu/m5c/firmware/spm/README).
+type m5c_spm, domain;
+init_daemon_domain(m5c_spm)
+allow m5c_spm vendor_shell_exec:file rx_file_perms;
+allow m5c_spm m5c_spm_device:chr_file r_file_perms;
+
+# Fleet Power HAL (power-fleet/, configs/power/fleet_power.json): INTERACTION and
+# LAUNCH write the interactive governor's boost tunables under
+# /sys/devices/system/cpu/cpufreq and the hps base (m5c_proc_perf_boost).
+allow hal_power_default sysfs_devices_system_cpu:dir r_dir_perms;
+allow hal_power_default sysfs_devices_system_cpu:file rw_file_perms;
+allow hal_power_default m5c_proc_perf_boost:file rw_file_perms;

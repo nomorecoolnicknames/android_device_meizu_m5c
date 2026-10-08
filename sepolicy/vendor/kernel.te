@@ -1,0 +1,13 @@
+# The WMT/Wi-Fi driver reads its NVRAM record (/data/nvram/APCFG/...) from a
+# kernel thread (mtk_wmtd), following the /data/nvram symlink.
+allow kernel nvdata_file:dir search;
+allow kernel nvdata_file:file r_file_perms;
+allow kernel nvdata_file:lnk_file read;
+# Kernel threads opening files they do not own.
+dontaudit kernel self:capability dac_override;
+# Same for dac_read_search from mtk_wmtd: the NVRAM files are root-owned, so
+# the check does not gate the read.
+dontaudit kernel self:capability dac_read_search;
+# Direct firmware loading from /vendor/firmware: the firmware cache of each
+# suspend attempt re-reads pcm_*_2.bin from a kworker in the kernel domain.
+allow kernel vendor_file:file r_file_perms;

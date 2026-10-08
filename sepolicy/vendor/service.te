@@ -1,0 +1,3 @@
+# vndservicemanager names (vndservice_contexts).
+type pq_vndservice, vndservice_manager_type;
+type m5c_mmsdk_vndservice, vndservice_manager_type;

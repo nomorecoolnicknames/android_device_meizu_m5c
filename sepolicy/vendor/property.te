@@ -1,0 +1,29 @@
+# Vendor property types. Which names map to which type:
+# property_contexts; who may read or set them: the domain's .te file.
+vendor_restricted_prop(wmt_prop)
+vendor_internal_prop(mnld_prop)
+vendor_restricted_prop(mtk_md_prop)
+vendor_internal_prop(ctl_mtk_radio_prop)
+vendor_restricted_prop(nvram_prop)
+vendor_internal_prop(m5c_sensor_prop)
+vendor_internal_prop(m5c_ctl_sensor_prop)
+vendor_internal_prop(m5c_sensor_svc_prop)
+vendor_restricted_prop(m5c_pq_prop)
+vendor_restricted_prop(m5c_mtk_config_prop)
+vendor_restricted_prop(m5c_mtk_ril_prop)
+vendor_internal_prop(m5c_audio_hal_prop)
+vendor_restricted_prop(m5c_camera_prop)
+vendor_internal_prop(m5c_wlan_prop)
+vendor_internal_prop(m5c_ctl_volte_prop)
+# Restricted, not internal: the IMS service (radio, a core domain) polls
+# init.svc.volte_imcb.
+vendor_restricted_prop(m5c_volte_svc_prop)
+vendor_internal_prop(m5c_mal_prop)
+vendor_internal_prop(m5c_iccid_prop)
+# IMS service knobs (persist.forge.*) and the vendor IMS switches it reads;
+# read by radio, a core domain, hence restricted.
+vendor_restricted_prop(m5c_forge_prop)
+vendor_restricted_prop(m5c_ims_vendor_prop)
+
+# Platform-identity MTK flags (ro.mtk_*): read by every vendor process.
+get_prop({ domain -coredomain -appdomain }, m5c_mtk_config_prop)

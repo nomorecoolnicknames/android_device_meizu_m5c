@@ -1,0 +1,32 @@
+# Display and GPU: gralloc, hwcomposer, surfaceflinger, Mali.
+
+allow hal_graphics_allocator_default { graphics_device gpu_device ion_device MTK_SMI_device }:chr_file rw_file_perms;
+allow hal_graphics_allocator_default mtk_m4u_proc:file rw_file_perms;
+
+allow hal_graphics_composer_default { graphics_device gpu_device ion_device sw_sync_device MTK_SMI_device }:chr_file rw_file_perms;
+allow hal_graphics_composer_default mtk_m4u_proc:file rw_file_perms;
+# Opens /dev/vndbinder.
+vndbinder_use(hal_graphics_composer_default)
+
+allow surfaceflinger { MTK_SMI_device sw_sync_device }:chr_file rw_file_perms;
+allow surfaceflinger mtk_m4u_proc:file rw_file_perms;
+
+# /proc/m4u: only the camera HAL issues M4U ioctls (hal_camera_default.te).
+
+# GED (Mali) and CMDQ ioctls.
+allow { hal_graphics_composer_default hal_graphics_allocator_default surfaceflinger bootanim system_server mediacodec hal_camera_default } proc_ged:file r_file_perms;
+allow { appdomain -isolated_app } proc_ged:file { getattr open read ioctl };
+allowxperm {
+  hal_graphics_composer_default
+  hal_graphics_allocator_default
+  surfaceflinger
+  bootanim
+  system_server
+  hal_camera_default
+  mediacodec
+  appdomain
+  -isolated_app
+} proc_ged:file ioctl { 0x6700-0x6709 0x6764-0x6768 };
+# /proc/mtk_cmdq is opened by the camera HAL and mediacodec only
+# (hal_camera_default.te, mediacodec.te).
+allowxperm { hal_camera_default mediacodec } proc_cmdq:file ioctl { 0x7801-0x780c };

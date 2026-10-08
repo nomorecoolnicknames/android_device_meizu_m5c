@@ -1,0 +1,14 @@
+# IMS service (com.mediatek.ims, domain radio): client of rild-ims and the MAL.
+
+# ImsRILAdapter: rild-ims, a socket of rild (init.m5c.modem.rc).
+unix_socket_connect(radio, rild_ims, rild)
+
+# ImsAdapter -> volte_imsm, and libwfo_jni -> libmdfx -> mal-mfi: both are
+# mtkmal's listeners (init.m5c.volte.rc).
+unix_socket_connect(radio, mtkmal, mtkmal)
+
+# persist.forge.* knobs, the vendor IMS switches, and init.svc.volte_imcb
+# (polled before the modem kick); property_contexts.
+get_prop(radio, m5c_forge_prop)
+get_prop(radio, m5c_ims_vendor_prop)
+get_prop(radio, m5c_volte_svc_prop)

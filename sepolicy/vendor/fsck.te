@@ -1,0 +1,3 @@
+# e2fsck checks the MTK ext4 partitions mounted by mount_all (protect1/2,
+# nvdata; fstab.mt6735 has "check" on them).
+allow fsck { protect_f_device protect_s_device nvdata_device }:blk_file rw_file_perms;

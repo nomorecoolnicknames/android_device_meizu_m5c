@@ -1,0 +1,37 @@
+# Denials that are silenced, not granted. Each one is a lookup that returns
+# the same result whether it is allowed or denied, or a platform access that
+# the neverallows forbid and that has no function on this device.
+
+# Core processes looking up vendor.* / ro.vendor.* / persist.vendor.* names
+# (vendor_default_prop, neverallowed for core domains). None of the existing
+# ones has a core reader.
+dontaudit { audioserver cameraserver surfaceflinger system_server untrusted_app } vendor_default_prop:file r_file_perms;
+
+# MTK blobs asking for unset debug knobs outside any vendor prefix
+# (mtk.vdec.*, camera.3dnr.*, persist.chiptest.*, ...) on default_prop.
+dontaudit { hal_audio_default hal_bluetooth_default hal_camera_default mnld nvram_daemon rild } default_prop:file r_file_perms;
+
+# The same for system_prop / radio_prop, core types a vendor domain may not
+# read. rild keeps radio_prop through hal_telephony_server.
+dontaudit rild system_prop:file r_file_perms;
+dontaudit mnld { radio_prop system_prop }:file r_file_perms;
+
+# terservice asks for persist.ter.service.current, which is never set.
+dontaudit terservice default_prop:file r_file_perms;
+
+# nvram_daemon runs `cp fstab* -f /data/nvram/` in "/", which has no fstab*.
+dontaudit nvram_daemon rootfs:dir r_dir_perms;
+
+# e2fsck's is_on_batt() probes /sys/class/power_supply/AC/online to decide
+# whether to postpone a check; there is no AC supply of that name here.
+dontaudit fsck sysfs_batteryinfo:dir search;
+
+# network_stack opens a tethering offload map with the plain fs_bpf label
+# (neverallowed). The 4.9 kernel cannot load the tethering programs, so
+# tethering uses the non-offloaded path.
+dontaudit network_stack fs_bpf:file { read write };
+
+# ueventd searches /metadata/gsi (DSU state); no DSU on this device.
+dontaudit ueventd gsi_metadata_file:dir search;
+# The Bluetooth and camera HAL blobs search /dev/block; both work without it.
+dontaudit { hal_bluetooth_default hal_camera_default } block_device:dir search;

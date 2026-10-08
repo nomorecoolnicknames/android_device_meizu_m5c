@@ -108,6 +108,11 @@ BOARD_ROOT_EXTRA_FOLDERS := nvdata protect_f protect_s
 # mount_all fails and zygote never starts.
 BOARD_USES_METADATA_PARTITION := true
 
+# SELinux
+# Root-level directories need explicit labels, otherwise e2fsdroid fails
+# on system.img.
+BOARD_VENDOR_SEPOLICY_DIRS += device/meizu/m5c/sepolicy/vendor
+
 # Recovery
 TARGET_RECOVERY_FSTAB := $(DEVICE_PATH)/rootdir/etc/fstab.mt6735
 TARGET_RECOVERY_PIXEL_FORMAT := BGRA_8888

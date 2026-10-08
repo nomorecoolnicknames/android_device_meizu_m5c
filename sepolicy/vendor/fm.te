@@ -1,0 +1,10 @@
+# FM radio (receiver of the MT6625 in the CONSYS combo, MTK_FMRADIO=y).
+# packages/apps/FMRadio (system_app) talks to the driver through its
+# JNI libfmjni: open /dev/fm and ioctls (jni/fmr/fmr.h FM_DEV_NAME). The node
+# is system:media 0660 (ueventd.mt6735.rc) and labelled fm_device.
+allow { system_app platform_app } fm_device:chr_file rw_file_perms;
+
+# The stock audio HAL (audio.primary.mt6737m.so, 32-bit, in
+# android.hardware.audio.service = hal_audio_default) opens /dev/fm itself
+# when the FM path is routed.
+allow hal_audio_default fm_device:chr_file rw_file_perms;
