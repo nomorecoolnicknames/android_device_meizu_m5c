@@ -1,0 +1,164 @@
+// Vendor libraries for the sonames the Nougat-era blobs need but a Treble
+// vendor namespace cannot reach.
+
+cc_defaults {
+    name: "m5c_treble_defaults",
+    vendor: true,
+    cflags: ["-Wall", "-Werror"],
+}
+
+// libgui.so is VNDK-private in Android 13. This empty library carries the
+// real soname and depends on libgui_vendor, so the consumers' symbols bind
+// to libgui_vendor.
+cc_library_shared {
+    name: "libgui_m5c_fwd",
+    defaults: ["m5c_treble_defaults"],
+    stem: "libgui",
+    srcs: ["stub.cpp"],
+    shared_libs: ["libgui_vendor"],
+}
+
+// libnativehelper.so is only in the ART apex. Almost all consumers import
+// nothing from it; the few JNIHelp calls are in nativehelper.cpp.
+cc_library_shared {
+    name: "libnativehelper_m5c_stub",
+    defaults: ["m5c_treble_defaults"],
+    stem: "libnativehelper",
+    srcs: ["nativehelper.cpp"],
+}
+
+// android::Region with the N/M object layout for the Mali EGL driver.
+// Mali's libui.so dependency is rewritten to this library.
+cc_library_shared {
+    name: "libm5cshim_region",
+    defaults: ["m5c_treble_defaults"],
+    srcs: ["region.cpp"],
+    cflags: ["-fvisibility=hidden"],
+}
+
+// __xlog_buf_printf, android_memset16, __pthread_gettid, PermissionCache and
+// RIL netutils / jstring symbols. Only depends on liblog, so it also loads
+// in sphal.
+cc_library_shared {
+    name: "libm5cshim_legacy",
+    defaults: ["m5c_treble_defaults"],
+    srcs: ["legacy.cpp"],
+    shared_libs: ["liblog"],
+    cflags: ["-fvisibility=hidden"],
+}
+
+// Audio HAL dependencies. libmedia.so provides the AudioSystem statics the
+// HAL imports, libpowermanager.so is empty. Both platform libraries are
+// system-only, so the real names cannot shadow anything.
+cc_library_shared {
+    name: "libmedia_m5c_stub",
+    defaults: ["m5c_treble_defaults"],
+    stem: "libmedia",
+    srcs: ["audiosystem.cpp"],
+}
+
+cc_library_shared {
+    name: "libpowermanager_m5c_stub",
+    defaults: ["m5c_treble_defaults"],
+    stem: "libpowermanager",
+    srcs: ["stub.cpp"],
+}
+
+// libtinycompress.so is taken by the AOSP vendor module, so the HAL is
+// rewired to this name.
+cc_library_shared {
+    name: "libm5cshim_tinycompress",
+    defaults: ["m5c_treble_defaults"],
+    srcs: ["tinycompress.cpp"],
+}
+
+// SSLv3_{client,server}_method for libcurl (mnld).
+cc_library_shared {
+    name: "libm5cshim_ssl",
+    defaults: ["m5c_treble_defaults"],
+    srcs: ["ssl.cpp"],
+    shared_libs: ["libssl"],
+}
+
+// Camera HAL dependencies:
+//   android_runtime.cpp  AndroidRuntime::getJNIEnv / registerNativeMethods
+//   camera.cpp           N GraphicBuffer, BufferQueue, BufferItemConsumer,
+//                        Surface, SensorManager and PropertyMap symbols
+//   newpad.cpp           operator new with slack for N-sized objects
+cc_library_shared {
+    name: "libandroid_runtime_m5c_stub",
+    defaults: ["m5c_treble_defaults"],
+    stem: "libandroid_runtime",
+    srcs: ["android_runtime.cpp"],
+}
+
+// libcam.common.meizu and libmpbase need libandroid.so and libjnigraphics.so
+// but import nothing from them.
+cc_library_shared {
+    name: "libandroid_m5c_stub",
+    defaults: ["m5c_treble_defaults"],
+    stem: "libandroid",
+    srcs: ["stub.cpp"],
+}
+
+cc_library_shared {
+    name: "libjnigraphics_m5c_stub",
+    defaults: ["m5c_treble_defaults"],
+    stem: "libjnigraphics",
+    srcs: ["stub.cpp"],
+}
+
+cc_library_shared {
+    name: "libm5cshim_camera",
+    defaults: ["m5c_treble_defaults"],
+    srcs: ["camera.cpp"],
+    shared_libs: [
+        "libgui_vendor",
+        "liblog",
+        "libsensor_vendor",
+        "libui",
+        "libutils",
+    ],
+}
+
+cc_library_shared {
+    name: "libm5cshim_newpad",
+    defaults: ["m5c_treble_defaults"],
+    srcs: ["newpad.cpp"],
+    stl: "none",
+}
+
+// setNetworkForSocket for the 32-bit volte_stack, forwarded to
+// android_setsocknetwork.
+cc_library_shared {
+    name: "libm5cshim_netd_client",
+    defaults: ["m5c_treble_defaults"],
+    stem: "libnetd_client",
+    srcs: ["netd_client.c"],
+    shared_libs: ["libandroid_net"],
+    compile_multilib: "32",
+}
+
+// android::Parcel for the 64-bit librilmtk.
+cc_library_shared {
+    name: "libm5cshim_nparcel",
+    defaults: ["m5c_treble_defaults"],
+    srcs: ["nparcel.cpp"],
+    cflags: ["-fvisibility=hidden"],
+    shared_libs: [
+        "libbinder",
+        "libutils",
+    ],
+    compile_multilib: "64",
+}
+
+// jniRegisterNativeMethods for libwfo_jni, loaded by the 64-bit IMS service.
+cc_library_shared {
+    name: "libm5cshim_jnihelp",
+    defaults: ["m5c_treble_defaults"],
+    srcs: ["jnihelp.cpp"],
+    cflags: ["-fvisibility=hidden"],
+    header_libs: ["jni_headers"],
+    shared_libs: ["liblog"],
+    compile_multilib: "64",
+}

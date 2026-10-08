@@ -16,11 +16,40 @@ PRODUCT_SOONG_NAMESPACES += \
 # both break boot. The display runs on hwcomposer/.
 $(call inherit-product-if-exists, vendor/meizu/m5c/m5c-vendor.mk)
 
+# Treble
+# Vendor variants, stubs and shims for libraries the blobs need that
+# Android 13 keeps on /system (see treble/Android.bp).
+
+# libstdc++ for the Mali closure and akmd09911.
+PRODUCT_PACKAGES += \
+    libstdc++.vendor
+
+# libgui.so is VNDK-private: forward it to libgui_vendor.
+# libnativehelper.so is provided as an empty stub.
+PRODUCT_PACKAGES += \
+    libgui_vendor \
+    libgui_m5c_fwd \
+    libnativehelper_m5c_stub
+
+# Symbol shims the blobs are rewired to: N-layout android::Region for Mali,
+# MTK xlog, android_memset16, __pthread_gettid, PermissionCache and RIL
+# helpers.
+PRODUCT_PACKAGES += \
+    libm5cshim_region \
+    libm5cshim_legacy
+
 # Audio HAL dependencies
 PRODUCT_PACKAGES += \
     libmedia_m5c_stub \
     libpowermanager_m5c_stub \
     libm5cshim_tinycompress
+
+# AOSP vendor libraries the audio HAL and RIL need by their plain names.
+# libtinycompress is not built: its vendor variant needs kernel headers.
+# libm5cshim_tinycompress provides the compress_* calls instead.
+PRODUCT_PACKAGES += \
+    libtinyxml \
+    librilutils
 
 # Screen density
 PRODUCT_AAPT_CONFIG := normal

@@ -95,6 +95,11 @@ TARGET_COPY_OUT_VENDOR := vendor
 BOARD_VENDORIMAGE_FILE_SYSTEM_TYPE := ext4
 BOARD_VENDORIMAGE_PARTITION_SIZE := 536870912
 
+# Treble
+# Set explicitly: PRODUCT_USE_VNDK requires PRODUCT_SHIPPING_API_LEVEL > 27,
+# which a Marshmallow launch device does not have.
+PRODUCT_FULL_TREBLE_OVERRIDE := true
+
 # VNDK version 30 would require a checked-in vendor snapshot.
 BOARD_VNDK_VERSION := current
 
