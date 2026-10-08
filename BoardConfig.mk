@@ -113,6 +113,12 @@ BOARD_ROOT_EXTRA_FOLDERS := nvdata protect_f protect_s
 # mount_all fails and zygote never starts.
 BOARD_USES_METADATA_PARTITION := true
 
+# RIL
+# mtk-ril.so has no RIL_Init and is driven through RIL_InitSocket, so
+# use the MTK HIDL libril/rild from ril/ instead of hardware/ril.
+BOARD_PROVIDES_LIBRIL := true
+ENABLE_VENDOR_RIL_SERVICE := true
+
 # SELinux
 # Root-level directories need explicit labels, otherwise e2fsdroid fails
 # on system.img.
