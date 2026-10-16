@@ -64,6 +64,9 @@ type sysfs_ccci, fs_type, sysfs_type;
 type sysfs_dev_info, fs_type, sysfs_type;
 type sysfs_mtk_sensor, fs_type, sysfs_type;
 type m5c_sysfs_mem_bw, fs_type, sysfs_type;
+# /proc/chip/* (hw_code, hw_subcode, sw_ver): MTK chip id, read by the OMX
+# encoder (set40 census, mediacodec.te).
+type m5c_proc_chip, fs_type, proc_type;
 type m5c_sysfs_virtualkeys, fs_type, sysfs_type;
 # /sys/module/firmware_class/parameters/path, written at early-init.
 type sysfs_fw_class_path, fs_type, sysfs_type;

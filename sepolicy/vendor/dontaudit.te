@@ -35,3 +35,12 @@ dontaudit network_stack fs_bpf:file { read write };
 dontaudit ueventd gsi_metadata_file:dir search;
 # The Bluetooth and camera HAL blobs search /dev/block; both work without it.
 dontaudit { hal_bluetooth_default hal_camera_default } block_device:dir search;
+
+# set40 census (2026-10-17): mtkmal and the OMX service (mediacodec) look up
+# MTK debug names outside any vendor prefix (default_prop, see above; none of
+# them exists here), and ForgeImsService (radio) one more unlabeled vendor.*
+# name and the WifiOffload service "wfo", absent with WFC off.  Denied, each
+# lookup returns the empty default it gets today.
+dontaudit { mtkmal mediacodec } default_prop:file r_file_perms;
+dontaudit radio vendor_default_prop:file r_file_perms;
+dontaudit radio default_android_service:service_manager find;

@@ -36,3 +36,4 @@ genfscon sysfs /devices/virtual/thermal u:object_r:sysfs_thermal:s0
 # Power HAL boosts: MTK hotplug base core count and GPU fixed frequency.
 genfscon proc /hps/num_base_perf_serv u:object_r:m5c_proc_perf_boost:s0
 genfscon proc /gpufreq/gpufreq_opp_freq u:object_r:m5c_proc_perf_boost:s0
+genfscon proc /chip u:object_r:m5c_proc_chip:s0

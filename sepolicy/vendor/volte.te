@@ -66,3 +66,10 @@ net_domain(volte_ua)
 allow volte_imcb ccci_device:chr_file rw_file_perms;
 allow volte_imcb sysfs_ccci:dir search;
 allow volte_imcb sysfs_ccci:file r_file_perms;
+
+# set40 census (2026-10-17, IMS props off, permissive): mal-daemon starts as
+# root and drops to radio (setuid), and waits for service.nvram_init
+# ("wait_nvram_ready ... nvram_init = Ready", MAL-Daemon log) before it loads
+# its entities.
+allow mtkmal self:capability setuid;
+get_prop(mtkmal, nvram_prop)
