@@ -34,6 +34,10 @@ PRODUCT_COPY_FILES += \
 PRODUCT_PACKAGES += \
     android.hardware.thermal@2.0-service.m5c
 
+# FM radio
+PRODUCT_PACKAGES += \
+    FMRadio
+
 # libgui.so is VNDK-private: forward it to libgui_vendor.
 # libnativehelper.so is provided as an empty stub.
 PRODUCT_PACKAGES += \
