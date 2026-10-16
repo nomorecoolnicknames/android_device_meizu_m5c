@@ -15,7 +15,18 @@
     <carrier_config mcc="250" mnc="01">
         <boolean name="carrier_volte_available_bool" value="true" />
     </carrier_config>
-    <!-- MegaFon -->
+    <!-- Tinkoff Mobile (an MVNO on Tele2): the m5c's SIM since 10.10.  FACT
+         (dumpsys carrier_config, set39, 2026-10-16): carrierid 2142, 250/62,
+         carrier_volte_available_bool false without this entry, so the
+         framework disabled IMS (MSG_ID_IMSA_DISABLE_SERVICE). -->
+    <carrier_config mcc="250" mnc="62">
+        <boolean name="carrier_volte_available_bool" value="true" />
+    </carrier_config>
+    <!-- Tele2, the network the Tinkoff SIM camps on. -->
+    <carrier_config mcc="250" mnc="20">
+        <boolean name="carrier_volte_available_bool" value="true" />
+    </carrier_config>
+    <!-- MegaFon. -->
     <carrier_config mcc="250" mnc="02">
         <boolean name="carrier_volte_available_bool" value="true" />
     </carrier_config>
