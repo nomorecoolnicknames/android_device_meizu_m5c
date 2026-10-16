@@ -8,8 +8,8 @@
 
 DEVICE_PATH := device/meizu/m5c
 
-# LineageOS kernel/soong plumbing (TARGET_LD_SHIM_LIBS, prebuilt-kernel
-# handling, BoardConfigSoong export set).
+# LineageOS kernel/soong plumbing (TARGET_LD_SHIM_LIBS, kernel build,
+# BoardConfigSoong export set).
 include vendor/lineage/config/BoardConfigLineage.mk
 
 # Architecture
@@ -39,26 +39,27 @@ TARGET_NO_RADIOIMAGE := true
 
 TARGET_OTA_ASSERT_DEVICE := m5c,M710H
 
+# ---------------------------------------------------------------------------
 # Kernel
-# Prebuilt 4.9 kernel with the stock DTB appended. The kernel source tree
-# builds a DTB with incompatible eMMC compatible strings, so it must not be
-# used. Empty TARGET_KERNEL_SOURCE keeps vendor/lineage on the prebuilt path.
+# ---------------------------------------------------------------------------
+# m5c_defconfig appends the stock-board device tree (m5c-stock.dts): the
+# k37mv1_bsp_k49 reference tree names the eMMC controller "mediatek,msdc",
+# which the M5c storage driver does not bind. DRVGEN_FILE_LIST= keeps drvgen
+# from regenerating the committed cust.dtsi. Several MediaTek drivers switch
+# features on TARGET_BUILD_VARIANT; the tested kernel was built without it.
 TARGET_KERNEL_ARCH := arm64
 TARGET_KERNEL_HEADER_ARCH := arm64
-TARGET_KERNEL_SOURCE :=
-TARGET_KERNEL_CONFIG :=
-TARGET_PREBUILT_KERNEL := $(DEVICE_PATH)/prebuilt-kernel/Image.gz-dtb
+TARGET_KERNEL_SOURCE := kernel/meizu/m5c
+TARGET_KERNEL_CONFIG := m5c_defconfig
+TARGET_KERNEL_CLANG_COMPILE := false
+TARGET_KERNEL_ADDITIONAL_FLAGS := DRVGEN_FILE_LIST= TARGET_BUILD_VARIANT=
 BOARD_KERNEL_IMAGE_NAME := Image.gz-dtb
 
-# Fail the build if the prebuilt does not match EXPECTED.txt.
-forge_kernel_check := $(shell $(DEVICE_PATH)/tools/check_prebuilt_kernel.sh \
-        $(TARGET_PREBUILT_KERNEL) $(DEVICE_PATH)/prebuilt-kernel/EXPECTED.txt)
-ifneq ($(strip $(forge_kernel_check)),)
-$(error $(forge_kernel_check))
-endif
-
-# The MTK LK jumps to the addresses from the boot image header:
-# kernel 0x40080000, ramdisk 0x44000000, tags 0x4e000000.
+# Boot geometry — MUST reproduce the addresses of the proven 14.1/16 image:
+#   kernel 0x40080000, ramdisk 0x44000000, tags 0x4e000000.
+# The MTK loader jumps exactly where the header says.  A base of 0x40078000
+# (taken from the recovery block) put the kernel 0x78000 off and it never ran:
+# no pstore, no last_kmsg, no expdb entry, just a boot loop.
 BOARD_KERNEL_BASE := 0x40000000
 BOARD_KERNEL_OFFSET := 0x00080000
 BOARD_RAMDISK_OFFSET := 0x04000000

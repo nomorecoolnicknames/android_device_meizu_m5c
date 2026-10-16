@@ -1,2 +1,0 @@
-MD5 397f2ed0c6fd055ab2c4166c60f451f3
-VERSION Linux version 4.9.188-m5c+ (n8n@n8nagent) (gcc version 4.9 20150123 (prerelease) (GCC) ) #1 SMP PREEMPT Thu Oct 8 15:16:22 MSK 2026
