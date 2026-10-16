@@ -54,6 +54,19 @@ PRODUCT_PACKAGES += \
     libpowermanager_m5c_stub \
     libm5cshim_tinycompress
 
+# Camera HAL dependencies
+PRODUCT_PACKAGES += \
+    libandroid_runtime_m5c_stub \
+    libandroid_m5c_stub \
+    libjnigraphics_m5c_stub \
+    libm5cshim_camera \
+    libm5cshim_newpad \
+    libsensor_vendor
+
+# libcamera_client.so for the camera blobs, built as a vendor copy.
+PRODUCT_PACKAGES += \
+    libcamera_client_vendor
+
 # AOSP vendor libraries the audio HAL and RIL need by their plain names.
 # libtinycompress is not built: its vendor variant needs kernel headers.
 # libm5cshim_tinycompress provides the compress_* calls instead.
@@ -209,6 +222,12 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     android.hardware.health@2.1-impl \
     android.hardware.health@2.1-service
+
+# Camera
+# camera.mt6737m is a HAL1 module wrapped by the provider@2.4 default impl.
+PRODUCT_PACKAGES += \
+    android.hardware.camera.provider@2.4-impl \
+    android.hardware.camera.provider@2.4-service
 
 # Audio
 PRODUCT_PACKAGES += \
