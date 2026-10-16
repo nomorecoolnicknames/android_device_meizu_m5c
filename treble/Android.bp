@@ -139,7 +139,10 @@ cc_library_shared {
     compile_multilib: "32",
 }
 
-// android::Parcel for the 64-bit librilmtk.
+// android::Pbrcel for the boxed Marshmallow blobs (nparcel.cpp;
+// vendor/meizu/m5c blob-parcel-box.py adds this library to their DT_NEEDED):
+// the 64-bit librilmtk (rild) and the 32-bit lib/libmal_rilproxy.so (mtkmal,
+// a 32-bit daemon), so both ABIs.
 cc_library_shared {
     name: "libm5cshim_nparcel",
     defaults: ["m5c_treble_defaults"],
@@ -149,7 +152,6 @@ cc_library_shared {
         "libbinder",
         "libutils",
     ],
-    compile_multilib: "64",
 }
 
 // jniRegisterNativeMethods for libwfo_jni, loaded by the 64-bit IMS service.
