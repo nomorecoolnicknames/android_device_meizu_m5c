@@ -229,6 +229,18 @@ PRODUCT_PACKAGES += \
     android.hardware.camera.provider@2.4-impl \
     android.hardware.camera.provider@2.4-service
 
+# GNSS
+# Legacy gps.h HAL behind the gnss@1.0 passthrough service. libcurl (needed
+# by mnld) gets its SSLv3 methods from libm5cshim_ssl. mtk_agpsd is not started.
+PRODUCT_PACKAGES += \
+    android.hardware.gnss@1.0-impl \
+    android.hardware.gnss@1.0-service \
+    gps.mt6737m \
+    libm5cshim_ssl
+
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/rootdir/etc/init/init.m5c.gps.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.m5c.gps.rc
+
 # Audio
 PRODUCT_PACKAGES += \
     android.hardware.audio@2.0-service
