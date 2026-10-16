@@ -1,0 +1,28 @@
+// Power HAL (AIDL V3) shared by the Meizu MediaTek device trees.
+// The device's nodes and requests come from configs/power/fleet_power.json,
+// installed as /vendor/etc/power/fleet_power.json.
+cc_binary {
+    name: "android.hardware.power-service.meizu",
+    relative_install_path: "hw",
+    init_rc: ["android.hardware.power-service.meizu.rc"],
+    vintf_fragments: ["android.hardware.power-service.meizu.xml"],
+    vendor: true,
+    shared_libs: [
+        "libbase",
+        "libbinder_ndk",
+        "android.hardware.power-V3-ndk",
+    ],
+    static_libs: ["libjsoncpp"],
+    srcs: [
+        "main.cpp",
+        "Power.cpp",
+        "HintSession.cpp",
+        "Adpf.cpp",
+        "Engine.cpp",
+        "Config.cpp",
+    ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+}

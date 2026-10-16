@@ -1,0 +1,7 @@
+service vendor.power-meizu /vendor/bin/hw/android.hardware.power-service.meizu
+    class hal
+    user system
+    group system
+
+# Ownership of the nodes the device's fleet_power.json writes is set in the
+# device tree's rc (the nodes differ per kernel).

@@ -24,6 +24,12 @@ $(call inherit-product-if-exists, vendor/meizu/m5c/m5c-vendor.mk)
 PRODUCT_PACKAGES += \
     libstdc++.vendor
 
+# Power
+PRODUCT_PACKAGES += \
+    android.hardware.power-service.meizu
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/configs/power/fleet_power.json:$(TARGET_COPY_OUT_VENDOR)/etc/power/fleet_power.json
+
 # Thermal
 PRODUCT_PACKAGES += \
     android.hardware.thermal@2.0-service.m5c

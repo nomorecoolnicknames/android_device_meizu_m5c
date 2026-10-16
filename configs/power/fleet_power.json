@@ -1,0 +1,55 @@
+{
+  "_comment": "INTERACTION pulses the interactive governor boost and holds the hotplug base at 4 cores; LAUNCH enables the governor boost for up to 1.5 s.",
+  "Nodes": {
+    "ia_pulse": {
+      "Type": "pulse",
+      "Path": "/sys/devices/system/cpu/cpufreq/interactive/boostpulse",
+      "DurationPath": "/sys/devices/system/cpu/cpufreq/interactive/boostpulse_duration"
+    },
+    "ia_boost": {
+      "Type": "value",
+      "Path": "/sys/devices/system/cpu/cpufreq/interactive/boost",
+      "Default": "0",
+      "Aggregate": "max_int"
+    },
+    "hps": {
+      "Type": "value",
+      "Path": "/proc/hps/num_base_perf_serv",
+      "Default": "1",
+      "Aggregate": "max_int"
+    }
+  },
+  "Requests": {
+    "interaction": {
+      "HoldMs": 1000,
+      "PulseMs": 80,
+      "PulseMaxMs": 1000,
+      "Pulse": [
+        "ia_pulse"
+      ],
+      "Set": {
+        "hps": "4"
+      }
+    },
+    "launch": {
+      "MaxMs": 1500,
+      "Set": {
+        "ia_boost": "1"
+      }
+    }
+  },
+  "Adpf": {
+    "Enabled": false
+  },
+  "Supported": {
+    "Boosts": [
+      "INTERACTION"
+    ],
+    "Modes": [
+      "LAUNCH",
+      "INTERACTIVE",
+      "DISPLAY_INACTIVE",
+      "LOW_POWER"
+    ]
+  }
+}
