@@ -44,3 +44,14 @@ dontaudit { hal_bluetooth_default hal_camera_default } block_device:dir search;
 dontaudit { mtkmal mediacodec } default_prop:file r_file_perms;
 dontaudit radio vendor_default_prop:file r_file_perms;
 dontaudit radio default_android_service:service_manager find;
+
+# set40 enforcing boot (2026-10-17, OC1313 boot with androidboot.selinux
+# removed): the audio HAL (speech-parameter thread) and mnld search
+# /dev/block the same way the Bluetooth and camera HALs do above; their
+# NVRAM data comes from /data/nvram, which they may read.  Under enforcing
+# the audio output thread wrote frames and the GPS provider came up.
+dontaudit { hal_audio_default mnld } block_device:dir search;
+# gsm0710muxd asks init to stop "ril-daemon", the stock service name; this
+# tree's RIL service is ril-daemon-mtk (restarted through ctl_mtk_radio_prop,
+# modem.te), so the request names a service that does not exist.
+dontaudit gsm0710muxd ctl_stop_prop:property_service set;

@@ -70,9 +70,17 @@ BOARD_MKBOOTIMG_ARGS := \
     --tags_offset $(BOARD_KERNEL_TAGS_OFFSET) \
     --board mt6737
 
-# androidboot.hardware=mt6735 makes init import init.mt6735.rc and find
-# fstab.mt6735. buildvariant= is appended by the build system.
-BOARD_KERNEL_CMDLINE := bootopt=64S3,32N2,64N2 androidboot.hardware=mt6735
+# androidboot.hardware=mt6735 is what makes init import init.mt6735.rc and
+# find fstab.mt6735 — the same lesson as the m681 port.  No androidboot.selinux:
+# the runtime is enforcing (SELinux block below).
+# buildvariant= is appended by build/make automatically — do not set it here.
+# The boot.img of the m5c is repacked from a base image
+# cloud-los16/m5c-cloud/repack_boot.py), whose own cmdline must match this one.
+# androidboot.boot_devices: FACT (set40 enforcing boot, 2026-10-17) without it
+# ueventd takes the boot device from the default fstab, that lookup is denied
+# under enforcing (ueventd -> metadata_file) and /dev/block/by-name keeps only
+# the three first-stage links (custom, metadata, system); with it all 30.
+BOARD_KERNEL_CMDLINE := bootopt=64S3,32N2,64N2 androidboot.hardware=mt6735 androidboot.boot_devices=mtk-msdc.0/11230000.msdc0
 
 # Partitions
 # boot 16 MiB, recovery 32 MiB, custom (/vendor) 512 MiB, system 2560 MiB.
