@@ -6,8 +6,7 @@ allow mediacodec devmap_device:chr_file r_file_perms;
 allow mediacodec proc_cmdq:file r_file_perms;
 allow mediacodec sysfs_dev_info:file r_file_perms;
 
-# set40 census (2026-10-17, permissive), video scenario: the
-# OMX encoder (MtkOmxVencEncod in omx@1.0-service) reads persist.sys.pq.*,
+# The OMX encoder (MtkOmxVencEncod in omx@1.0-service) reads persist.sys.pq.*,
 # votes the memory-bandwidth scenario and identifies the chip through
 # /proc/chip/hw_code -- the same accesses the camera HAL has (hal_camera_default.te).
 get_prop(mediacodec, m5c_pq_prop)

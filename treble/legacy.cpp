@@ -70,7 +70,7 @@ M5C_EXPORT int ifc_ccmni_md_cfg(const char* ifname, int md_id, int ccmni_idx, in
 
 // bzero / bcopy — the 32-bit VoLTE daemons bin/volte_stack and bin/volte_ua
 // import both at version LIBC; the A13 32-bit libc keeps them only as
-// bzero@@LIBC_PRIVATE / bcopy@@LIBC_PRIVATE.  FACT (2026-10-16): mtkmal's
+// bzero@@LIBC_PRIVATE / bcopy@@LIBC_PRIVATE.  Without them mtkmal's
 // ctl.start of volte_stack ends in "CANNOT LINK EXECUTABLE /vendor/bin/
 // volte_stack: cannot locate symbol bzero", volte_ua and volte_imcb then
 // abort ("ASSERT!!!!") and MTK's muxreport takes rild down with them.  The
@@ -89,8 +89,8 @@ M5C_EXPORT void m5c_bcopy(const void* src, void* dst, size_t n) {
 
 // dhcp_start / dhcp_get_results — the N-era libnetutils DHCP client (gone in
 // A13; the VNDK libnetutils exports neither).  The 32-bit MAL data manager
-// lib/libmal_datamngr.so imports both (dm_dhcp_request).  FACT (set39 +
-// IMS props, 2026-10-16, debug.ld.all dlerror): mtkmal's dlopen of it fails
+// lib/libmal_datamngr.so imports both (dm_dhcp_request).  With the IMS
+// props on (debug.ld.all dlerror), mtkmal's dlopen of it fails
 // with "cannot locate symbol dhcp_start", the datamngr entity never loads,
 // rild's getImsParamInfo (MAL event 345) gets "No route to host" in MAL and
 // rild's only hwbinder thread waits for the answer forever.  The LTE IMS
@@ -110,16 +110,11 @@ M5C_EXPORT int dhcp_get_results(const char* ifname, ...) {
     return -1;
 }
 
-// libcutils' jstring helpers (cutils/jstring.h): librilmtk.so and
-// librilmtkmd2.so (both ABIs) import strnlen16to8, strncpy16to8, strndup16to8
-// and strdup8to16 (FACT, readelf --dyn-syms), A13 libcutils no longer exports
-// them.  The bodies are those of AOSP (system/core/libcutils/strdup16to8.cpp
-// and strdup8to16.cpp, Apache-2.0, as in los16-a9-platform) so callers get the
-// real contract: UTF-8/modified-UTF-8 conversion, strnlen16to8 counting all n
-// units, strncpy16to8 always NUL-terminating.  The earlier ASCII-only version
-// stopped at the first NUL and did not terminate, which the documented pattern
-// malloc(strnlen16to8(s,n)+1); strncpy16to8(buf,s,n) turns into an over-read
-// or a heap overflow (review 2026-09-29).
+// libcutils' jstring helpers (cutils/jstring.h), imported by librilmtk.so and
+// librilmtkmd2.so but no longer exported by A13 libcutils. The bodies are
+// those of AOSP (system/core/libcutils/strdup16to8.cpp and strdup8to16.cpp,
+// Apache-2.0): strnlen16to8 counts all n units and strncpy16to8 always
+// NUL-terminates, as callers of the documented pattern expect.
 M5C_EXPORT size_t strnlen16to8(const char16_t* utf16Str, size_t len) {
     size_t utf8Len = 0;
     while (len != 0) {

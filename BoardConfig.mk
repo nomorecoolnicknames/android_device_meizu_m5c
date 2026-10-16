@@ -77,7 +77,7 @@ BOARD_MKBOOTIMG_ARGS := \
 # buildvariant= is appended by build/make automatically — do not set it here.
 # The boot.img of the m5c is repacked from a base image
 # cloud-los16/m5c-cloud/repack_boot.py), whose own cmdline must match this one.
-# androidboot.boot_devices: FACT (set40 enforcing boot, 2026-10-17) without it
+# androidboot.boot_devices: under an enforcing boot, without it
 # ueventd takes the boot device from the default fstab, that lookup is denied
 # under enforcing (ueventd -> metadata_file) and /dev/block/by-name keeps only
 # the three first-stage links (custom, metadata, system); with it all 30.
