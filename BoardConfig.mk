@@ -145,6 +145,21 @@ TARGET_SCREEN_HEIGHT := 1280
 TARGET_SYSTEM_PROP := $(DEVICE_PATH)/system.prop
 TARGET_VENDOR_PROP := $(DEVICE_PATH)/vendor.prop
 
+# Wi-Fi
+# MT6735 CONSYS combo chip, powered through /dev/wmtWifi.
+BOARD_WLAN_DEVICE := MediaTek
+WPA_SUPPLICANT_VERSION := VER_0_8_X
+BOARD_WPA_SUPPLICANT_DRIVER := NL80211
+BOARD_HOSTAPD_DRIVER := NL80211
+# Driver private commands (SETSUSPENDMODE, COUNTRY, RXFILTER, ...).
+# Without them setSuspendModeEnabled fails and the driver never filters
+# broadcast/multicast with the screen off.
+BOARD_WPA_SUPPLICANT_PRIVATE_LIB := lib_driver_cmd_m5c
+BOARD_HOSTAPD_PRIVATE_LIB := lib_driver_cmd_m5c
+WIFI_DRIVER_STATE_CTRL_PARAM := /dev/wmtWifi
+WIFI_DRIVER_STATE_ON := 1
+WIFI_DRIVER_STATE_OFF := 0
+
 # Bluetooth
 BOARD_HAVE_BLUETOOTH := true
 

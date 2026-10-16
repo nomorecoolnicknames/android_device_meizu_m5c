@@ -217,6 +217,19 @@ PRODUCT_PACKAGES += \
     android.hardware.gatekeeper@1.0-service.software \
     android.hardware.drm@1.4-service.clearkey
 
+# Wi-Fi
+PRODUCT_PACKAGES += \
+    wificond \
+    wpa_supplicant \
+    hostapd
+
+# Wi-Fi, connectivity, modem and sensors init scripts
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/rootdir/etc/init/init.m5c.wifi.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.m5c.wifi.rc \
+    $(LOCAL_PATH)/rootdir/etc/init/init.m5c.connectivity.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.m5c.connectivity.rc \
+    $(LOCAL_PATH)/rootdir/etc/init/init.m5c.modem.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.m5c.modem.rc \
+    $(LOCAL_PATH)/rootdir/etc/init/init.m5c.sensors.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.m5c.sensors.rc
+
 # VoLTE
 # Stock mtkmal and volte_* daemons from vendor/meizu/m5c, plus shims for
 # setNetworkForSocket, the 64-bit librilmtk Parcel and libwfo_jni.
@@ -235,6 +248,10 @@ PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.telephony.ims.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.telephony.ims.xml \
     $(LOCAL_PATH)/configs/permissions/privapp-permissions-com.mediatek.ims.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/permissions/privapp-permissions-com.mediatek.ims.xml \
     $(LOCAL_PATH)/configs/public.libraries-vendor.txt:$(TARGET_COPY_OUT_VENDOR)/etc/public.libraries.txt
+
+# Wi-Fi HAL (links libwifi-hal-mt66xx)
+PRODUCT_PACKAGES += \
+    android.hardware.wifi@1.0-service
 
 # Properties
 # Properties that vendor_init may not set go to the system build.prop.
