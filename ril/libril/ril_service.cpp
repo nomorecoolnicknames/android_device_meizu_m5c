@@ -96,6 +96,24 @@ RIL_RadioFunctions *s_vendorFunctions = NULL;
 static CommandInfo *s_commands;
 // setup data call
 static int dataCallCids[5] = {-1, -1, -1, -1, -1};
+#ifdef MTK_HARDWARE
+/* The Marshmallow MAL (libmal_datamngr dm_get_ims_para_req) serves the IMS PDN
+ * parameters only for interface 4 - the fixed IMS interface of the MTK
+ * DcTracker - and logs "invalid interface id N for IMS" for anything else.
+ * Ordinary PDNs take the lowest interface 0..3 not in use. */
+static int mtkSetupInterface(const DataProfileInfo& dataProfileInfo) {
+    if (dataProfileInfo.supportedApnTypesBitmap & (int) ApnTypes::IMS)
+	return 4;
+    for (int intf = 0; intf < 4; intf++) {
+	int j = 0;
+	while ((j<5) && (dataCallCids[j] != intf))
+	    j++;
+	if (j == 5)
+	    return intf;
+    }
+    return -1;
+}
+#endif
 
 struct RadioImpl;
 struct OemHookImpl;
@@ -522,12 +540,13 @@ void sendErrorResponse(RequestInfo *pRI, RIL_Errno err) {
 
 /**
  * Copies over src to dest. If memory allocation fails, responseFunction() is called for the
- * request with error RIL_E_NO_MEMORY.
+ * request with error RIL_E_NO_MEMORY. An empty src gives NULL unless allowEmpty is set.
  * Returns true on success, and false on failure.
  */
-bool copyHidlStringToRil(char **dest, const hidl_string &src, RequestInfo *pRI) {
+bool copyHidlStringToRil(char **dest, const hidl_string &src, RequestInfo *pRI,
+			 bool allowEmpty = false) {
     size_t len = src.size();
-    if (len == 0) {
+    if (len == 0 && !allowEmpty) {
 	*dest = NULL;
 	return true;
     }
@@ -600,7 +619,8 @@ bool dispatchString(int serial, int slotId, int request, const char * str) {
     return true;
 }
 
-bool dispatchStrings(int serial, int slotId, int request, int countStrings, ...) {
+static bool dispatchStringsV(int serial, int slotId, int request, bool allowEmpty,
+			     int countStrings, va_list ap) {
     RequestInfo *pRI = android::addRequestToList(serial, slotId, request);
     if (pRI == NULL) {
 	return false;
@@ -613,12 +633,9 @@ bool dispatchStrings(int serial, int slotId, int request, int countStrings, ...)
 	sendErrorResponse(pRI, RIL_E_NO_MEMORY);
 	return false;
     }
-    va_list ap;
-    va_start(ap, countStrings);
     for (int i = 0; i < countStrings; i++) {
 	const char* str = va_arg(ap, const char *);
-	if (!copyHidlStringToRil(&pStrings[i], hidl_string(str), pRI)) {
-	    va_end(ap);
+	if (!copyHidlStringToRil(&pStrings[i], hidl_string(str), pRI, allowEmpty)) {
 	    for (int j = 0; j < i; j++) {
 		memsetAndFreeStrings(1, pStrings[j]);
 	    }
@@ -626,7 +643,6 @@ bool dispatchStrings(int serial, int slotId, int request, int countStrings, ...)
 	    return false;
 	}
     }
-    va_end(ap);
 
     bool ignoreBF = (pRI->pCI->proxyId != RIL_CMD_PROXY_1) &&
 		(pRI->pCI->proxyId != RIL_CMD_PROXY_3);
@@ -645,6 +661,25 @@ bool dispatchStrings(int serial, int slotId, int request, int countStrings, ...)
 				android::FMT_STRS, pRI);
     }
     return true;
+}
+
+bool dispatchStrings(int serial, int slotId, int request, int countStrings, ...) {
+    va_list ap;
+    va_start(ap, countStrings);
+    bool ret = dispatchStringsV(serial, slotId, request, false, countStrings, ap);
+    va_end(ap);
+    return ret;
+}
+
+/* Empty strings stay "" instead of NULL.  The Marshmallow mtk-ril dereferences
+ * SETUP_DATA_CALL user/password without a NULL check when it defines a new PDN
+ * (definePdnCtx -> isInitialAttachApn); the old socket RILJ never sent NULL there. */
+static bool dispatchStringsKeepEmpty(int serial, int slotId, int request, int countStrings, ...) {
+    va_list ap;
+    va_start(ap, countStrings);
+    bool ret = dispatchStringsV(serial, slotId, request, true, countStrings, ap);
+    va_end(ap);
+    return ret;
 }
 
 bool dispatchStrings(int serial, int slotId, int request, const hidl_vec<hidl_string>& data) {
@@ -1173,19 +1208,16 @@ Return<void> RadioImpl::setupDataCall(int32_t serial, RadioTechnology radioTechn
 	const hidl_string &protocol =
 		(isRoaming ? dataProfileInfo.roamingProtocol : dataProfileInfo.protocol);
 #ifdef MTK_HARDWARE
-	int i=0;
-	while ((i<4) && (dataCallCids[i] != -1))
-	    i++;
-	if (i < 4)
-	    i++;	// = i+1 if found, otherwise use 0
-	else i=0;
+	int i = mtkSetupInterface(dataProfileInfo) + 1;	// mtk-ril takes interface id + 1
+	RLOGI("setupDataCall: apn %s types 0x%x -> interface %d", dataProfileInfo.apn.c_str(),
+	      dataProfileInfo.supportedApnTypesBitmap, i - 1);
 #if VDBG
     RLOGD("setupDataCall: radioTech:%u,profile=%u,apn:%s,user:%s,pw:%s,auth:%u,protocol:%s,i=%d",
 	radioTechnology,dataProfileInfo.profileId,dataProfileInfo.apn.c_str(),
 	dataProfileInfo.user.c_str(),dataProfileInfo.password.c_str(),
 	dataProfileInfo.authType,protocol.c_str(),i);
 #endif
-	dispatchStrings(serial, mSlotId, RIL_REQUEST_SETUP_DATA_CALL, 8,
+	dispatchStringsKeepEmpty(serial, mSlotId, RIL_REQUEST_SETUP_DATA_CALL, 8,
 	    std::to_string((int) radioTechnology + 2).c_str(),
 	    std::to_string((int) dataProfileInfo.profileId).c_str(),
 	    dataProfileInfo.apn.c_str(),
@@ -1402,9 +1434,9 @@ Return<void> RadioImpl::deactivateDataCall(int32_t serial,
 #ifdef MTK_HARDWARE
     // clear local Interface id's
     int i=0;
-    while ((i<4) && (dataCallCids[i] != cid))
+    while ((i<5) && (dataCallCids[i] != cid))
 	i++;
-    if (i < 4)
+    if (i < 5)
 	dataCallCids[i] = -1;
 #endif
     dispatchStrings(serial, mSlotId, RIL_REQUEST_DEACTIVATE_DATA_CALL,
@@ -4285,9 +4317,10 @@ int radio::setupDataCallResponse(int slotId,
 		  result.mtu);
 #ifdef MTK_HARDWARE
 	    int i=0;
-	    while ((i<4) && (dataCallCids[i] != -1))
+	    while ((i<5) && (dataCallCids[i] != -1))
 		i++;
-	    dataCallCids[i] = result.cid;
+	    if (i < 5)
+		dataCallCids[i] = result.cid;
 #endif
 	}
 
