@@ -40,7 +40,7 @@ Also required:
 
 - Vendor blobs: [android_vendor_meizu_m5c](https://github.com/nomorecoolnicknames/android_vendor_meizu_m5c) `lineage-20.0` at `vendor/meizu/m5c`.
 - Kernel: [android_kernel_meizu_m5c](https://github.com/nomorecoolnicknames/android_kernel_meizu_m5c) `lineage-20.0` at `kernel/meizu/m5c`, built with `m5c_defconfig`.
-  A boot image built this way has not been tested on the phone yet.
+  A boot image with this kernel was tested on the phone.
 - Platform patches: `device/meizu/common` (android_device_meizu_common) applies them on `source build/envsetup.sh`.
 - The IMS service (MtkImsService) will be provided by device/meizu/common/ims; until it is published the build stops with an error.
 
