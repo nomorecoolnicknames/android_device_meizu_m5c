@@ -9,6 +9,8 @@ set_prop(ccci_mdinit, mtk_md_prop)
 set_prop(ccci_mdinit, ctl_mtk_radio_prop)
 set_prop(ccci_mdinit, m5c_mtk_ril_prop)
 get_prop(ccci_mdinit, nvram_prop)
+# Modem reset: waits for the RIL chain to stop (property_contexts).
+get_prop(ccci_mdinit, m5c_modem_svc_prop)
 allow ccci_mdinit ccci_device:chr_file rw_file_perms;
 allow ccci_mdinit sysfs_ccci:dir search;
 allow ccci_mdinit sysfs_ccci:file rw_file_perms;

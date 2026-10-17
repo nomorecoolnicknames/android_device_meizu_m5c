@@ -87,6 +87,13 @@ ctl.stop$volte_imcb     u:object_r:m5c_ctl_volte_prop:s0
 init.svc.volte_ua       u:object_r:m5c_volte_svc_prop:s0 exact string
 init.svc.volte_stack    u:object_r:m5c_volte_svc_prop:s0 exact string
 init.svc.volte_imcb     u:object_r:m5c_volte_svc_prop:s0 exact string
+# Modem reset (modem.te): ccci_mdinit stops the RIL chain and waits for
+# init.svc.<name> to read "stopped" before it restarts the modem.
+# emdlogger1 is polled too but does not exist on this device.
+init.svc.ril-daemon-mtk u:object_r:m5c_modem_svc_prop:s0 exact string
+init.svc.gsm0710muxd    u:object_r:m5c_modem_svc_prop:s0 exact string
+init.svc.ccci_fsd       u:object_r:m5c_modem_svc_prop:s0 exact string
+init.svc.emdlogger1     u:object_r:m5c_modem_svc_prop:s0 exact string
 # ril.mal.flag: set by mtkmal (libmdfx). net.handover.rat: set by libmal_rds
 # inside mtkmal.
 ril.mal.                u:object_r:m5c_mtk_ril_prop:s0

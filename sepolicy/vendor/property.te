@@ -19,6 +19,9 @@ vendor_internal_prop(m5c_ctl_volte_prop)
 # init.svc.volte_imcb.
 vendor_restricted_prop(m5c_volte_svc_prop)
 vendor_internal_prop(m5c_mal_prop)
+# init.svc of the modem chain, polled by ccci_mdinit on a modem reset
+# (modem.te).  Restricted so core domains keep reading them as before.
+vendor_restricted_prop(m5c_modem_svc_prop)
 vendor_internal_prop(m5c_iccid_prop)
 # IMS service knobs (persist.forge.*) and the vendor IMS switches it reads;
 # read by radio, a core domain, hence restricted.
